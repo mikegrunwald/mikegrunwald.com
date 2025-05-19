@@ -1,0 +1,26 @@
+@font-face {
+    font-family: 'Humane';
+    src: url('/fonts/Humane-Light.woff2') format('woff2'),
+        url('/fonts/Humane-Light.otf') format('opentype');
+    font-weight: 300;
+    font-style: normal;
+    text-rendering: optimizeLegibility;
+}
+
+@font-face {
+    font-family: 'Humane';
+    src: url('/fonts/Humane-Medium.woff2') format('woff2'),
+        url('/fonts/Humane-Medium.otf') format('opentype');
+    font-weight: 500;
+    font-style: normal;
+    text-rendering: optimizeLegibility;
+}
+
+@font-face {
+    font-family: 'Humane';
+    src: url('/fonts/Humane-Bold.woff2') format('woff2'),
+        url('/fonts/Humane-Bold.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
+    text-rendering: optimizeLegibility;
+}

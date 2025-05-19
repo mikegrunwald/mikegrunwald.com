@@ -1,0 +1,117 @@
+// http: //prismic.io/pricing
+{
+    "projects": [
+        {
+            "name": "patreon.com",
+            "client": "Patreon",
+            "agency": "Buttermax",
+            "link": "https://www.patreon.com/",
+            "role": "Frontend Developer",
+            "tech": [
+                "React",
+                "Next.js",
+                "Typescript",
+                "Valtio",
+                "Lenis",
+                "Styled Components",
+                "Strapi CMS",
+                "GSAP",
+                "Framer Motion",
+                "Vercel"
+            ],
+            "awards": [
+                {
+                    "site": "FWA",
+                    "logo": "path/to/logo.png",
+                    "date": "2022",
+                    "award": "FOTD",
+                    "link": "https://thefwa.com/cases/patreon-website-redesign-p2"
+                }
+            ],
+            "description": ""
+        },
+        {
+            "name": "Spotify Reniassance"
+        },
+        {
+            "name": "Inbound 2022",
+            "client": "Hubspot",
+            "agency": "Active Theory x Dreamwave",
+            "role": "Frontend Dreamwave Developer",
+            "tech": [
+                "Hydra.js",
+                "Dreamwave",
+                "Lottie",
+                "Goober",
+                "Firebase",
+                "Firestore",
+                "Airtable"
+            ],
+            "description": "On September 6th-9th, we went live with INBOUND 2022. A digital Boston came to life featuring three days of Live Spotlights, Interactive Sessions, Social Meetups and more."
+        },
+        {
+            "name": "Delta x Art Basel",
+            "agency": "Active Theory",
+            "partners": [
+                "Wieden Kennedy"
+            ]
+        },
+        {
+            "name": "Kia | NYE 2022",
+            "agency": "Active Theory",
+            "partners": [
+                "David & Goliath"
+            ]
+        },
+        {
+            "name": "Spotify for Artists Menu",
+            "agency": "Buttermax"
+        },
+        {
+            "name": "Reliable Robotics",
+            "agency": "Buttermax"
+        },
+        {
+            "name": "First AI | ID kit",
+            "agency": "Buttermax",
+            "link": "https://firstai-idkit.com/",
+            "partners": [
+                "Accenture",
+                "Accenture Song",
+                "Droga5"
+            ]
+        },
+        {
+            "name": "IBM TechExchange",
+            "agency": "Active Theory"
+        },
+        {
+            "name": "Park Bank",
+            "agency": "Northern Ground"
+        },
+        {
+            "name": "GE Avuri",
+            "agency": "Northern Ground"
+        },
+        {
+            "name": "TikTok Brandbook",
+            "agency": "Buttermax"
+        }
+    ]
+}
+// Hanee
+// :woman_feeding_baby: :skin-tone-3:  Today at 2: 08 AM
+// Hi Sean hopefully this helps and 
+// @elly
+//  and 
+// @felthy
+//  feel free to add!
+// The Challenge (Purpose of brief): The client approached us with the goal of overhauling their site and incorporating an AI logo generator to bring a fresh, innovative feel. However, one of the major challenges was that the client was still working on their new branding while we were developing the design. This made it feel like we were starting from a blank canvas and working towards their vision of an “award-winning” site, often without clear guidance. This uncertainty led to many rounds of revisions and contributed to the delay in production, as even the client seemed unsure of the direction.
+// The Solution (Our proposition): Despite these hurdles, we persevered, focusing on pushing the boundaries of design and usability while maintaining the brand’s core identity. We consistently challenged the client, balancing their evolving ideas with our recommendations. All of the final design layouts were approved in just two weeks, even after a significant delay, and we were able to deliver a polished, high-quality site.
+// The Result (Final output in a sentence): A beautifully redesigned Patreon site that enhances user experience and reflects the brand’s evolving identity—recognized by getting the site featured on Awwwards despite the challenges faced.
+// :pray: 1
+// :heart: 1
+// felthy
+//   Today at 3: 01 AM
+// Yep I think Patreon was unusual because we were engaged to do a website redesign and rebuild, but it became a much bigger design and branding project. We played a major role in developing a design language and leading the client through that iterative process. The style guide we developed for the website became a showcase and reference for Patreon’s ongoing rebranding. This figma page Hanee made is a good example - the client was super excited about it and wanted other internal teams to refer to it as a reference for redesigning the rest of their platform.
+// :heart: 2

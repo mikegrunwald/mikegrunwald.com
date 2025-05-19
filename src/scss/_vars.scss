@@ -1,0 +1,212 @@
+:root {
+  --light-percentage: 70%;
+
+
+  /* COLORS */
+
+  --color-black: #000000;
+  --color-white: #FFFFFF;
+
+  --color-yellow: #EBCB8B;
+  --color-red: #BF616A;
+  --color-green: #A3BE8C;
+
+  // --color-neutral-0: var(--color-white);
+  --color-neutral-0: color-mix(in hsl, var(--color-neutral-10) 0%, var(--color-white));
+  --color-neutral-1: color-mix(in hsl, var(--color-neutral-10) 10%, var(--color-white));
+  --color-neutral-1: color-mix(in hsl, var(--color-neutral-10) 10%, var(--color-white));
+  --color-neutral-2: color-mix(in hsl, var(--color-neutral-10) 20%, var(--color-white));
+  --color-neutral-3: color-mix(in hsl, var(--color-neutral-10) 30%, var(--color-white));
+  --color-neutral-4: color-mix(in hsl, var(--color-neutral-10) 40%, var(--color-white));
+  --color-neutral-5: color-mix(in hsl, var(--color-neutral-10) 50%, var(--color-white));
+  --color-neutral-6: color-mix(in hsl, var(--color-neutral-10) 60%, var(--color-white));
+  --color-neutral-7: color-mix(in hsl, var(--color-neutral-10) 70%, var(--color-white));
+  --color-neutral-8: color-mix(in hsl, var(--color-neutral-10) 80%, var(--color-white));
+  --color-neutral-9: color-mix(in hsl, var(--color-neutral-10) 90%, var(--color-white));
+  --color-neutral-10: var(--color-black);
+
+  --color-primary: #33C5F3;
+  --color-primary-rgb: 51, 197, 243;
+  --color-primary-light: color-mix(in srgb, var(--color-primary) var(--light-percentage), var(--color-white));
+  --color-primary-contrast: var(--color-white);
+
+  --color-secondary: #B48EAD;
+  --color-secondary-light: color-mix(in srgb, var(--color-secondary) var(--light-percentage), var(--color-white));
+  --color-secondary-contrast: var(--color-white);
+
+  --color-tertiary: #f1be5f;
+  --color-tertiary-light: color-mix(in srgb, var(--color-tertiary) var(--light-percentage), var(--color-white));
+  --color-tertiary-contrast: var(--color-white);
+
+  --color-action: var(--color-primary);
+  --color-action-light: color-mix(in srgb, var(--color-action) var(--light-percentage), var(--color-white));
+  --color-action-contrast: var(--color-white);
+
+  --color-highlight: var(--color-secondary);
+  --color-highlight-light: color-mix(in srgb, var(--color-highlight) var(--light-percentage), var(--color-white));
+  --color-highlight-contrast: var(--color-white);
+
+  --color-success: var(--color-green);
+  --color-success-light: color-mix(in srgb, var(--color-success) var(--light-percentage), var(--color-white));
+  --color-success-contrast: var(--color-action-contrast);
+
+  --color-warning: var(--color-yellow);
+  --color-warning-light: color-mix(in srgb, var(--color-warning) var(--light-percentage), var(--color-white));
+  --color-warning-contrast: var(--color-action-contrast);
+
+  --color-error: var(--color-red);
+  --color-error-light: color-mix(in srgb, var(--color-error) var(--light-percentage), var(--color-white));
+  --color-error-contrast: var(--color-action-contrast);
+
+  --color-viewport-background: var(--color-black);
+
+  --color-text-primary: var(--color-neutral-2);
+  --color-text-secondary: var(--color-neutral-6);
+  --color-text-tertiary: var(--color-secondarary);
+  --color-text-body: var(--color-text-primary);
+
+
+  /* TYPOGRAPHY */
+
+  --font-primary-stack: "Roboto";
+  // sans-serif;
+  --font-secondary-stack: 'Humane', Impact, Haettenschweiler, Franklin Gothic Bold, Charcoal, Helvetica Inserat, Bitstream Vera Sans Bold, Arial Black, sans serif;
+  --font-tertiary-stack: Courier New, Courier, Lucida Sans Typewriter, Lucida Typewriter, monospace;
+
+  --font-family: var(--font-primary-stack);
+  --font-family-heading: var(--font-secondary-stack);
+
+
+
+  --font-weight-thin: 100;
+  --font-weight-extra-light: 200;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semi-bold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extra-bold: 800;
+  --font-weight-black: 900;
+
+  --font-size-base: 2rem;
+
+  // --font-size-display: 4.8rem;
+  --font-size-display: clamp(2rem, 10vw, 4.8rem);
+  --font-size-h1: 3.6rem;
+  --font-size-h2: 2.4rem;
+  // --font-size-h3: 1.6rem;
+  --font-size-h3: clamp(1rem, 5vw, 1.6rem);
+  // --font-size-h4: 1.2rem;
+  --font-size-h4: clamp(0.8rem, 5vw, 1.2rem);
+  --font-size-h5: 1rem;
+  --font-size-h6: 0.8rem;
+
+  --font-size-body: var(--font-size-base);
+  --font-size-body-sm: calc(var(--font-size-base) * 0.75);
+  --font-size-body-lg: calc(var(--font-size-base) * 1.25);
+
+  --line-height-reset: 1;
+  --line-height-text: 1.5;
+  --line-height-heading: 1.2;
+
+
+  /* SPACING */
+
+  --spacing-base: 4rem;
+
+  --spacing-xs: calc(var(--spacing-base) * 0.25);
+  --spacing-sm: calc(var(--spacing-base) * 0.5);
+  --spacing-md: var(--spacing-base);
+  --spacing-lg: calc(var(--spacing-base) * 1.5);
+  --spacing-xl: calc(var(--spacing-base) * 2);
+
+
+  /* ANIMATION */
+
+  --linear: cubic-bezier(0.250, 0.250, 0.750, 0.750);
+  --ease: cubic-bezier(0.250, 0.100, 0.250, 1.000);
+  --ease-in: cubic-bezier(0.420, 0.000, 1.000, 1.000);
+  --ease-out: cubic-bezier(0.000, 0.000, 0.580, 1.000);
+  --ease-in-out: cubic-bezier(0.420, 0.000, 0.580, 1.000);
+
+  --ease-in-quad: cubic-bezier(0.550, 0.085, 0.680, 0.530);
+  --ease-in-cubic: cubic-bezier(0.550, 0.055, 0.675, 0.190);
+  --ease-in-quart: cubic-bezier(0.895, 0.030, 0.685, 0.220);
+  --ease-in-quint: cubic-bezier(0.755, 0.050, 0.855, 0.060);
+  --ease-in-sine: cubic-bezier(0.470, 0.000, 0.745, 0.715);
+  --ease-in-expo: cubic-bezier(0.950, 0.050, 0.795, 0.035);
+  --ease-in-circ: cubic-bezier(0.600, 0.040, 0.980, 0.335);
+  --ease-in-back: cubic-bezier(0.600, -0.280, 0.735, 0.045);
+
+  --ease-out-quad: cubic-bezier(0.250, 0.460, 0.450, 0.940);
+  --ease-out-cubic: cubic-bezier(0.215, 0.610, 0.355, 1.000);
+  --ease-out-quart: cubic-bezier(0.165, 0.840, 0.440, 1.000);
+  --ease-out-quint: cubic-bezier(0.230, 1.000, 0.320, 1.000);
+  --ease-out-sine: cubic-bezier(0.390, 0.575, 0.565, 1.000);
+  --ease-out-expo: cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  --ease-out-circ: cubic-bezier(0.075, 0.820, 0.165, 1.000);
+  --ease-out-back: cubic-bezier(0.175, 0.885, 0.320, 1.275);
+
+  --ease-in-out-quad: cubic-bezier(0.455, 0.030, 0.515, 0.955);
+  --ease-in-out-cubic: cubic-bezier(0.645, 0.045, 0.355, 1.000);
+  --ease-in-out-quart: cubic-bezier(0.770, 0.000, 0.175, 1.000);
+  --ease-in-out-quint: cubic-bezier(0.860, 0.000, 0.070, 1.000);
+  --ease-in-out-sine: cubic-bezier(0.445, 0.050, 0.550, 0.950);
+  --ease-in-out-expo: cubic-bezier(1.000, 0.000, 0.000, 1.000);
+  --ease-in-out-circ: cubic-bezier(0.785, 0.135, 0.150, 0.860);
+  --ease-in-out-back: cubic-bezier(0.680, -0.550, 0.265, 1.550);
+
+  --animation-duration: 0.5s;
+  --animation-duration-slow: calc(var(--animation-duration) * 2);
+  --animation-duration-fast: calc(var(--animation-duration) / 2);
+
+  --animation-timing: var(--ease-out-cubic);
+
+
+  /* BORDERS & RADIUS */
+
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: var(--color-neutral-5, currentColor);
+  --border: var(--border-width) var(--border-style) var(--border-color);
+
+  --border-radius: 0.5rem;
+
+
+  /* FOCUS */
+
+  --focus-outline-width: 1px;
+  --focus-outline-offset: 2px;
+  --focus-outline: var(--focus-outline-width) solid var(--color-action);
+
+
+  /* SHADOWS */
+
+  --elevation-1: 0px 1px 2px rgba(0, 0, 0, 0.3),
+    0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+  --elevation-2: 0px 1px 2px rgba(0, 0, 0, 0.3),
+    0px 2px 6px 2px rgba(0, 0, 0, 0.15);
+  --elevation-3: 0px 3px 9px 3px rgba(0, 0, 0, 0.12),
+    0px 1px 3px rgba(0, 0, 0, 0.3);
+  --elevation-4: 0px 2px 14px 4px rgba(0, 0, 0, 0.15),
+    0px 2px 5px rgba(0, 0, 0, 0.3);
+  --elevation-5: 0px 8px 12px 6px rgba(0, 0, 0, 0.15),
+    0px 4px 4px rgba(0, 0, 0, 0.3);
+
+
+  /* SCROLLBARS */
+
+  --scrollbar-width: 2px;
+
+
+  /* BUTTONS */
+
+  --button-font-weight: var(--font-weight-normal);
+  --button-font-size: var(--font-size-body);
+
+
+
+  @media (max-width: 768px) {
+    --font-size-base: 1.6rem;
+  }
+}

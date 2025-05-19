@@ -1,0 +1,13 @@
+html {
+  background-color: var(--color-viewport-background);
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+
+body {
+  // background-image: url("/images/noise.png");
+  min-height: 100vh;
+  min-height: 100dvh;
+  text-rendering: optimizeSpeed;
+}

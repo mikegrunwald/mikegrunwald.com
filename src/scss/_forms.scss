@@ -1,0 +1,148 @@
+fieldset {
+  background-color: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+legend {
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+  padding: 0;
+}
+
+label,
+.toggle-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+}
+
+input,
+select,
+textarea {
+  display: block;
+  font-family: var(--font-family);
+  font-size: 1rem;
+}
+
+select {
+  appearance: auto !important;
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  margin: 0
+}
+
+select,
+[type="color"],
+[type="date"],
+[type="datetime"],
+[type="datetime-local"],
+[type="email"],
+[type="month"],
+[type="number"],
+[type="password"],
+[type="search"],
+[type="tel"],
+[type="text"],
+[type="time"],
+[type="url"],
+[type="week"],
+[type="datalist"],
+input:not([type]),
+textarea {
+  appearance: none;
+  background-color: transparent;
+  border: var(--border);
+  border-radius: var(--border-radius);
+  box-sizing: border-box;
+  margin-bottom: var(--spacing-sm);
+  padding: calc(var(--spacing-base) / 3);
+  transition: border-color var(--animation-duration) var(--animation-timing);
+  width: 100%;
+
+  &:focus,
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+
+    &:hover {
+      border: var(--border);
+    }
+  }
+
+  &::placeholder {
+    color: var(--font-color-base);
+    opacity: 0.25;
+  }
+}
+
+[type="search"] {
+  -webkit-appearance: textfield;
+}
+
+textarea {
+  resize: vertical;
+}
+
+[type="checkbox"],
+[type="radio"] {
+  display: inline;
+  margin-right: var(--spacing-sm);
+}
+
+[type="file"] {
+  margin-bottom: var(--spacing-sm);
+  width: 100%;
+}
+
+select {
+  margin-bottom: var(--spacing-sm);
+  width: 100%;
+}
+
+[type="checkbox"],
+[type="radio"],
+[type="file"],
+select {
+
+  &:focus,
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+  }
+}
+
+[type="color"] {
+  -webkit-appearance: none;
+  border: none;
+  border-radius: var(--border-radius);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  overflow: hidden;
+}
+
+[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+[type="color"]::-webkit-color-swatch {
+  border: none;
+}
+
+meter,
+progress,
+[type="range"],
+[type="datalist"] {
+  width: 100%;
+}
+
+.form-group {
+  margin-bottom: var(--spacing-base);
+}
