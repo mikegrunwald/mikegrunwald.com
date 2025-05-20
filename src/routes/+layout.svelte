@@ -1,9 +1,23 @@
 <script>
 	import '../app.scss';
+	import 'lenis/dist/lenis.css';
+	import { SvelteLenis, useLenis } from 'lenis/svelte';
 	// import PageHeader from '../lib/components/PageHeader.svelte';
 	import { onMount } from 'svelte';
 
 	import WebGLFluid from '$lib/efx/WebGLFluid';
+	import { ScrollTrigger } from 'gsap/ScrollTrigger';
+	import gsap from 'gsap';
+
+	let { children } = $props();
+
+	let lerp = $state(0.0825);
+	let autoRaf = $state(true);
+	let options = $derived({ lerp, autoRaf });
+
+	let lenis = useLenis((lenis) => {
+		ScrollTrigger.update();
+	});
 
 	let canvas;
 
@@ -46,9 +60,11 @@
 <div class="app" id="app">
 	<canvas class="canvas" bind:this={canvas}></canvas>
 	<!-- <PageHeader /> -->
-	<main>
-		<slot></slot>
-	</main>
+	<SvelteLenis root {options}>
+		<main>
+			{@render children()}
+		</main>
+	</SvelteLenis>
 </div>
 
 <style>
@@ -58,7 +74,6 @@
 		min-height: 100vh;
 		position: relative;
 		z-index: 1;
-		overflow: scroll;
 	}
 
 	.canvas {

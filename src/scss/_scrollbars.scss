@@ -1,12 +1,20 @@
 ::-webkit-scrollbar {
-  width: var(--scrollbar-width);
-  height: var(--scrollbar-width);
+  width: var(--scrollbar-width)
 }
 
 ::-webkit-scrollbar-track {
   background: var(--color-neutral-7);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-action);
+  border-radius: 3px;
+
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  body {
+    scrollbar-color: var(--color-action) var(--color-neutral-7);
+  }
 }
