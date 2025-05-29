@@ -1439,7 +1439,11 @@ export default function (el, config) {
 
     gl.viewport(0, 0, dye.width, dye.height);
     gl.uniform1i(splatProgram.uniforms.uTarget, dye.read.attach(0));
+    // Use very dark colors (almost black) for the effect
+
+    // gl.uniform3f(splatProgram.uniforms.color, color.r * 0.05, color.g * 0.05, color.b * 0.05);
     gl.uniform3f(splatProgram.uniforms.color, color.r, color.g, color.b);
+    // gl.uniform3f(splatProgram.uniforms.color, color.r * 0.005, color.g * 0.005, color.b * 0.005);
     blit(dye.write.fbo);
     dye.swap();
   }

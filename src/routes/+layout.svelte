@@ -74,6 +74,7 @@
 		min-height: 100vh;
 		position: relative;
 		z-index: 1;
+		background-image: url('/images/noise.png');
 	}
 
 	.canvas {
@@ -84,7 +85,6 @@
 		height: 100vh;
 		height: 100dvh;
 		touch-action: auto !important;
-		background-image: url('/images/noise.png');
 	}
 
 	main {
