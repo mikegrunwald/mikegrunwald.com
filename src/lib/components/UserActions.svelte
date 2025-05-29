@@ -6,21 +6,36 @@
   <nav>
     <ul class="nav-list">
       <li class="nav-item">
-        <a class="button outline" href="/documents/Michael-Grunwald-Resume-2025.pdf" target="_blank"
-          >Resume</a
+        <a
+          class="button
+          outline"
+          href="/documents/Michael-Grunwald-Resume-2025.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
         >
+        Resume
+      </a>
       </li>
       <li class="nav-item">
         <a
           class="button outline"
           href="https://www.figma.com/deck/fijb1PSnc74AcqqcZrWqwM/grunwald-work-samples-2024?node-id=1-538&t=eBwKyVrmTTjryIgI-1"
-          target="_blank">Work Samples</a
+          target="_blank"
+          rel="noopener noreferrer"
         >
+        Work Samples
+      </a>
       </li>
       <li class="nav-item">
-        <a class="button outline" href="https://www.linkedin.com/in/mikegrunwald/" target="_blank"
-          >LinkedIn</a
+        <a
+          class="button
+          outline"
+          href="https://www.linkedin.com/in/mikegrunwald/"
+          target="_blank"
+          rel="noopener noreferrer"
         >
+        LinkedIn
+        </a>
       </li>
     </ul>
   </nav>
