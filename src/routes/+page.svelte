@@ -15,6 +15,11 @@
 <section>
   <HeroHeader />
   <AboutIntro />
+  <!-- TODO: ADD WORK TEASERS HERE -->
+  <!-- NOTE: USE THIS EFFECT ON THE VIDEO/PLACEHOLDERS -->
+  <!-- https://codepen.io/jh3y/pen/WNmQXyE -->
+   <!-- AND BUTTONS LIKE THIS -->
+   <!-- https://codepen.io/jh3y/pen/LYJMPBL -->
   <UserActions />
 </section>
 

@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>Flexa | Let's make stuff</title>
+  <title>Michael Grunwald | Product Samples</title>
   <link href="https://vjs.zencdn.net/8.22.0/video-js.css" rel="stylesheet" />
   <script src="https://vjs.zencdn.net/8.22.0/video.min.js"></script>
 </svelte:head>

@@ -1,5 +1,5 @@
 <script>
-  // your script goes here
+  import { trackLink } from "$lib/track"
 </script>
 
 <section class="user-actions">
@@ -7,14 +7,12 @@
     <ul class="nav-list">
       <li class="nav-item">
         <a
-          class="button
-          outline"
+          class="button outline"
           href="/documents/Michael-Grunwald-Resume-2025.pdf"
           target="_blank"
           rel="noopener noreferrer"
-        >
-        Resume
-      </a>
+          on:click={() => trackLink('Resume')}
+        >Resume</a>
       </li>
       <li class="nav-item">
         <a
@@ -22,20 +20,17 @@
           href="https://www.figma.com/deck/fijb1PSnc74AcqqcZrWqwM/grunwald-work-samples-2024?node-id=1-538&t=eBwKyVrmTTjryIgI-1"
           target="_blank"
           rel="noopener noreferrer"
-        >
-        Work Samples
-      </a>
+          on:click={() => trackLink('Work Samples')}
+        >Work Samples</a>
       </li>
       <li class="nav-item">
         <a
-          class="button
-          outline"
+          class="button outline"
           href="https://www.linkedin.com/in/mikegrunwald/"
           target="_blank"
           rel="noopener noreferrer"
-        >
-        LinkedIn
-        </a>
+          on:click={() => trackLink('Linkedin')}
+        >LinkedIn</a>
       </li>
     </ul>
   </nav>

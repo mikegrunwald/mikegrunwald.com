@@ -1,7 +1,12 @@
+<script>
+	import ScrollIndicator from "./ScrollIndicator.svelte";
+</script>
+
 <header class="hero">
   <h1 class="display">
     <span class="sr-only">Michael Grunwald</span>
   </h1>
+  <ScrollIndicator />
 </header>
 
 <style lang="scss">
@@ -28,6 +33,7 @@
     position: absolute;
     inset: 0;
     filter: drop-shadow(0 0 0 rgba(var(--color-primary-rgb), 1));
+    margin-bottom: 6.66vh;
 
     &:before {
       content: '';
@@ -46,7 +52,7 @@
       mask-position: center;
       mask-repeat: no-repeat;
 
-      filter: drop-shadow(0 0 1vh rgba(255, 255, 255, 0.33));
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.33));
     }
   }
 </style>

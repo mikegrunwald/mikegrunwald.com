@@ -54,7 +54,7 @@
             "name": "Delta x Art Basel",
             "agency": "Active Theory",
             "partners": [
-                "Wieden Kennedy"
+                "Wieden + Kennedy"
             ]
         },
         {
@@ -96,7 +96,8 @@
         },
         {
             "name": "TikTok Brandbook",
-            "agency": "Buttermax"
+            "agency": "Buttermax",
+            "link": "https://tiktokbrandhub.com/",
         }
     ]
 }

@@ -7,7 +7,10 @@
 
 	import WebGLFluid from '$lib/efx/WebGLFluid';
 	import { ScrollTrigger } from 'gsap/ScrollTrigger';
-	import gsap from 'gsap';
+	import { gsap } from 'gsap/dist/gsap';
+
+
+	gsap.registerPlugin(ScrollTrigger);
 
 	let { children } = $props();
 
@@ -52,7 +55,12 @@
 			BLOOM_SOFT_KNEE: 1.5,
 			SUNRAYS: true,
 			SUNRAYS_RESOLUTION: 256,
-			SUNRAYS_WEIGHT: 1
+			SUNRAYS_WEIGHT: 1,
+			PRIMARY_RGB: {
+				"r": 0.051,
+				"g": 0.197,
+				"b": 0.243
+			}
 		});
 	});
 </script>
