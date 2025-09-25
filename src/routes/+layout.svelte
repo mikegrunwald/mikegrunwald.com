@@ -8,6 +8,7 @@
 	import WebGLFluid from '$lib/efx/WebGLFluid';
 	import { ScrollTrigger } from 'gsap/ScrollTrigger';
 	import { gsap } from 'gsap/dist/gsap';
+	import CursorDot from '$lib/components/CursorDot.svelte';
 
 
 	gsap.registerPlugin(ScrollTrigger);
@@ -68,6 +69,7 @@
 <div class="app" id="app">
 	<canvas class="canvas" bind:this={canvas}></canvas>
 	<!-- <PageHeader /> -->
+	<CursorDot />
 	<SvelteLenis root {options}>
 		<main>
 			{@render children()}
@@ -82,7 +84,7 @@
 		min-height: 100vh;
 		position: relative;
 		z-index: 1;
-		background-image: url('/images/noise.png');
+		background-image: url('/images/noise.webp');
 	}
 
 	.canvas {

@@ -34,7 +34,7 @@
     inset: 0;
     filter: drop-shadow(0 0 0 rgba(var(--color-primary-rgb), 1));
     margin-bottom: 6.66vh;
-
+    
     &:before {
       content: '';
       display: block;
@@ -47,12 +47,12 @@
       background-size: 94%;
       background-repeat: no-repeat;
 
-      mask-image: url('/images/pop-smoke.png');
+      mask-image: url('/images/pop-smoke.webp');
       mask-size: 100%;
       mask-position: center;
       mask-repeat: no-repeat;
 
-      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.33));
+      filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.44));
     }
   }
 </style>

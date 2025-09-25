@@ -1,105 +1,116 @@
 // http: //prismic.io/pricing
 // https://pagescms.org/?utm_source=heydesigner.com
 {
-    "projects": [
+  "projects": [
+    {
+      "name": "patreon.com",
+      "client": "Patreon",
+      "agency": "Buttermax",
+      "links": [
+        "https://www.patreon.com/"
+      ],
+      "role": "Frontend Developer",
+      "tech": [
+        "React",
+        "Next.js",
+        "Typescript",
+        "Valtio",
+        "Lenis",
+        "Styled Components",
+        "Strapi CMS",
+        "GSAP",
+        "Framer Motion",
+        "Vercel"
+      ],
+      "awards": [
         {
-            "name": "patreon.com",
-            "client": "Patreon",
-            "agency": "Buttermax",
-            "link": "https://www.patreon.com/",
-            "role": "Frontend Developer",
-            "tech": [
-                "React",
-                "Next.js",
-                "Typescript",
-                "Valtio",
-                "Lenis",
-                "Styled Components",
-                "Strapi CMS",
-                "GSAP",
-                "Framer Motion",
-                "Vercel"
-            ],
-            "awards": [
-                {
-                    "site": "FWA",
-                    "logo": "path/to/logo.png",
-                    "date": "2022",
-                    "award": "FOTD",
-                    "link": "https://thefwa.com/cases/patreon-website-redesign-p2"
-                }
-            ],
-            "description": ""
-        },
-        {
-            "name": "Spotify Reniassance"
-        },
-        {
-            "name": "Inbound 2022",
-            "client": "Hubspot",
-            "agency": "Active Theory x Dreamwave",
-            "role": "Frontend Dreamwave Developer",
-            "tech": [
-                "Hydra.js",
-                "Dreamwave",
-                "Lottie",
-                "Goober",
-                "Firebase",
-                "Firestore",
-                "Airtable"
-            ],
-            "description": "On September 6th-9th, we went live with INBOUND 2022. A digital Boston came to life featuring three days of Live Spotlights, Interactive Sessions, Social Meetups and more."
-        },
-        {
-            "name": "Delta x Art Basel",
-            "agency": "Active Theory",
-            "partners": [
-                "Wieden + Kennedy"
-            ]
-        },
-        {
-            "name": "Kia | NYE 2022",
-            "agency": "Active Theory",
-            "partners": [
-                "David & Goliath"
-            ]
-        },
-        {
-            "name": "Spotify for Artists Menu",
-            "agency": "Buttermax"
-        },
-        {
-            "name": "Reliable Robotics",
-            "agency": "Buttermax"
-        },
-        {
-            "name": "First AI | ID kit",
-            "agency": "Buttermax",
-            "link": "https://firstai-idkit.com/",
-            "partners": [
-                "Accenture",
-                "Accenture Song",
-                "Droga5"
-            ]
-        },
-        {
-            "name": "IBM TechExchange",
-            "agency": "Active Theory"
-        },
-        {
-            "name": "Park Bank",
-            "agency": "Northern Ground"
-        },
-        {
-            "name": "GE Avuri",
-            "agency": "Northern Ground"
-        },
-        {
-            "name": "TikTok Brandbook",
-            "agency": "Buttermax",
-            "link": "https://tiktokbrandhub.com/",
+          "site": "FWA",
+          "logo": "path/to/logo.png",
+          "date": "2022",
+          "award": "FOTD",
+          "link": "https://thefwa.com/cases/patreon-website-redesign-p2"
         }
-    ]
+      ],
+      "description": ""
+    },
+    {
+      "name": "Spotify Reniassance"
+    },
+    {
+      "name": "Inbound 2022",
+      "client": "Hubspot",
+      "agency": "Active Theory x Dreamwave",
+      "role": "Frontend Dreamwave Developer",
+      "tech": [
+        "Hydra.js",
+        "Dreamwave",
+        "Lottie",
+        "Goober",
+        "Firebase",
+        "Firestore",
+        "Airtable"
+      ],
+      "description": "On September 6th-9th, we went live with INBOUND 2022. A digital Boston came to life featuring three days of Live Spotlights, Interactive Sessions, Social Meetups and more."
+    },
+    {
+      "name": "Delta x Art Basel",
+      "agency": "Active Theory",
+      "partners": [
+        "Wieden + Kennedy"
+      ]
+    },
+    {
+      "name": "Kia | NYE 2022",
+      "agency": "Active Theory",
+      "partners": [
+        "David & Goliath"
+      ]
+    },
+    {
+      "name": "Spotify for Artists Menu",
+      "agency": "Buttermax"
+    },
+    {
+      "name": "Reliable Robotics",
+      "agency": "Buttermax"
+    },
+    {
+      "name": "First AI | ID kit",
+      "agency": "Buttermax",
+      "links": [
+        "https://firstai-idkit.com/",
+        "https://firstai-idkit.com/meetyourdigitalmaker",
+        "https://www.youtube.com/watch?v=J4xym0mILrQ&list=PPSV",
+        "https://www.youtube.com/watch?v=GEUr4anUT3Q",
+        "https://www.christophersantiago.net/first-ai-id-kit-meet-your-digital-maker",
+        "https://apnews.com/video/las-vegas-consumer-electronics-show-pacific-ocean-3fe6ab172ecb4717b1b47a98acbba7d3"
+      ],
+      "partners": [
+        "Accenture",
+        "Accenture Song",
+        "Droga5"
+      ]
+    },
+    {
+      "name": "IBM TechExchange",
+      "agency": "Active Theory"
+    },
+    {
+      "name": "Park Bank",
+      "agency": "Northern Ground"
+    },
+    {
+      "name": "GE Avuri",
+      "agency": "Northern Ground"
+    },
+    {
+      "name": "TikTok Brandbook",
+      "agency": "Buttermax",
+      "links": [
+        "https://tiktokbrandhub.com/"
+      ],
+    }
+  ]
 }
 // Hanee
 // :woman_feeding_baby: :skin-tone-3:  Today at 2: 08 AM
