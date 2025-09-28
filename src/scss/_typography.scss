@@ -27,14 +27,14 @@ h6 {
   font-family: var(--font-family-heading);
   font-size: 1.25rem;
   line-height: var(--line-height-heading);
-  margin: 0 0 var(--spacing-sm);
+  margin: 0 0 var(--spacing-xs);
   overflow-wrap: break-word;
   hyphens: auto;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: -0.0001em;
+  letter-spacing: -0.03em;
   text-wrap: balance;
-  line-height: 0.85;
+  line-height: 1;
 
   @media (max-width: 768px) {
     letter-spacing: 0.015em;

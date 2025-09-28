@@ -17,7 +17,7 @@ a[role="button"],
   -webkit-font-smoothing: antialiased;
   font-weight: var(--button-font-weight);
   line-height: 1;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.1em;
   height: fit-content;
   padding: var(--spacing-xs) var(--spacing-sm) calc(var(--spacing-xs) / 1.3);
   text-align: center;
@@ -30,7 +30,7 @@ a[role="button"],
   position: relative;
 
   &:hover {
-    background-color: var(--color-action-light);
+    // background-color: var(--color-action-light);
     border-color: var(--color-action-light);
     color: var(--color-action-contrast);
   }
@@ -66,23 +66,24 @@ a[role="button"],
 
     overflow: hidden;
 
-    &:before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-color: var(--color-black);
-      transform: translateY(100%);
-      transition: transform var(--animation-duration-fast) var(--animation-timing);
-      z-index: -1;
-    }
+    // &:before {
+    //   content: "";
+    //   position: absolute;
+    //   inset: 0;
+    //   background-color: var(--color-black);
+    //   transform: translateY(100%);
+    //   transition: transform var(--animation-duration-fast) var(--animation-timing);
+    //   z-index: -1;
+    // }
 
     &:hover {
       color: var(--color-action-light);
       border-color: var(--color-action-light);
-      box-shadow: 0 0 48px 16px #33c5f3;
+      box-shadow: 0 0 16px 0 #33c5f3,
+      inset 0 0 12px #33c5f3;
 
       &:before {
-        transform: translateY(0);
+        // transform: translateY(0);\
       }
     }
   }

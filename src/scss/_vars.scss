@@ -70,7 +70,7 @@
 
   --font-primary-stack: "Roboto";
   // sans-serif;
-  --font-secondary-stack: 'Humane', Impact, Haettenschweiler, Franklin Gothic Bold, Charcoal, Helvetica Inserat, Bitstream Vera Sans Bold, Arial Black, sans serif;
+  --font-secondary-stack: 'Tusker', Impact, Haettenschweiler, Franklin Gothic Bold, Charcoal, Helvetica Inserat, Bitstream Vera Sans Bold, Arial Black, sans serif;
   --font-tertiary-stack: Courier New, Courier, Lucida Sans Typewriter, Lucida Typewriter, monospace;
 
   --font-family: var(--font-primary-stack);
@@ -170,7 +170,7 @@
   --border-color: var(--color-neutral-5, currentColor);
   --border: var(--border-width) var(--border-style) var(--border-color);
 
-  --border-radius: 0.5rem;
+  --border-radius: 0.2rem;
 
 
   /* FOCUS */
@@ -202,7 +202,7 @@
   /* BUTTONS */
 
   --button-font-weight: var(--font-weight-normal);
-  --button-font-size: var(--font-size-body);
+  --button-font-size: var(--font-size-body-sm);
 
 
 
