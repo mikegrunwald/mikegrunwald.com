@@ -44,7 +44,7 @@
 			aspect-ratio: 1.153594844873037 / 1;
 			background-image: url('/images/logo.svg');
 			background-position: center;
-			background-size: 88%;
+			background-size: 80%;
 			background-repeat: no-repeat;
 
 			mask-image: url('/images/pop-smoke.webp');
