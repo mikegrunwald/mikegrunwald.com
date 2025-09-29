@@ -9,7 +9,7 @@
 	let lastX = 0;
 	let lastY = 0;
 	const ease = 0.075;
-	const dotSize = 16;
+	const dotSize = 14;
 	let animationFrame;
 	let isTransitioning = false;
 	let currentMagneticElement = null;
