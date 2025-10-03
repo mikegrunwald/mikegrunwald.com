@@ -4,8 +4,7 @@
 </script>
 
 <header class="hero">
-	<!-- <h1 class="display" use:tilt={{ maxTilt: 15, perspective: 670, ease: 0.12 }}> -->
-	<div class="logo-wrapper" use:tilt={{ maxTilt: 14, perspective: 900, ease: 0.41 }}>
+	<div class="logo-wrapper" use:tilt={{ maxTilt: 13, perspective: 900, ease: 0.67 }}>
 		<h1 class="display"><span class="sr-only">Michael Grunwald</span></h1>
 	</div>
 	<ScrollIndicator />

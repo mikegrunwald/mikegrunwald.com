@@ -8,26 +8,25 @@ export function tilt(node, options = {}) {
   let currentX = 0, currentY = 0;
   let rafId;
 
-  function updateBounds() {
-    const rect = node.getBoundingClientRect();
-    width = rect.width;
-    height = rect.height;
-    left = rect.left;
-    top = rect.top;
-  }
-
   function onMouseMove(evt) {
     const rect = node.getBoundingClientRect();
-    const x = evt.clientX - rect.left;
-    const y = evt.clientY - rect.top;
-    const halfW = rect.width / 2;
-    const halfH = rect.height / 2;
+    const x = evt.clientX;
+    const y = evt.clientY;
 
-    const offsetX = (x - halfW) / halfW;
-    const offsetY = (y - halfH) / halfH;
+    // Calculate position relative to element center
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
 
-    targetY = offsetX * maxTilt;
-    targetX = -offsetY * maxTilt;
+    // Normalized position (-1 to 1)
+    const offsetX = (x - centerX) / (rect.width / 2);
+    const offsetY = (y - centerY) / (rect.height / 2);
+
+    // Clamp to prevent extreme values at edges
+    const clampedX = Math.max(-1, Math.min(1, offsetX));
+    const clampedY = Math.max(-1, Math.min(1, offsetY));
+
+    targetY = clampedX * maxTilt;
+    targetX = -clampedY * maxTilt;
   }
 
   function onMouseLeave() {
@@ -44,13 +43,11 @@ export function tilt(node, options = {}) {
   }
 
   // Initialize on mount
-  updateBounds();
   node.style.transformStyle = 'preserve-3d';
   node.style.willChange = 'transform';
 
-  node.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mousemove', onMouseMove);
   node.addEventListener('mouseleave', onMouseLeave);
-  window.addEventListener('resize', updateBounds);
 
   animate();
 
@@ -62,9 +59,8 @@ export function tilt(node, options = {}) {
     },
     destroy() {
       cancelAnimationFrame(rafId);
-      node.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mousemove', onMouseMove);
       node.removeEventListener('mouseleave', onMouseLeave);
-      window.removeEventListener('resize', updateBounds);
 
       node.style.transform = '';
       node.style.transformStyle = '';

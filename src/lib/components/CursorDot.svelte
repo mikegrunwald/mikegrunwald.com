@@ -29,16 +29,16 @@
 			const borderRadius = styles.borderRadius;
 
 			// Smooth interpolation for magnetic positioning
-			dotX += (bx + bw / 2 - dotX) * 0.2;
-			dotY += (by + bh / 2 - dotY) * 0.2;
+			dotX += (bx + bw / 2 - dotX) * 0.075;
+			dotY += (by + bh / 2 - dotY) * 0.075;
 
 			// Current dot size
 			const currentW = parseFloat(dot.dataset.currentWidth) || dotSize;
 			const currentH = parseFloat(dot.dataset.currentHeight) || dotSize;
 
 			// Smooth size interpolation
-			const newW = currentW + (bw - currentW) * 0.2;
-			const newH = currentH + (bh - currentH) * 0.2;
+			const newW = currentW + (bw - currentW) * 0.075;
+			const newH = currentH + (bh - currentH) * 0.075;
 
 			// Store current size for next frame
 			dot.dataset.currentWidth = newW;
@@ -120,8 +120,6 @@
 		const angle = Math.atan2(vy, vx);
 		const stretch = Math.min(speed * 0.05, 0.35);
 
-		const isBig = dot.classList.contains('cursor-dot--big');
-		const scale = isBig ? 2.6 : 1;
 		const sx = 1 + stretch;
 		const sy = 1 - stretch;
 
@@ -129,7 +127,7 @@
 			translate(${dotX}px, ${dotY}px)
 			translate(-50%, -50%)
 			rotate(${angle}rad)
-			scale(${sx * scale}, ${sy * scale})
+			scale(${sx}, ${sy})
 		`;
 
 		animationFrame = requestAnimationFrame(animate);
@@ -150,13 +148,10 @@
 					currentMagneticElement = el;
 					dot.dataset.magnetic = 'true';
 					dot.classList.add('cursor-dot--magnetic');
-				} else {
-					dot.classList.add('cursor-dot--big');
 				}
 			});
 
 			el.addEventListener('mouseleave', () => {
-				dot.classList.remove('cursor-dot--big');
 				dot.classList.remove('cursor-dot--magnetic');
 
 				// If leaving magnetic mode, start smooth transition
@@ -174,18 +169,9 @@
 		const moveHandler = (e) => {
 			mouseX = e.clientX;
 			mouseY = e.clientY;
-			if (dot) dot.style.opacity = '0.95';
-		};
-		const leaveHandler = () => {
-			if (dot) dot.style.opacity = '0';
-		};
-		const touchHandler = () => {
-			if (dot) dot.style.opacity = '0';
 		};
 
 		window.addEventListener('mousemove', moveHandler, { passive: true });
-		window.addEventListener('mouseleave', leaveHandler);
-		window.addEventListener('touchstart', touchHandler, { passive: true });
 
 		const mo = new MutationObserver(() => bindHoverState());
 		mo.observe(document.body, { childList: true, subtree: true });
@@ -195,8 +181,6 @@
 
 		onDestroy(() => {
 			window.removeEventListener('mousemove', moveHandler);
-			window.removeEventListener('mouseleave', leaveHandler);
-			window.removeEventListener('touchstart', touchHandler);
 			mo.disconnect();
 			cancelAnimationFrame(animationFrame);
 		});
@@ -219,12 +203,11 @@
 			opacity 500ms,
 			border-radius 300ms;
 		will-change: transform, opacity;
-		opacity: 0.666;
+		opacity: 0.333;
 	}
 
-	.cursor-dot--magnetic {
-		opacity: 1;
-		border-radius: inherit;
+	:global(.cursor-dot.cursor-dot--magnetic) {
+		opacity: 1 !important;
 	}
 
 	@media (pointer: coarse) {
