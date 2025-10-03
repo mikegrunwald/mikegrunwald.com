@@ -8,7 +8,7 @@
 	let dotY = 0;
 	let lastX = 0;
 	let lastY = 0;
-	const ease = 0.075;
+	const ease = 0.0333;
 	const dotSize = 14;
 	let animationFrame;
 	let isTransitioning = false;
@@ -139,31 +139,23 @@
 		const selector = "a, button, input, textarea, select, [role='button'], [data-cursor]";
 		const els = document.querySelectorAll(selector);
 
-		console.log(`CursorDot: Found ${els.length} interactive elements`);
-
 		els.forEach((el) => {
 			if (el.dataset.cursorBound) return;
 			el.dataset.cursorBound = '1';
 
-			console.log('CursorDot: Binding element:', el, 'cursor mode:', el.dataset.cursor);
-
 			el.addEventListener('mouseenter', () => {
 				const mode = el.dataset.cursor;
-				console.log('CursorDot: Mouse enter, mode:', mode);
 
 				if (mode === 'magnetic') {
-					console.log('CursorDot: Magnetic mode activated');
 					currentMagneticElement = el;
 					dot.dataset.magnetic = 'true';
 					dot.classList.add('cursor-dot--magnetic');
 				} else {
-					console.log('CursorDot: Big mode activated');
 					dot.classList.add('cursor-dot--big');
 				}
 			});
 
 			el.addEventListener('mouseleave', () => {
-				console.log('CursorDot: Mouse leave');
 				dot.classList.remove('cursor-dot--big');
 				dot.classList.remove('cursor-dot--magnetic');
 
@@ -215,22 +207,17 @@
 
 <style>
 	.cursor-dot {
-		/* --dot-size: 16px; */
-
 		position: fixed;
 		left: 0;
 		top: 0;
-		/* width: var(--dot-size);
-		height: var(--dot-size); */
 		border-radius: 50%;
 		background: var(--color-black);
 		box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
 		transform: translate(-50%, -50%) scale(1);
 		pointer-events: none;
-		/* z-index: 9999; */
 		transition:
-			opacity 200ms,
-			border-radius 200ms;
+			opacity 500ms,
+			border-radius 300ms;
 		will-change: transform, opacity;
 		opacity: 0.666;
 	}

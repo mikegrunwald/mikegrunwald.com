@@ -3,9 +3,11 @@
 {
   "projects": [
     {
-      "name": "patreon.com",
+      "title": "patreon.com",
+      "subtitle": "",
       "client": "Patreon",
       "agency": "Buttermax",
+      "year": 2022,
       "links": [
         "https://www.patreon.com/"
       ],
@@ -31,13 +33,53 @@
           "link": "https://thefwa.com/cases/patreon-website-redesign-p2"
         }
       ],
-      "description": ""
+      "description": "",
+      "media": [
+        {
+          "type": "video",
+          "src": "path/to/video.mp4"
+        },
+        {
+          "type": "image",
+          "src": "path/to/image.png"
+        },
+      ]
     },
     {
-      "name": "Spotify Reniassance"
+      "title": "Spotify Reniassance",
+      "subtitle": "Docs site for Spotify brand guidelines",
+      "client": "Spotify",
+      "agency": "Buttermax",
+      "year": 2022,
+      "links": [],
+      "role": "Frontend Developer",
+      "tech": [
+        "React",
+        "Next.js",
+        "Typescript",
+        "Valtio",
+        "Lenis",
+        "Styled Components",
+        "Payload CMS",
+        "GSAP",
+        "Framer Motion",
+        "Vercel"
+      ],
+      "description": "",
+      "media": [
+        {
+          "type": "video",
+          "src": "path/to/video.mp4"
+        },
+        {
+          "type": "image",
+          "src": "path/to/image.png"
+        },
+      ]
     },
     {
-      "name": "Inbound 2022",
+      "title": "Inbound 2022",
+      "subtitle": "Hubspot's virtual three-day conference",
       "client": "Hubspot",
       "agency": "Active Theory x Dreamwave",
       "role": "Frontend Dreamwave Developer",
@@ -50,32 +92,118 @@
         "Firestore",
         "Airtable"
       ],
-      "description": "On September 6th-9th, we went live with INBOUND 2022. A digital Boston came to life featuring three days of Live Spotlights, Interactive Sessions, Social Meetups and more."
+      "description": "On September 6th-9th, we went live with INBOUND 2022. A digital Boston came to life featuring three days of Live Spotlights, Interactive Sessions, Social Meetups and more.",
+      "awards": [],
+      "media": [
+        {
+          "type": "video",
+          "src": "path/to/video.mp4"
+        },
+        {
+          "type": "image",
+          "src": "path/to/image.png"
+        },
+      ],
+      "links": [
+        "https://inbound2022.dreamwave.io",
+        "https://www.inbound2022.com"
+      ],
+      "year": 2022,
+      "partners": []
     },
     {
-      "name": "Delta x Art Basel",
+      "title": "Delta x Art Basel",
+      "subtitle": "New York -> Miami for Art Basel",
       "agency": "Active Theory",
       "partners": [
         "Wieden + Kennedy"
+      ],
+      "client": "Delta Airlines x Art Basel",
+      "year": 2022,
+      "role": "Design Technologist",
+      "tech": [
+        "Electron.js",
+        "Vue.js",
+        "Samsung Freestyle Projectors",
+        "Macbook Pros"
+      ],
+      "description": "",
+      "media": [
+        {
+          "type": "video",
+          "src": "path/to/video.mp4"
+        },
+        {
+          "type": "image",
+          "src": "path/to/image.png"
+        },
+      ],
+      "links": [
+        "https://deltaartbasel.com/"
       ]
     },
     {
-      "name": "Kia | NYE 2022",
+      "title": "Kia | NYE 2022",
+      "subtitle": "UGC x Billboards x Champagne",
       "agency": "Active Theory",
       "partners": [
         "David & Goliath"
+      ],
+      "client": "Kia",
+      "year": 2022,
+      "role": "Frontend Developer",
+      "tech": [
+        "Hydra.js",
+        "Goober",
+        "Device APIs",
+        "Custom APIs",
+        "Firebase",
+        "QR Codes"
+      ],
+      "description": "",
+      "media": [
+        {
+          "type": "video",
+          "src": "path/to/video.mp4"
+        },
+        {
+          "type": "image",
+          "src": "path/to/image.png"
+        },
+      ],
+    },
+    {
+      "title": "Spotify for Artists Menu",
+      "subtitle": "Web components for artists FTW",
+      "agency": "Buttermax",
+      "client": "Spotify",
+      "role": "Design Technologist",
+      "tech": [
+        "Svelte.js",
+        "Sass",
+        "i18n",
+        "Web Components",
+      ],
+      "description": "",
+      "media": [
+        {
+          "type": "video",
+          "src": "path/to/video.mp4"
+        },
+        {
+          "type": "image",
+          "src": "path/to/image.png"
+        },
       ]
     },
     {
-      "name": "Spotify for Artists Menu",
+      "title": "Reliable Robotics",
+      "subtitle": "",
       "agency": "Buttermax"
     },
     {
-      "name": "Reliable Robotics",
-      "agency": "Buttermax"
-    },
-    {
-      "name": "First AI | ID kit",
+      "title": "First AI | ID kit",
+      "subtitle": "Get Schooled on Deepfakes before you get schooled",
       "agency": "Buttermax",
       "links": [
         "https://firstai-idkit.com/",
@@ -83,28 +211,95 @@
         "https://www.youtube.com/watch?v=J4xym0mILrQ&list=PPSV",
         "https://www.youtube.com/watch?v=GEUr4anUT3Q",
         "https://www.christophersantiago.net/first-ai-id-kit-meet-your-digital-maker",
-        "https://apnews.com/video/las-vegas-consumer-electronics-show-pacific-ocean-3fe6ab172ecb4717b1b47a98acbba7d3"
+        "https://apnews.com/video/las-vegas-consumer-electronics-show-pacific-ocean-3fe6ab172ecb4717b1b47a98acbba7d3",
+        "https://www.adweek.com/agencies/sxsw-accenture-song-showcases-deepfake-tech-its-lawyers-told-it-not-to-release/"
       ],
       "partners": [
-        "Accenture",
-        "Accenture Song",
-        "Droga5"
+        {
+          "name": "Plan8",
+          "url": "https://plan8.com/"
+        },
+        {
+          "name": "Droga5",
+          "url": "https://droga5.com/"
+        },
+        {
+          "name": "House of Parliament",
+          "url": "https://houseofparliament.com/"
+        },
+        {
+          "name": "m ss ng p eces",
+          "url": "http://mssngpeces.com/"
+        },
+        {
+          "name": "Cabin Editing Company",
+          "url": "http://cabinedit.com/"
+        }
+      ],
+      "client": "Accenture",
+      "year": 2022,
+      "role": "Frontend Developer",
+      "tech": [
+        "Hydra.js",
+        "Sass",
+        "Payload CMS",
+        "Firebase",
+        "OpenAI",
+        "ElevenLabs Voice",
+        "ComfyUI",
+        "Video.js"
+      ],
+      "description": "Designed and developed Accenture’s Responsible AI initiative - First Ai-iD Kit as an interactive first line of defense against deepfakes an ongoing thought leadership platform for AI ethics and education. Debuting at CES 2025 with a wider premiere at SXSW we partnered with non-profit Seed AI inviting visitors to Dial-A-Deepfake in a retro phone booth or Meet Your Digital Maker face-to-face, revealing the speed and ease of deepfake creation with filmmaker Kyle Vorbach (How I Faked My Life With AI). The toolkit rolled out to all 800k Accenture employees and has been white labeled for client use within their respective organizations. ",
+      "media": [
+        {
+          "type": "video",
+          "src": "path/to/video.mp4"
+        },
+        {
+          "type": "image",
+          "src": "path/to/image.png"
+        },
       ]
     },
     {
-      "name": "IBM TechExchange",
-      "agency": "Active Theory"
+      "title": "IBM TechExchange",
+      "subtitle": "Real-time data viz system",
+      "agency": "Active Theory",
+      "partners": [
+        "Ogilvy"
+      ],
+      "client": "IBM",
+      "year": 2024,
+      "role": "Frontend Developer",
+      "tech": [
+        "Hydra.js",
+        "Sass",
+      ],
+      "description": "For the IBM TechxChange event, based in Las Vegas, we created a real-time webGL data visualization; a visual system made from millions of icons forming a rotating galaxy of scheduling and highlights. (User Generatated content from the conference floor)",
+      "media": [
+        {
+          "type": "video",
+          "src": "path/to/video.mp4"
+        },
+        {
+          "type": "image",
+          "src": "path/to/image.png"
+        },
+      ]
     },
     {
-      "name": "Park Bank",
+      "title": "Park Bank",
+      "subtitle": "",
       "agency": "Northern Ground"
     },
     {
-      "name": "GE Avuri",
+      "title": "GE Avuri",
+      "subtitle": "",
       "agency": "Northern Ground"
     },
     {
-      "name": "TikTok Brandbook",
+      "title": "TikTok Brandbook",
+      "subtitle": "",
       "agency": "Buttermax",
       "links": [
         "https://tiktokbrandhub.com/"

@@ -59,6 +59,7 @@ export default function (el, config) {
     SUNRAYS: true,
     SUNRAYS_RESOLUTION: 196,
     SUNRAYS_WEIGHT: 1.0,
+    OPACITY: 1.0,
     ...config,
   };
 
@@ -1441,9 +1442,8 @@ export default function (el, config) {
     gl.uniform1i(splatProgram.uniforms.uTarget, dye.read.attach(0));
 
 
-    // Use very dark colors (almost black) for the effect
+    // Use color as-is
     gl.uniform3f(splatProgram.uniforms.color, color.r, color.g, color.b);
-    // gl.uniform3f(splatProgram.uniforms.color, color.r * 0.005, color.g * 0.005, color.b * 0.005);
 
     blit(dye.write.fbo);
     dye.swap();
@@ -1458,9 +1458,9 @@ export default function (el, config) {
     return radius;
   }
 
-  canvas.addEventListener('mousedown', (e) => {
-    const posX = scaleByPixelRatio(e.offsetX);
-    const posY = scaleByPixelRatio(e.offsetY);
+  document.addEventListener('mousedown', (e) => {
+    const posX = scaleByPixelRatio(e.clientX);
+    const posY = scaleByPixelRatio(e.clientY);
     let pointer = pointers.find(p => p.id === -1);
     if (!pointer) {
       pointer = new PointerPrototype();
@@ -1470,14 +1470,14 @@ export default function (el, config) {
   });
 
   setTimeout(() => {
-    canvas.addEventListener('mousemove', (e) => {
-      const posX = scaleByPixelRatio(e.offsetX);
-      const posY = scaleByPixelRatio(e.offsetY);
+    document.addEventListener('mousemove', (e) => {
+      const posX = scaleByPixelRatio(e.clientX);
+      const posY = scaleByPixelRatio(e.clientY);
       updatePointerMoveData(pointers[0], posX, posY);
     });
   }, 500);
 
-  canvas.addEventListener('mouseup', () => {
+  document.addEventListener('mouseup', () => {
     updatePointerUpData(pointers[0]);
   });
 
@@ -1693,4 +1693,14 @@ export default function (el, config) {
     }
     return hash;
   }
+
+  // Return an object with methods to control the fluid
+  return {
+    updateColor(rgb) {
+      config.PRIMARY_RGB = rgb;
+    },
+    updateOpacity(opacity) {
+      canvas.style.opacity = opacity;
+    }
+  };
 }

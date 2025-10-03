@@ -1,11 +1,13 @@
 <script>
 	import ScrollIndicator from './ScrollIndicator.svelte';
+	import { tilt } from '$lib/actions/tilt'; // or correct relative path
 </script>
 
 <header class="hero">
-	<h1 class="display">
-		<span class="sr-only">Michael Grunwald</span>
-	</h1>
+	<!-- <h1 class="display" use:tilt={{ maxTilt: 15, perspective: 670, ease: 0.12 }}> -->
+	<div class="logo-wrapper" use:tilt={{ maxTilt: 14, perspective: 900, ease: 0.41 }}>
+		<h1 class="display"><span class="sr-only">Michael Grunwald</span></h1>
+	</div>
 	<ScrollIndicator />
 </header>
 
@@ -21,7 +23,13 @@
 		width: 100%;
 		overflow: hidden;
 		position: relative;
-		pointer-events: none;
+	}
+
+	.logo-wrapper {
+		width: 100%;
+		height: 100dvh;
+		pointer-events: auto;
+		transform-origin: center center;
 	}
 
 	.display {
