@@ -1,12 +1,17 @@
 <script>
 	import { trackLink } from '$lib/track';
+	import { tilt } from '$lib/actions/tilt';
+
+	const listTiltOptions = { maxTilt: 4.1, perspective: 1340, ease: 0.067 };
+	const itemTiltOptions = { maxTilt: 8.2, perspective: 670, ease: 0.067 };
 </script>
 
 <section class="user-actions">
 	<nav>
-		<ul class="nav-list">
+		<ul class="nav-list" use:tilt={listTiltOptions}>
 			<li class="nav-item">
 				<a
+					use:tilt={itemTiltOptions}
 					data-cursor="magnetic"
 					class="button outline"
 					href="/documents/Michael-Grunwald-Resume-2025.pdf"
@@ -27,6 +32,7 @@
 			</li>
 			<li class="nav-item">
 				<a
+					use:tilt={itemTiltOptions}
 					data-cursor="magnetic"
 					class="button outline"
 					href="https://www.linkedin.com/in/mikegrunwald/"
@@ -40,6 +46,9 @@
 </section>
 
 <style lang="scss">
+	.user-actions {
+		overflow: hidden;
+	}
 	.nav-list {
 		display: flex;
 		align-items: center;
@@ -65,7 +74,9 @@
 	}
 
 	.button {
+		display: block;
 		position: relative;
-		z-index: 10;
+		pointer-events: auto;
+		// z-index: 10;
 	}
 </style>

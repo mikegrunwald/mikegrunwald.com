@@ -1,10 +1,10 @@
 <script>
 	import ScrollIndicator from './ScrollIndicator.svelte';
-	import { tilt } from '$lib/actions/tilt'; // or correct relative path
+	import { tilt } from '$lib/actions/tilt';
 </script>
 
 <header class="hero">
-	<div class="logo-wrapper" use:tilt={{ maxTilt: 13, perspective: 900, ease: 0.67 }}>
+	<div class="logo-wrapper" use:tilt={{ maxTilt: 13, perspective: 871, ease: 0.067 }}>
 		<h1 class="display"><span class="sr-only">Michael Grunwald</span></h1>
 	</div>
 	<ScrollIndicator />
@@ -29,6 +29,9 @@
 		height: 100dvh;
 		pointer-events: auto;
 		transform-origin: center center;
+		@media (pointer: coarse) {
+			pointer-events: auto;
+		}
 	}
 
 	.display {
