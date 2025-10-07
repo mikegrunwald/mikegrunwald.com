@@ -24,6 +24,7 @@
 
 	let canvas;
 	let fluidInstance;
+	let canvasFilter = $state('');
 
 	onMount(async () => {
 		fluidInstance = WebGLFluid(canvas, {
@@ -63,13 +64,29 @@
 				b: 0.243
 			}
 		});
+
+		// ScrollTrigger for canvas filter after one screen height
+		ScrollTrigger.create({
+			trigger: 'body',
+			start: 'top top',
+			end: `+=${window.innerHeight}`,
+			scrub: true,
+			onUpdate: (self) => {
+				const progress = self.progress;
+				if (progress >= 1) {
+					canvasFilter = 'invert(100%) opacity(33.333%) hue-rotate(180deg) saturate(0.333)';
+				} else {
+					canvasFilter = '';
+				}
+			}
+		});
 	});
 </script>
 
 <div class="app" id="app">
 	<canvas class="canvas" bind:this={canvas}></canvas>
 	<!-- <PageHeader /> -->
-	<CursorDot />
+	<CursorDot class="dot" />
 	<SvelteLenis root {options}>
 		<main>
 			{@render children()}
@@ -96,6 +113,12 @@
 		height: 100vh;
 		height: 100dvh;
 		touch-action: auto !important;
+		/* filter: invert(100%) opacity(33.333%) hue-rotate(180deg) saturate(0.333); */
+	}
+
+	.dot {
+		position: relative;
+		z-index: 300;
 	}
 
 	main {

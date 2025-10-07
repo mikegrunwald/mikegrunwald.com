@@ -9,7 +9,7 @@
 	let lastX = 0;
 	let lastY = 0;
 	const ease = 0.0333;
-	const dotSize = 14;
+	const dotSize = 16;
 	let animationFrame;
 	let isTransitioning = false;
 	let currentMagneticElement = null;
@@ -194,19 +194,21 @@
 		position: fixed;
 		left: 0;
 		top: 0;
-		border-radius: 50%;
 		background: var(--color-black);
-		box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
+		box-shadow: 0 0 16px 0 #33c5f3;
+		border-radius: 50%;
 		transform: translate(-50%, -50%) scale(1);
 		pointer-events: none;
 		transition:
 			opacity 500ms,
 			border-radius 300ms;
 		will-change: transform, opacity;
-		opacity: 0.333;
+		opacity: 0.666;
+		z-index: 100;
 	}
 
 	:global(.cursor-dot.cursor-dot--magnetic) {
+		z-index: unset;
 		opacity: 1 !important;
 	}
 

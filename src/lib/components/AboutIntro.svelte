@@ -51,6 +51,9 @@
 		justify-content: center;
 		min-height: 100dvh;
 		padding: var(--spacing-base);
+		position: relative;
+		z-index: 1;
+
 		@media (max-width: 768px) {
 			padding: var(--spacing-base) var(--spacing-xs);
 		}
