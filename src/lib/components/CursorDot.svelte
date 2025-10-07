@@ -29,16 +29,16 @@
 			const borderRadius = styles.borderRadius;
 
 			// Smooth interpolation for magnetic positioning
-			dotX += (bx + bw / 2 - dotX) * 0.075;
-			dotY += (by + bh / 2 - dotY) * 0.075;
+			dotX += (bx + bw / 2 - dotX) * 0.1;
+			dotY += (by + bh / 2 - dotY) * 0.1;
 
 			// Current dot size
 			const currentW = parseFloat(dot.dataset.currentWidth) || dotSize;
 			const currentH = parseFloat(dot.dataset.currentHeight) || dotSize;
 
 			// Smooth size interpolation
-			const newW = currentW + (bw - currentW) * 0.075;
-			const newH = currentH + (bh - currentH) * 0.075;
+			const newW = currentW + (bw - currentW) * 0.1;
+			const newH = currentH + (bh - currentH) * 0.1;
 
 			// Store current size for next frame
 			dot.dataset.currentWidth = newW;
