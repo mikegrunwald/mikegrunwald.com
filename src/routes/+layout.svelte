@@ -20,11 +20,21 @@
 
 	let lenis = useLenis((lenis) => {
 		ScrollTrigger.update();
+
+		// Update filter based on scroll position
+		const scrollY = lenis.scroll;
+		const vh = window.innerHeight;
+
+		if (scrollY <= vh) {
+			filterProgress = scrollY / vh;
+		} else {
+			filterProgress = 1;
+		}
 	});
 
 	let canvas;
 	let fluidInstance;
-	let canvasFilter = $state('');
+	let filterProgress = $state(0);
 
 	onMount(async () => {
 		fluidInstance = WebGLFluid(canvas, {
@@ -64,27 +74,19 @@
 				b: 0.243
 			}
 		});
-
-		// ScrollTrigger for canvas filter after one screen height
-		ScrollTrigger.create({
-			trigger: 'body',
-			start: 'top top',
-			end: `+=${window.innerHeight}`,
-			scrub: true,
-			onUpdate: (self) => {
-				const progress = self.progress;
-				if (progress >= 1) {
-					canvasFilter = 'invert(100%) opacity(33.333%) hue-rotate(180deg) saturate(0.333)';
-				} else {
-					canvasFilter = '';
-				}
-			}
-		});
 	});
 </script>
 
 <div class="app" id="app">
-	<canvas class="canvas" bind:this={canvas}></canvas>
+	<canvas
+		class="canvas"
+		bind:this={canvas}
+		style="filter: 
+			invert({filterProgress * 100}%) 
+			opacity({50 * filterProgress + (100 - 100 * filterProgress)}%) 
+			hue-rotate({filterProgress * 180}deg) 
+			saturate({0.333 * filterProgress + (1 - filterProgress)})"
+	></canvas>
 	<!-- <PageHeader /> -->
 	<CursorDot class="dot" />
 	<SvelteLenis root {options}>
