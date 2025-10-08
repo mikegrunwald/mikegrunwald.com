@@ -215,6 +215,7 @@
 	@media (pointer: coarse) {
 		.cursor-dot {
 			display: none;
+			z-index: unset;
 		}
 	}
 </style>

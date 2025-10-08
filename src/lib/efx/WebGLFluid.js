@@ -1481,7 +1481,7 @@ export default function (el, config) {
     updatePointerUpData(pointers[0]);
   });
 
-  canvas.addEventListener('touchstart', (e) => {
+  document.addEventListener('touchstart', (e) => {
     // e.preventDefault();
     const touches = e.targetTouches;
     while (touches.length >= pointers.length) {
@@ -1496,7 +1496,7 @@ export default function (el, config) {
     }
   });
 
-  canvas.addEventListener('touchmove', (e) => {
+  document.addEventListener('touchmove', (e) => {
     // e.preventDefault();
     const touches = e.targetTouches;
     for (let i = 0; i < touches.length; i++) {
@@ -1506,7 +1506,7 @@ export default function (el, config) {
     }
   }, false);
 
-  canvas.addEventListener('touchend', (e) => {
+  document.addEventListener('touchend', (e) => {
     const touches = e.changedTouches;
     for (let i = 0; i < touches.length; i++) {
       const pointer = pointers.find(p => p.id === touches[i].identifier);

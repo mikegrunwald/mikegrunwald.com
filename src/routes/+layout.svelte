@@ -115,6 +115,7 @@
 		height: 100vh;
 		height: 100dvh;
 		touch-action: auto !important;
+		z-index: -1;
 		/* filter: invert(100%) opacity(33.333%) hue-rotate(180deg) saturate(0.333); */
 	}
 
