@@ -68,7 +68,7 @@
 
 	.intro {
 		font-size: var(--font-size-h3);
-		/* line-height: var(--line-height-heading); */
+		line-height: 1.25;
 	}
 
 	.intro-secondary {

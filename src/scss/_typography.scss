@@ -34,7 +34,6 @@ h6 {
   text-transform: uppercase;
   letter-spacing: -0.03em;
   text-wrap: balance;
-  line-height: 1.05;
 
   @media (max-width: 768px) {
     letter-spacing: 0.015em;
@@ -70,11 +69,12 @@ h6 {
   font-size: var(--font-size-h6);
 }
 
-.p {
+p {
   margin: 0 0 var(--spacing-sm);
-  overflow-wrap: break-word;
   hyphens: auto;
+  line-height: var(--line-height-text);
   text-wrap: pretty;
+  overflow-wrap: break-word;
 }
 
 [href] {
