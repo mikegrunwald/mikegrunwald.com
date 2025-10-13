@@ -19,7 +19,6 @@ export class BlurScrollEffect {
       type: 'words, chars',
       autoSplit: true,
       onSplit: (instance) => {
-        console.log('split blur: ');
         return gsap.fromTo(instance.chars, {
           opacity: 0,
           // x: -20,

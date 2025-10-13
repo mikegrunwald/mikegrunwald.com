@@ -19,16 +19,14 @@ export class LinesScrollEffect {
       type: "lines, chars",
       autoSplit: true,
       onSplit: (instanace) => {
-        console.log('split lines: ');
         return gsap.from(instanace.lines, {
           scrollTrigger: {
             trigger: this.textElement,
-            toggleActions: "restart pause resume reverse",
             start: 'top bottom-=25%',
             end: 'bottom top+=25%',
+            scrub: true,
             // markers: true,
           },
-          duration: 0.5,
           ease: "power2.out",
           // yPercent: 60,
           opacity: 0,
