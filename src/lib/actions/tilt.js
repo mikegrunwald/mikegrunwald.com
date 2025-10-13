@@ -1,5 +1,16 @@
 // src/lib/actions/tilt.js
 export function tilt(node, options = {}) {
+  // Check if device has coarse pointer (touch device)
+  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+
+  // Don't initialize tilt on touch devices - saves RAF loop
+  if (isTouchDevice) {
+    return {
+      update() {},
+      destroy() {}
+    };
+  }
+
   let maxTilt = options.maxTilt ?? 12;
   let perspective = options.perspective ?? 800;
   let ease = options.ease ?? 0.1;

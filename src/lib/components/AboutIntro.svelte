@@ -8,15 +8,13 @@
 	onMount(async () => {
 		await tick();
 
-		setTimeout(() => {
-			intro.querySelectorAll('.display').forEach((display) => {
-				new BlurScrollEffect(display);
-			});
+		intro.querySelectorAll('.display').forEach((display) => {
+			new BlurScrollEffect(display);
+		});
 
-			intro.querySelectorAll('.lines').forEach((line) => {
-				new LinesScrollEffect(line);
-			});
-		}, 500);
+		intro.querySelectorAll('.lines').forEach((line) => {
+			new LinesScrollEffect(line);
+		});
 	});
 </script>
 

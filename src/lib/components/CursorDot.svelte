@@ -166,6 +166,14 @@
 	}
 
 	onMount(() => {
+		// Check if device has coarse pointer (touch device)
+		const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+
+		// Don't initialize on touch devices - saves RAF loop
+		if (isTouchDevice) {
+			return;
+		}
+
 		const moveHandler = (e) => {
 			mouseX = e.clientX;
 			mouseY = e.clientY;

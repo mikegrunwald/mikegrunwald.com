@@ -16,7 +16,7 @@ export class LinesScrollEffect {
 
   initializeEffect() {
     SplitText.create(this.textElement, {
-      type: "lines, chars",
+      type: "lines",
       autoSplit: true,
       onSplit: (instanace) => {
         return gsap.from(instanace.lines, {

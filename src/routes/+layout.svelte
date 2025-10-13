@@ -20,8 +20,16 @@
 	let autoRaf = $state(true);
 	let options = $derived({ lerp, autoRaf });
 
+	// Throttle filter updates - skip frames for better performance
+	let frameCount = 0;
+	const FRAME_SKIP = 2; // Update every 3rd frame (0, 3, 6, 9...)
+
 	let lenis = useLenis((lenis) => {
-		ScrollTrigger.update();
+		// Skip frames to reduce expensive filter calculations
+		frameCount++;
+		if (frameCount % FRAME_SKIP !== 0) {
+			return;
+		}
 
 		// Update filter based on scroll position
 		const scrollY = lenis.scroll;
@@ -118,7 +126,7 @@
 		height: 100dvh;
 		touch-action: auto !important;
 		z-index: -1;
-		/* filter: invert(100%) opacity(33.333%) hue-rotate(180deg) saturate(0.333); */
+		will-change: filter;
 	}
 
 	.dot {
