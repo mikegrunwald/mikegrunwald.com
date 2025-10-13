@@ -7,10 +7,12 @@
 
 	import WebGLFluid from '$lib/efx/WebGLFluid';
 	import { ScrollTrigger } from 'gsap/ScrollTrigger';
+	import { SplitText } from 'gsap/dist/SplitText';
 	import { gsap } from 'gsap/dist/gsap';
 	import CursorDot from '$lib/components/CursorDot.svelte';
 
-	gsap.registerPlugin(ScrollTrigger);
+	// gsap.registerPlugin(ScrollTrigger);
+	gsap.registerPlugin(ScrollTrigger, SplitText);
 
 	let { children } = $props();
 
