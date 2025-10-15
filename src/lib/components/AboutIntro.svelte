@@ -19,7 +19,7 @@
 </script>
 
 <article class="about-intro" id="about" bind:this={intro}>
-	<h2 class="display">Design Engineer / Frontend Developer</h2>
+	<h2 class="display">Design Engineer /<br />Senior Frontend Developer</h2>
 	<p class="lines intro">
 		With almost 2 decades of experience, I specialize in crafting award-winning user interfaces and
 		web applications that bring complex designs to life. Across industries, I transform intricate

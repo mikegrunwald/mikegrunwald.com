@@ -11,7 +11,6 @@
 	import { gsap } from 'gsap/dist/gsap';
 	import CursorDot from '$lib/components/CursorDot.svelte';
 
-	// gsap.registerPlugin(ScrollTrigger);
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
 	let { children } = $props();
