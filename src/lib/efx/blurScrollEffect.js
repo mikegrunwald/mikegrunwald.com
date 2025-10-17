@@ -10,7 +10,9 @@ export class BlurScrollEffect {
 
     this.textElement = textElement;
 
-    this.initializeEffect();
+    document.fonts.ready.then(() => {
+      this.initializeEffect();
+    });
   }
 
 

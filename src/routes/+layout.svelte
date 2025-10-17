@@ -15,9 +15,14 @@
 
 	let { children } = $props();
 
-	let lerp = $state(0.0666);
+	const lerp = 0.0666;
 	let autoRaf = $state(true);
-	let options = $derived({ lerp, autoRaf });
+	let options = $derived({
+		lerp,
+		autoRaf,
+		syncTouch: true,
+		syncTouchLerp: lerp
+	});
 
 	// Throttle filter updates - skip frames for better performance
 	let frameCount = 0;
@@ -96,7 +101,6 @@
 			hue-rotate({filterProgress * 180}deg) 
 			saturate({0.333 * filterProgress + (1 - filterProgress)})"
 	></canvas>
-	<!-- <PageHeader /> -->
 	<CursorDot class="dot" />
 	<SvelteLenis root {options}>
 		<main>
@@ -107,12 +111,11 @@
 
 <style>
 	.app {
+		background-image: url('/images/noise.webp');
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
 		position: relative;
-		z-index: 1;
-		background-image: url('/images/noise.webp');
 		overflow-x: hidden;
 	}
 
@@ -124,7 +127,6 @@
 		height: 100vh;
 		height: 100dvh;
 		touch-action: auto !important;
-		z-index: -1;
 		will-change: filter;
 	}
 
@@ -139,6 +141,5 @@
 		flex-direction: column;
 		width: 100%;
 		margin: 0 auto;
-		box-sizing: border-box;
 	}
 </style>

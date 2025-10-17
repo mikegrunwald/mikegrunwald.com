@@ -11,13 +11,16 @@ export class LinesScrollEffect {
 
     this.textElement = textElement;
 
-    this.initializeEffect();
+    document.fonts.ready.then(() => {
+      this.initializeEffect();
+    });
   }
 
   initializeEffect() {
     SplitText.create(this.textElement, {
-      type: "lines",
+      type: "lines, words, chars",
       autoSplit: true,
+      deepSlice: false,
       onSplit: (instanace) => {
         return gsap.from(instanace.lines, {
           scrollTrigger: {
