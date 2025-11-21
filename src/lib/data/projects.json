@@ -4,7 +4,7 @@
   "projects": [
     {
       "title": "patreon.com",
-      "subtitle": "",
+      "subtitle": "Re-Design, Re-Platform, & Re-Develop",
       "client": "Patreon",
       "agency": "Buttermax",
       "year": 2022,
@@ -26,11 +26,25 @@
       ],
       "awards": [
         {
+          "site": "AWWWards",
+          "logo": "path/to/logo.png",
+          "date": "2023-11-24",
+          "award": "SOTD",
+          "link": "https://www.awwwards.com/sites/patreon-website-redesign"
+        },
+        {
           "site": "FWA",
           "logo": "path/to/logo.png",
-          "date": "2022",
-          "award": "FOTD",
+          "date": "2023-11-22",
+          "award": "FWA of the Day",
           "link": "https://thefwa.com/cases/patreon-website-redesign-p2"
+        },
+        {
+          "site": "CSSDesignAwards",
+          "logo": "path/to/logo.png",
+          "date": "2023-11-15",
+          "award": "Special Kudos",
+          "link": "https://www.cssdesignawards.com/sites/patreon-website-redesign/44629/"
         }
       ],
       "description": "",
@@ -90,7 +104,8 @@
         "Goober",
         "Firebase",
         "Firestore",
-        "Airtable"
+        "Airtable",
+        "Storybook",
       ],
       "description": "On September 6th-9th, we went live with INBOUND 2022. A digital Boston came to life featuring three days of live spotlights, interactive sessions, an immersive, multi-player networking microverse and more.",
       "awards": [],
@@ -259,7 +274,30 @@
           "type": "image",
           "src": "path/to/image.png"
         },
-      ]
+      ],
+      "awards": [
+        {
+          "site": "AWWWards",
+          "logo": "path/to/logo.png",
+          "date": "2023-03-31",
+          "award": "Honorable Mention",
+          "link": "https://www.awwwards.com/sites/reliable-robotics"
+        },
+        {
+          "site": "FWA",
+          "logo": "path/to/logo.png",
+          "date": "2023-04-05",
+          "award": "FWA of the Day",
+          "link": "https://thefwa.com/cases/reliable-robotics"
+        },
+        {
+          "site": "CSSDesignAwards",
+          "logo": "path/to/logo.png",
+          "date": "2023-04-22",
+          "award": "Website of the Day",
+          "link": "https://www.cssdesignawards.com/sites/reliable-robotics/43216"
+        }
+      ],
     },
     {
       "title": "IBM TechExchange",

@@ -34,10 +34,6 @@ h6 {
   text-transform: uppercase;
   letter-spacing: -0.03em;
   text-wrap: balance;
-
-  @media (max-width: 768px) {
-    letter-spacing: 0.015em;
-  }
 }
 
 .display {
