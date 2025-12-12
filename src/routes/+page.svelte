@@ -1,5 +1,4 @@
 <script>
-	import CloudFlareBanner from '$lib/components/CloudFlareBanner.svelte';
 	import AboutIntro from '../lib/components/AboutIntro.svelte';
 	import HeroHeader from '../lib/components/HeroHeader.svelte';
 	import UserActions from '../lib/components/UserActions.svelte';
@@ -14,7 +13,6 @@
 </svelte:head>
 
 <section class="page">
-	<CloudFlareBanner />
 	<HeroHeader />
 	<AboutIntro />
 	<!-- TODO: ADD WORK TEASERS HERE -->
