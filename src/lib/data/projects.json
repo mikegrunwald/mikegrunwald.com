@@ -46,6 +46,20 @@
           "link": "https://www.cssdesignawards.com/sites/patreon-website-redesign/44629/"
         }
       ],
+      "links": [
+        {
+          "site": "Little Black Book",
+          "logo": "path/to/logo.png",
+          "date": "2023-11-24",
+          "link": "https://lbbonline.com/work/153652"
+        },
+        {
+          "site": "Design Week",
+          "logo": "path/to/logo.png",
+          "date": "2023-12-05",
+          "link": "https://www.designweek.co.uk/issues/31-december-6-january-2023/patreon-redesign-buttermax/"
+        }
+      ],
       "description": "",
       "media": [
         {
@@ -362,3 +376,4 @@
 //   Today at 3: 01 AM
 // Yep I think Patreon was unusual because we were engaged to do a website redesign and rebuild, but it became a much bigger design and branding project. We played a major role in developing a design language and leading the client through that iterative process. The style guide we developed for the website became a showcase and reference for Patreon’s ongoing rebranding. This figma page Hanee made is a good example - the client was super excited about it and wanted other internal teams to refer to it as a reference for redesigning the rest of their platform.
 // :heart: 2
+// https: //lbbonline.com/work/153561
