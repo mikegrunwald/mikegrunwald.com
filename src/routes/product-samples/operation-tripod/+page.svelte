@@ -1,6 +1,11 @@
 <script>
 	import { getAssetUrl } from '$lib/config.js';
-	import 'video.js/dist/video-js.css';
+
+	const videoSrc = getAssetUrl('/video/operation-tripod.mp4');
+	const posterSrc = getAssetUrl('/images/projects/tripod-poster.png');
+
+	console.log('Video URL:', videoSrc);
+	console.log('Poster URL:', posterSrc);
 </script>
 
 <svelte:head>
@@ -13,11 +18,10 @@
 			<h3 class="h2">Operation Tripod</h3>
 		</header>
 		<video
-			class="video-js"
 			controls
 			preload="auto"
-			poster={getAssetUrl('/images/projects/tripod-poster.png')}
-			src={getAssetUrl('/video/operation-tripod.mp4')}
+			poster={posterSrc}
+			src={videoSrc}
 		/>
 		<p>
 			At Active Theory, I created the frontend interface for an internal ChatGPT tool, working
