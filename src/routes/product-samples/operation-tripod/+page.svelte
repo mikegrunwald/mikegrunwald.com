@@ -1,5 +1,5 @@
 <script>
-	// your script goes here
+	import { getAssetUrl } from '$lib/config.js';
 </script>
 
 <svelte:head>
@@ -17,8 +17,8 @@
 			class="video-js"
 			controls
 			preload="auto"
-			poster="/images/projects/tripod-poster.png"
-			src="/video/operation-tripod.mp4"
+			poster={getAssetUrl('/images/projects/tripod-poster.png')}
+			src={getAssetUrl('/video/operation-tripod.mp4')}
 		/>
 		<p>
 			At Active Theory, I created the frontend interface for an internal ChatGPT tool, working
