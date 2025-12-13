@@ -17,16 +17,51 @@ collections:
     create: true
     slug: "{{slug}}"
     fields:
-      - { label: "Title", name: "title", widget: "string" }
-      - { label: "Date", name: "date", widget: "datetime", required: false }
       - {
-          label: "Thumbnail",
-          name: "thumbnail",
-          widget: "image",
+          label: "Show in Project list",
+          name: "showInProjectList",
+          widget: "boolean",
+          default: true,
           required: false,
         }
-      - { label: "Summary", name: "summary", widget: "text", required: false }
-      - { label: "Body", name: "body", widget: "markdown" }
+      - { label: "Title", name: "title", widget: "string" }
+      - {
+          label: "Subtitle",
+          name: "subtitle",
+          widget: "string",
+          required: false,
+        }
+      - { label: "Agency", name: "agency", widget: "string", required: false }
+      - { label: "Partners", name: "partners", widget: "list", required: false }
+      - { label: "Client", name: "client", widget: "string", required: false }
+      - {
+          label: "Role",
+          name: "role",
+          widget: "string",
+          required: true,
+          default: "Frontend Developer",
+        }
+      - { label: "Year", name: "year", widget: "number", required: false }
+      - {
+          label: "Tech List",
+          name: "techList",
+          widget: "list",
+          allow_add: true,
+          allow_remove: true,
+          allow_reorder: true,
+          field: { label: "Tech", name: "tech", widget: "string" },
+          collapsed: true,
+          summary: "{{field}}",
+          minimize_collapsed: true,
+        }
+      - {
+          label: "Description",
+          name: "description",
+          widget: "markdown",
+          required: false,
+        }
+      - { label: "Media", name: "media", widget: "list", required: false }
+      - { label: "Links", name: "links", widget: "list", required: false }
 
   - name: "pages"
     label: "Pages"

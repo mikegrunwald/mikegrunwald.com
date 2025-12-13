@@ -2,14 +2,13 @@
 	import AboutIntro from '../lib/components/AboutIntro.svelte';
 	import HeroHeader from '../lib/components/HeroHeader.svelte';
 	import UserActions from '../lib/components/UserActions.svelte';
+	import siteSettings from '$content/meta/site.json';
 </script>
 
 <svelte:head>
-	<title>Michael Grunwald | Creative Frontend Developer</title>
-	<meta
-		name="description"
-		content="Personal website of Michael Grunwald—a seasoned creative UI/UX designer and developer who specializes in breathing life into complex user experiences."
-	/>
+	<!-- <title>Michael Grunwald | Creative Frontend Developer</title> -->
+	<title>{siteSettings.title}</title>
+	<meta name="description" content={siteSettings.description} />
 </svelte:head>
 
 <section class="page">
