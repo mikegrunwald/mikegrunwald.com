@@ -1,11 +1,10 @@
 <script>
 	import { getAssetUrl } from '$lib/config.js';
+	import 'video.js/dist/video-js.css';
 </script>
 
 <svelte:head>
 	<title>Michael Grunwald | Operation Tripod</title>
-	<link href="https://vjs.zencdn.net/8.22.0/video-js.css" rel="stylesheet" />
-	<script src="https://vjs.zencdn.net/8.22.0/video.min.js"></script>
 </svelte:head>
 
 <article class="content">
