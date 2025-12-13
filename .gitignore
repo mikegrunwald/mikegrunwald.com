@@ -22,7 +22,6 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-
 # big files
 *.mov
 *.mp4

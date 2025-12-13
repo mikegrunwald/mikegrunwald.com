@@ -33,8 +33,6 @@ const s3Client = new S3Client({
   },
 });
 
-// File size threshold (25MB - files larger than this go to R2)
-const SIZE_THRESHOLD = 25 * 1024 * 1024;
 
 // Get MIME type based on extension
 function getMimeType(filename) {
@@ -104,7 +102,6 @@ async function main() {
   // Find all files in video and images directories
   const directories = [videoDir, imagesDir];
   let uploadedFiles = [];
-  let skippedFiles = [];
 
   for (const dir of directories) {
     const files = findFiles(dir);
@@ -118,19 +115,12 @@ async function main() {
       const relativePath = relative(staticDir, filePath);
       const key = relativePath.replace(/\\/g, '/'); // Normalize path separators
 
-      if (fileSize > SIZE_THRESHOLD) {
-        console.log(`Uploading ${key} (${fileSizeMB} MB)...`);
-        const success = await uploadToR2(filePath, key);
-        if (success) {
-          uploadedFiles.push({
-            path: `/${key}`,
-            r2Url: `${R2_PUBLIC_URL}/${key}`,
-            size: fileSizeMB
-          });
-        }
-      } else {
-        skippedFiles.push({
+      console.log(`Uploading ${key} (${fileSizeMB} MB)...`);
+      const success = await uploadToR2(filePath, key);
+      if (success) {
+        uploadedFiles.push({
           path: `/${key}`,
+          r2Url: `${R2_PUBLIC_URL}/${key}`,
           size: fileSizeMB
         });
       }
@@ -138,17 +128,13 @@ async function main() {
   }
 
   console.log('\n📊 Upload Summary:');
-  console.log(`✓ Uploaded ${uploadedFiles.length} large files to R2`);
-  console.log(`→ Skipped ${skippedFiles.length} small files (will be served from Cloudflare Pages)\n`);
+  console.log(`✓ Uploaded ${uploadedFiles.length} files to R2\n`);
 
   if (uploadedFiles.length > 0) {
     console.log('📝 Files uploaded to R2:');
     uploadedFiles.forEach(file => {
-      console.log(`  ${file.path} → ${file.r2Url} (${file.size} MB)`);
+      console.log(`  ${file.path} (${file.size} MB)`);
     });
-
-    console.log('\n⚠️  Remember to update your Svelte components to use these R2 URLs:');
-    console.log(`  Example: ${R2_PUBLIC_URL}/video/operation-tripod.mp4`);
   }
 }
 
