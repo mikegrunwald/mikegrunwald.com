@@ -3,7 +3,9 @@
     "allow": [
       "Bash(cat:*)",
       "Bash(npm run upload-assets:*)",
-      "Bash(npm run build:local:*)"
+      "Bash(npm run build:local:*)",
+      "Bash(npm install:*)",
+      "Bash(ls:*)"
     ]
   }
 }

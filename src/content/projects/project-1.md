@@ -8,7 +8,6 @@ showInProjectList: true
 title: patreon.com
 subtitle: Re-Design, Re-Platform, & Re-Develop
 role: Frontend Developer
-year: 2017
 techList:
   - React
   - Next.js
@@ -24,7 +23,9 @@ tech:
   - React
   - Next.js
   - GSAP
+year: 2017
 description: asdf
+links: []
 ---
 
 Here is the body content of my first project. You can write markdown here.

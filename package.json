@@ -10,6 +10,7 @@
 		"build": "vite build && npm run upload-assets",
 		"build:local": "vite build",
 		"upload-assets": "node scripts/upload-to-r2.js",
+		"configure-r2-cors": "node scripts/configure-r2-cors.js",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"format": "prettier --write .",
@@ -37,6 +38,7 @@
 		"vite": "^6.2.6"
 	},
 	"dependencies": {
+		"@aws-sdk/s3-request-presigner": "^3.948.0",
 		"@sveltejs/adapter-cloudflare": "^7.2.4",
 		"bowser": "^2.12.1",
 		"decap-cms": "^3.9.0",

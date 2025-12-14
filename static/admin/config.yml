@@ -60,8 +60,20 @@ collections:
           widget: "markdown",
           required: false,
         }
-      - { label: "Media", name: "media", widget: "list", required: false }
-      - { label: "Links", name: "links", widget: "list", required: false }
+      - {
+          label: "Media",
+          name: "media",
+          widget: "list",
+          required: false,
+          field: { label: "Media URL", name: "url", widget: "smart-media" },
+        }
+      - {
+          label: "Links",
+          name: "links",
+          widget: "list",
+          required: false,
+          field: { label: "Link", name: "link", widget: "link" },
+        }
 
   - name: "pages"
     label: "Pages"
