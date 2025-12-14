@@ -8,7 +8,8 @@ const config = {
 
     alias: {
       $assets: "src/assets",
-      $lib: "src/lib"
+      $lib: "src/lib",
+      $content: "src/content",
     },
 
     prerender: {
@@ -19,7 +20,7 @@ const config = {
         }
         // Throw error for other 404s
         throw new Error(message);
-      }
+      },
     }
   },
 
