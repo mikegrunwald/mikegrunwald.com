@@ -13,18 +13,35 @@ public_folder: "/uploads"
 locale: "en"
 
 collections:
-  - name: "projects"
-    label: "Projects"
-    folder: "src/content/projects"
+  - name: "work"
+    label: "Work"
+    folder: "src/content/work"
     create: true
     slug: "{{slug}}"
     fields:
       - {
-          label: "Show in Project list",
-          name: "showInProjectList",
-          widget: "boolean",
-          default: true,
+          label: "Show In",
+          name: "showIn",
+          widget: "object",
+          collapsed: true,
           required: false,
+          fields:
+            [
+              {
+                label: "Featured List",
+                name: "featuredList",
+                widget: "boolean",
+                default: true,
+                required: false,
+              },
+              {
+                label: "Work List",
+                name: "workList",
+                widget: "boolean",
+                default: true,
+                required: false,
+              },
+            ],
         }
       - { label: "Title", name: "title", widget: "string" }
       - {
@@ -34,7 +51,18 @@ collections:
           required: false,
         }
       - { label: "Agency", name: "agency", widget: "string", required: false }
-      - { label: "Partners", name: "partners", widget: "list", required: false }
+      - {
+          label: "Partners",
+          name: "partners",
+          widget: "list",
+          allow_add: true,
+          allow_remove: true,
+          allow_reorder: true,
+          field: { label: "Partner", name: "partner", widget: "string" },
+          collapsed: true,
+          summary: "{{field}}",
+          minimize_collapsed: true,
+        }
       - { label: "Client", name: "client", widget: "string", required: false }
       - {
           label: "Role",
@@ -44,6 +72,26 @@ collections:
           default: "Frontend Developer",
         }
       - { label: "Year", name: "year", widget: "number", required: false }
+      - {
+          label: "Media",
+          name: "media",
+          widget: "list",
+          required: false,
+          field: { label: "Media URL", name: "url", widget: "smart-media" },
+        }
+      - {
+          label: "Description",
+          name: "description",
+          widget: "markdown",
+          required: false,
+        }
+      - {
+          label: "Links",
+          name: "links",
+          widget: "list",
+          required: false,
+          field: { label: "Link", name: "link", widget: "link" },
+        }
       - {
           label: "Tech List",
           name: "techList",
@@ -57,24 +105,19 @@ collections:
           minimize_collapsed: true,
         }
       - {
-          label: "Description",
-          name: "description",
-          widget: "markdown",
-          required: false,
-        }
-      - {
-          label: "Media",
-          name: "media",
+          label: "Awards",
+          name: "awards",
           widget: "list",
           required: false,
-          field: { label: "Media URL", name: "url", widget: "smart-media" },
-        }
-      - {
-          label: "Links",
-          name: "links",
-          widget: "list",
-          required: false,
-          field: { label: "Link", name: "link", widget: "link" },
+          collapsed: true,
+          summary: "{{fields.awardType}} - {{fields.date}}",
+          fields:
+            [
+              { label: "Link", name: "link", widget: "link" },
+              { label: "Logo", name: "logo", widget: "image" },
+              { label: "Award Type", name: "awardType", widget: "string" },
+              { label: "Date", name: "date", widget: "datetime" },
+            ],
         }
 
   - name: "pages"

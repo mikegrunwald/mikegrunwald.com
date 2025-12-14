@@ -5,7 +5,8 @@
       "Bash(npm run upload-assets:*)",
       "Bash(npm run build:local:*)",
       "Bash(npm install:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(curl:*)"
     ]
   }
 }
