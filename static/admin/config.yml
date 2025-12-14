@@ -4,6 +4,8 @@ backend:
   name: github
   repo: mikegrunwald/mikegrunwald.com
   branch: main
+  base_url: https://mikegrunwald.com
+  auth_endpoint: auth
 
 media_folder: "static/uploads"
 public_folder: "/uploads"
