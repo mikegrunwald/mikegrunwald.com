@@ -154,21 +154,26 @@ const SmartMediaControl = window.createClass({
             // The payload should contain the file info with path
             if (payload.path) {
               console.log('[Smart Media] Got path from payload:', payload.path);
-              resolve(payload.path);
+              // Transform static/uploads/file.jpg -> /uploads/file.jpg
+              const publicPath = payload.path.replace(/^static/, '');
+              console.log('[Smart Media] Transformed to public path:', publicPath);
+              resolve(publicPath);
               return;
             }
 
             // Some backends return public_path
             if (payload.public_path) {
               console.log('[Smart Media] Got public_path from payload:', payload.public_path);
-              resolve(payload.public_path);
+              const publicPath = payload.public_path.replace(/^static/, '');
+              resolve(publicPath);
               return;
             }
 
             // If payload is the file object itself, it might have file property
             if (payload.file && payload.file.path) {
               console.log('[Smart Media] Got path from payload.file:', payload.file.path);
-              resolve(payload.file.path);
+              const publicPath = payload.file.path.replace(/^static/, '');
+              resolve(publicPath);
               return;
             }
 
@@ -178,12 +183,15 @@ const SmartMediaControl = window.createClass({
           // Result should be a media file object with path (direct format)
           if (result && result.path) {
             console.log('[Smart Media] Got path from result:', result.path);
-            resolve(result.path);
+            const publicPath = result.path.replace(/^static/, '');
+            resolve(publicPath);
             return;
           }
           if (typeof result === 'string') {
             console.log('[Smart Media] Result is string:', result);
-            resolve(result);
+            // Also transform if it's a string path
+            const publicPath = result.replace(/^static/, '');
+            resolve(publicPath);
             return;
           }
 
