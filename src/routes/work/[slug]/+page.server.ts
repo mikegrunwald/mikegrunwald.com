@@ -5,7 +5,8 @@ export async function load({ params }) {
   const project = loadMarkdown(`src/content/work/${slug}.md`);
 
   // Load all projects in the same order as the work index page
-  const allProjects = loadCollection('src/content/work');
+  const allProjects = loadCollection('src/content/work')
+    .sort((a, b) => (a.meta.order || 0) - (b.meta.order || 0));
 
   // Find the current project index
   const currentIndex = allProjects.findIndex(p => p.slug === slug);

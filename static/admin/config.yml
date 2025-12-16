@@ -18,6 +18,7 @@ collections:
     folder: "src/content/work"
     create: true
     slug: "{{slug}}"
+    sortable_fields: ['order', 'title', 'year']
     fields:
       - {
           label: "Show In",
@@ -43,6 +44,7 @@ collections:
               },
             ],
         }
+      - { label: "Order", name: "order", widget: "number", default: 0, required: false }
       - { label: "Title", name: "title", widget: "string" }
       - {
           label: "Subtitle",
