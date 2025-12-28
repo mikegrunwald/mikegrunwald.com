@@ -4,6 +4,8 @@
 // - Images → R2 (images/ folder)
 // Benefits: No Git bloat, fast uploads, browse/reuse existing media
 
+import { isImagePath, isVideoPath } from '/src/lib/utils/media-utils.js';
+
 const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024; // 25MB in bytes (not used, but kept for future)
 
 const SmartMediaControl = window.createClass({
@@ -25,14 +27,6 @@ const SmartMediaControl = window.createClass({
   componentDidMount() {
     // Load existing R2 files for browsing
     this.loadExistingFiles();
-
-    // Debug: Log available props to understand what Decap provides
-    console.log('[Smart Media] Available props:', Object.keys(this.props));
-    console.log('[Smart Media] Has onPersistMedia?', !!this.props.onPersistMedia);
-    console.log('[Smart Media] Has onAddAsset?', !!this.props.onAddAsset);
-    console.log('[Smart Media] Has getAsset?', !!this.props.getAsset);
-    console.log('[Smart Media] onPersistMedia type:', typeof this.props.onPersistMedia);
-    console.log('[Smart Media] CMS backend available?', !!window.CMS?.getBackend);
   },
 
   async loadExistingFiles() {
@@ -64,8 +58,8 @@ const SmartMediaControl = window.createClass({
           return {
             key: path.substring(1),
             url: publicUrl,
-            isImage: /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(path),
-            isVideo: /\.(mp4|mov|webm)$/i.test(path),
+            isImage: isImagePath(path),
+            isVideo: isVideoPath(path),
             size: 0,
           };
         });
@@ -92,8 +86,6 @@ const SmartMediaControl = window.createClass({
   },
 
   async uploadToR2(file) {
-    console.log('[Smart Media] Uploading to R2:', file.name, file.type, `${(file.size / 1024 / 1024).toFixed(2)}MB`);
-
     const presignResponse = await fetch('/api/r2/presigned-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -118,52 +110,35 @@ const SmartMediaControl = window.createClass({
     });
 
     if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error('[Smart Media] R2 upload failed:', errorText);
       throw new Error(`Failed to upload file to R2: ${uploadResponse.status}`);
     }
 
-    console.log('[Smart Media] Successfully uploaded to R2:', publicUrl);
     return publicUrl;
   },
 
 
   async uploadToGit(file) {
-    console.log('[Smart Media] Uploading small image to Git:', file.name, `${(file.size / 1024 / 1024).toFixed(2)}MB`);
-
     // Use Decap's onPersistMedia method - this is the correct prop for uploading media
     return new Promise(async (resolve, reject) => {
       try {
         // onPersistMedia is the correct prop for handling media uploads
         if (this.props.onPersistMedia) {
-          console.log('[Smart Media] Calling onPersistMedia with file:', {
-            name: file.name,
-            type: file.type,
-            size: file.size
-          });
           const result = await this.props.onPersistMedia(file);
-          console.log('[Smart Media] onPersistMedia result:', result);
-          console.log('[Smart Media] result type:', typeof result);
-          console.log('[Smart Media] result keys:', result ? Object.keys(result) : 'null');
 
           // onPersistMedia returns a Redux action with payload
           if (result && result.payload) {
-            console.log('[Smart Media] Result has payload:', result.payload);
             const payload = result.payload;
 
             // The payload should contain the file info with path
             if (payload.path) {
-              console.log('[Smart Media] Got path from payload:', payload.path);
               // Transform static/uploads/file.jpg -> /uploads/file.jpg
               const publicPath = payload.path.replace(/^static/, '');
-              console.log('[Smart Media] Transformed to public path:', publicPath);
               resolve(publicPath);
               return;
             }
 
             // Some backends return public_path
             if (payload.public_path) {
-              console.log('[Smart Media] Got public_path from payload:', payload.public_path);
               const publicPath = payload.public_path.replace(/^static/, '');
               resolve(publicPath);
               return;
@@ -171,44 +146,31 @@ const SmartMediaControl = window.createClass({
 
             // If payload is the file object itself, it might have file property
             if (payload.file && payload.file.path) {
-              console.log('[Smart Media] Got path from payload.file:', payload.file.path);
               const publicPath = payload.file.path.replace(/^static/, '');
               resolve(publicPath);
               return;
             }
-
-            console.log('[Smart Media] Payload structure:', payload);
           }
 
           // Result should be a media file object with path (direct format)
           if (result && result.path) {
-            console.log('[Smart Media] Got path from result:', result.path);
             const publicPath = result.path.replace(/^static/, '');
             resolve(publicPath);
             return;
           }
           if (typeof result === 'string') {
-            console.log('[Smart Media] Result is string:', result);
             // Also transform if it's a string path
             const publicPath = result.replace(/^static/, '');
             resolve(publicPath);
             return;
           }
-
-          console.warn('[Smart Media] onPersistMedia returned unexpected format:', result);
-        } else {
-          console.warn('[Smart Media] onPersistMedia prop not available');
         }
 
         // Fallback: Try the backend directly
         const backend = window.CMS?.getBackend?.();
-        console.log('[Smart Media] Backend available?', !!backend);
-        console.log('[Smart Media] Backend has persistMedia?', !!(backend && backend.persistMedia));
 
         if (backend && backend.persistMedia) {
-          console.log('[Smart Media] Calling backend.persistMedia');
           const persistedMedia = await backend.persistMedia(file);
-          console.log('[Smart Media] backend.persistMedia result:', persistedMedia);
 
           if (persistedMedia && persistedMedia.path) {
             resolve(persistedMedia.path);
@@ -222,11 +184,8 @@ const SmartMediaControl = window.createClass({
 
         // If we get here, none of the methods worked
         const error = new Error('Git backend integration not available. Falling back to R2.');
-        console.error('[Smart Media]', error.message);
         reject(error);
       } catch (error) {
-        console.error('[Smart Media] Git upload error:', error);
-        console.error('[Smart Media] Error stack:', error.stack);
         reject(error);
       }
     });
@@ -237,7 +196,6 @@ const SmartMediaControl = window.createClass({
     if (!file) return;
 
     const fileType = this.determineFileType(file);
-    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
     const fileSize = file.size;
 
     this.setState({
@@ -254,18 +212,14 @@ const SmartMediaControl = window.createClass({
       const shouldUseR2 = fileType === 'video' || fileSize > LARGE_FILE_THRESHOLD;
 
       if (shouldUseR2) {
-        console.log(`[Smart Media] Routing to R2: ${fileType}, ${fileSizeMB}MB`);
         finalUrl = await this.uploadToR2(file);
 
         // Refresh R2 file list
         setTimeout(() => this.loadExistingFiles(), 1000);
       } else {
-        console.log(`[Smart Media] Routing to Git: ${fileType}, ${fileSizeMB}MB`);
-
         try {
           finalUrl = await this.uploadToGit(file);
         } catch (gitError) {
-          console.warn('[Smart Media] Git upload failed, falling back to R2:', gitError);
           // Fallback to R2 if Git upload fails
           finalUrl = await this.uploadToR2(file);
           setTimeout(() => this.loadExistingFiles(), 1000);
@@ -281,7 +235,6 @@ const SmartMediaControl = window.createClass({
 
       this.props.onChange(finalUrl);
     } catch (error) {
-      console.error('[Smart Media] Upload error:', error);
       this.setState({
         uploading: false,
         uploadProgress: 0,
@@ -644,8 +597,8 @@ const SmartMediaPreview = window.createClass({
       );
     }
 
-    const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(valueStr);
-    const isVideo = /\.(mp4|mov|webm)$/i.test(valueStr);
+    const isImage = isImagePath(valueStr);
+    const isVideo = isVideoPath(valueStr);
     const isR2 = valueStr.includes('assets.mikegrunwald.com') || valueStr.includes('r2.cloudflarestorage.com');
 
     return window.h(

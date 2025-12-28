@@ -4,18 +4,33 @@
 const LinkControl = window.createClass({
   getInitialState() {
     const value = this.props.value;
+    // Handle Immutable.js objects (Decap uses Immutable internally)
+    const plainValue = value?.toJS ? value.toJS() : value;
+
     return {
-      label: value?.label || '',
-      url: value?.url || ''
+      label: plainValue?.label || '',
+      url: plainValue?.url || ''
     };
   },
 
   componentDidMount() {
     // If there's an initial value, sync it
     if (this.props.value) {
+      const plainValue = this.props.value?.toJS ? this.props.value.toJS() : this.props.value;
       this.setState({
-        label: this.props.value.label || '',
-        url: this.props.value.url || ''
+        label: plainValue?.label || '',
+        url: plainValue?.url || ''
+      });
+    }
+  },
+
+  componentWillReceiveProps(nextProps) {
+    // Update state when props change (e.g., when loading existing data)
+    if (nextProps.value !== this.props.value) {
+      const plainValue = nextProps.value?.toJS ? nextProps.value.toJS() : nextProps.value;
+      this.setState({
+        label: plainValue?.label || '',
+        url: plainValue?.url || ''
       });
     }
   },
@@ -123,18 +138,21 @@ const LinkPreview = window.createClass({
   render() {
     const { value } = this.props;
 
-    if (!value || (!value.label && !value.url)) {
+    // Handle Immutable.js objects
+    const plainValue = value?.toJS ? value.toJS() : value;
+
+    if (!plainValue || (!plainValue.label && !plainValue.url)) {
       return window.h('div', { style: { color: '#798291', fontSize: '14px' } }, 'No link configured');
     }
 
     return window.h(
       'div',
       { style: { fontSize: '14px' } },
-      window.h('strong', {}, value.label || 'Untitled'),
-      value.url && window.h(
+      window.h('strong', {}, plainValue.label || 'Untitled'),
+      plainValue.url && window.h(
         'div',
         { style: { color: '#798291', fontSize: '12px', marginTop: '2px' } },
-        value.url
+        plainValue.url
       )
     );
   }

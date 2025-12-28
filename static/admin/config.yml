@@ -90,7 +90,8 @@ collections:
           name: "links",
           widget: "list",
           required: false,
-          field: { label: "Link", name: "link", widget: "link" },
+          collapsed: true,
+          field: { label: "Link", name: "linkItem", widget: "link" },
         }
       - {
           label: "Tech List",
