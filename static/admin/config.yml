@@ -18,7 +18,7 @@ collections:
     folder: "src/content/work"
     create: true
     slug: "{{slug}}"
-    sortable_fields: ['order', 'title', 'year']
+    sortable_fields: ["order", "title", "year"]
     fields:
       - {
           label: "Show In",
@@ -44,7 +44,13 @@ collections:
               },
             ],
         }
-      - { label: "Order", name: "order", widget: "number", default: 0, required: false }
+      - {
+          label: "Order",
+          name: "order",
+          widget: "number",
+          default: 0,
+          required: false,
+        }
       - { label: "Title", name: "title", widget: "string" }
       - {
           label: "Subtitle",
@@ -117,7 +123,7 @@ collections:
           fields:
             [
               { label: "Link", name: "link", widget: "link" },
-              { label: "Logo", name: "logo", widget: "image" },
+              { label: "Logo", name: "logo", widget: "smart-media" },
               { label: "Award Type", name: "awardType", widget: "string" },
               { label: "Date", name: "date", widget: "datetime" },
             ],

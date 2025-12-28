@@ -1,5 +1,6 @@
 <script>
 	import { trackLink } from '$lib/track';
+	import MediaItem from './MediaItem.svelte';
 
 	let { award } = $props();
 
@@ -25,7 +26,8 @@
 			<h3 class="label">{award.link.label}</h3>
 		</header>
 		<figure class="logo">
-			<img src={award.logo} alt={award.link.label} />
+			<!-- <img src={award.logo} alt={award.link.label} /> -->
+			<MediaItem media={award.logo} alt={award.link.label} />
 		</figure>
 		<p class="award-type">{award.awardType}</p>
 		<p class="date">{formatDate(award.date)}</p>

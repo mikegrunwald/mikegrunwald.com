@@ -95,10 +95,12 @@ const SmartMediaControl = window.createClass({
 
   determineFileType(file) {
     const isVideo = file.type.startsWith('video/');
+    const isSVG = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
     const isImage = file.type.startsWith('image/');
 
-    // Everything goes to R2, but we categorize for folder routing
+    // SVGs get special handling (stored inline), videos and images follow existing logic
     if (isVideo) return 'video';
+    if (isSVG) return 'svg';
     if (isImage) return 'image';
     return 'unknown';
   },
@@ -134,6 +136,18 @@ const SmartMediaControl = window.createClass({
     return publicUrl;
   },
 
+
+  async readSVGContent(file) {
+    const svgCode = await file.text();
+
+    // Validate it's actually SVG
+    const trimmed = svgCode.trim();
+    if (trimmed.startsWith('<svg') || trimmed.startsWith('<?xml')) {
+      return svgCode;
+    } else {
+      throw new Error('Invalid SVG file - must start with <svg> or <?xml>');
+    }
+  },
 
   async uploadToGit(file) {
     // Use Decap's onPersistMedia method - this is the correct prop for uploading media
@@ -224,34 +238,63 @@ const SmartMediaControl = window.createClass({
     });
 
     try {
-      let finalUrl;
+      let finalValue;
 
-      // Decision logic: Videos or large images (>25MB) → R2, small images → Git
+      // SVG files: Read content and store inline
+      if (fileType === 'svg') {
+        // Check file size (warn if >100KB)
+        const MAX_SVG_SIZE = 100 * 1024; // 100KB
+        if (fileSize > MAX_SVG_SIZE) {
+          const sizeKB = Math.round(fileSize / 1024);
+          const confirmed = window.confirm(
+            `This SVG is ${sizeKB}KB. Large SVGs can increase your content file size. Continue with inline storage?`
+          );
+          if (!confirmed) {
+            this.setState({ uploading: false, error: null });
+            return;
+          }
+        }
+
+        // Read SVG content
+        finalValue = await this.readSVGContent(file);
+
+        this.setState({
+          value: finalValue,
+          uploading: false,
+          uploadProgress: 100,
+          error: null,
+        });
+
+        this.props.onChange(finalValue);
+        return;
+      }
+
+      // For non-SVG files: Videos or large images (>25MB) → R2, small images → Git
       const shouldUseR2 = fileType === 'video' || fileSize > LARGE_FILE_THRESHOLD;
 
       if (shouldUseR2) {
-        finalUrl = await this.uploadToR2(file);
+        finalValue = await this.uploadToR2(file);
 
         // Refresh R2 file list
         setTimeout(() => this.loadExistingFiles(), 1000);
       } else {
         try {
-          finalUrl = await this.uploadToGit(file);
+          finalValue = await this.uploadToGit(file);
         } catch (gitError) {
           // Fallback to R2 if Git upload fails
-          finalUrl = await this.uploadToR2(file);
+          finalValue = await this.uploadToR2(file);
           setTimeout(() => this.loadExistingFiles(), 1000);
         }
       }
 
       this.setState({
-        value: finalUrl,
+        value: finalValue,
         uploading: false,
         uploadProgress: 100,
         error: null,
       });
 
-      this.props.onChange(finalUrl);
+      this.props.onChange(finalValue);
     } catch (error) {
       this.setState({
         uploading: false,
@@ -343,7 +386,7 @@ const SmartMediaControl = window.createClass({
           },
         },
         window.h('strong', {}, 'Smart Media Upload: '),
-        'Videos and large images (>25MB) upload to Cloudflare R2. Small images (<25MB) are stored in Git.'
+        'Videos and large images (>25MB) upload to R2. Small images (<25MB) are stored in Git. SVGs are stored inline as code.'
       ),
 
       // File input
@@ -373,6 +416,7 @@ const SmartMediaControl = window.createClass({
           'div',
           { style: { fontSize: '14px', marginBottom: '8px', color: '#798291' } },
           fileType === 'video' ? 'Uploading video to R2...' :
+          fileType === 'svg' ? 'Reading SVG content...' :
           fileType === 'image' ? 'Uploading image...' :
           'Uploading...'
         ),
@@ -769,7 +813,10 @@ const SmartMediaPreview = window.createClass({
       );
     }
 
-    const isImage = isImagePath(valueStr);
+    // Check if it's inline SVG code
+    const trimmed = valueStr.trim();
+    const isInlineSVG = trimmed.startsWith('<svg') || trimmed.startsWith('<?xml');
+    const isImage = !isInlineSVG && isImagePath(valueStr);
     const isVideo = isVideoPath(valueStr);
     const isR2 = valueStr.includes('assets.mikegrunwald.com') || valueStr.includes('r2.cloudflarestorage.com');
 
@@ -792,7 +839,12 @@ const SmartMediaPreview = window.createClass({
             maxHeight: '200px',
           },
         },
-        isImage
+        isInlineSVG
+          ? window.h('div', {
+              dangerouslySetInnerHTML: { __html: valueStr },
+              style: { maxWidth: '100%', maxHeight: '180px' }
+            })
+          : isImage
           ? window.h('img', {
               src: valueStr,
               alt: 'Preview',
@@ -824,10 +876,12 @@ const SmartMediaPreview = window.createClass({
             fontWeight: '500',
           },
         },
-        isR2 ? '☁️ Stored in R2' : '📁 Stored in Git'
+        isInlineSVG ? '💾 Stored Inline (SVG Code)' :
+        isR2 ? '☁️ Stored in R2' :
+        '📁 Stored in Git'
       ),
 
-      // URL
+      // Value display (truncate if inline SVG)
       window.h(
         'div',
         {
@@ -836,9 +890,12 @@ const SmartMediaPreview = window.createClass({
             color: '#798291',
             wordBreak: 'break-all',
             fontFamily: 'monospace',
+            maxHeight: isInlineSVG ? '60px' : 'auto',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           },
         },
-        valueStr
+        isInlineSVG ? `${valueStr.substring(0, 100)}...` : valueStr
       )
     );
   },
