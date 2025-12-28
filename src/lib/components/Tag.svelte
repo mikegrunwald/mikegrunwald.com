@@ -7,12 +7,14 @@
 
 <style>
 	.tag {
+		border-radius: var(--border-radius);
 		display: inline-block;
 		background-color: var(--color-text-body);
 		color: var(--color-primary-contrast);
+		font-family: var(--font-family-mono);
+		font-size: 0.375em;
+		letter-spacing: 0.01em;
 		padding: 0.25em 0.75em;
-		font-size: 0.75em;
-		border-radius: var(--border-radius);
-		text-indent: 0;
+		transform: translateY(-0.25em);
 	}
 </style>
