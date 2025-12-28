@@ -3,7 +3,12 @@
 
 	let { media, alt = '' } = $props();
 
-	const mediaInfo = $derived(getMediaInfo(media));
+	// Extract string value from media (handle both string and object formats)
+	const mediaSrc = $derived(
+		typeof media === 'string' ? media : media?.path || media?.url || media?.src || ''
+	);
+
+	const mediaInfo = $derived(getMediaInfo(mediaSrc));
 
 	// For inline SVG, sanitize the code for security
 	const sanitizedSVG = $derived(mediaInfo?.isInline ? sanitizeSVG(mediaInfo.src) : null);

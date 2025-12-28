@@ -29,7 +29,7 @@
 					<MetaItem label="Agency" value={content.agency} />
 				{/if}
 
-				{#if content.partners.length > 0}
+				{#if content.partners && content.partners.length > 0}
 					<MetaItem
 						label={`Partner${content.partners.length > 1 ? 's' : ''}`}
 						values={content.partners}
@@ -70,7 +70,7 @@
 			<p>{content.description}</p>
 		</div>
 
-		{#if content.media.length > 0}
+		{#if content.media && content.media.length > 0}
 			<div class="media-container">
 				{#each content.media.slice(1) as media}
 					<figure class="media">
