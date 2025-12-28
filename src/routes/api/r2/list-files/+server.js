@@ -21,6 +21,7 @@ export async function GET({ url }) {
   try {
     const prefix = url.searchParams.get('prefix') || '';
     const maxKeys = parseInt(url.searchParams.get('maxKeys') || '100', 10);
+    const continuationToken = url.searchParams.get('continuationToken') || undefined;
 
     // Configure S3 client for R2
     const s3Client = new S3Client({
@@ -36,6 +37,7 @@ export async function GET({ url }) {
       Bucket: R2_BUCKET_NAME,
       Prefix: prefix,
       MaxKeys: maxKeys,
+      ContinuationToken: continuationToken,
     });
 
     const response = await s3Client.send(command);
@@ -53,6 +55,7 @@ export async function GET({ url }) {
       files,
       total: files.length,
       isTruncated: response.IsTruncated || false,
+      nextContinuationToken: response.NextContinuationToken || null,
     });
   } catch (error) {
     console.error('Error listing R2 files:', error);

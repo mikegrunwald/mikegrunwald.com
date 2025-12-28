@@ -1,6 +1,6 @@
 # Cloudflare R2 Setup Guide
 
-This guide will help you set up Cloudflare R2 to automatically host large video files that exceed Cloudflare Pages' 25MB file limit.
+<!-- This guide will help you set up Cloudflare R2 to automatically host large video files that exceed Cloudflare Pages' 25MB file limit.
 
 ## What This Does
 
@@ -49,6 +49,7 @@ Option B: **R2.dev Domain**
 ### 4. Configure Environment Variables
 
 #### Local Development
+
 Create a `.env` file in the project root:
 
 ```bash
@@ -66,13 +67,18 @@ PUBLIC_R2_URL=https://assets.mikegrunwald.com
 ```
 
 #### Production (Cloudflare Pages)
+
 1. Go to your Cloudflare Pages project
 2. Navigate to **Settings** → **Environment variables**
 3. Add the following variables for **Production**:
    - `R2_ACCOUNT_ID`
+
    - `R2_ACCESS_KEY_ID`
+
    - `R2_SECRET_ACCESS_KEY`
+
    - `R2_BUCKET_NAME`
+
    - `PUBLIC_R2_URL`
 
 ### 5. Install Dependencies
@@ -90,7 +96,7 @@ npm run build
 This will:
 1. Build your SvelteKit app
 2. Automatically upload files >25MB to R2
-3. Show you which files were uploaded
+3. Show you which files were uploaded -->
 
 ## How It Works
 
@@ -104,10 +110,10 @@ The `npm run build` command now:
 
 ### URL Resolution
 
-The `getAssetUrl()` helper in `src/lib/config.js`:
-- **Development**: Returns local paths (e.g., `/video/file.mp4`)
-- **Production with R2**: Returns R2 URLs (e.g., `https://assets.mikegrunwald.com/video/file.mp4`)
-- **Production without R2**: Falls back to local paths
+The `getAssetUrl()` helper in `src/lib/config.js` :
+* **Development**: Returns local paths (e.g.,  `/video/file.mp4`)
+* **Production with R2**: Returns R2 URLs (e.g., `https://assets.mikegrunwald.com/video/file.mp4`)
+* **Production without R2**: Falls back to local paths
 
 ### Usage in Components
 
@@ -139,34 +145,40 @@ To use R2 URLs on other pages with videos, update them like this:
 For local development, you can:
 
 **Option 1**: Don't set `PUBLIC_R2_URL` in your `.env`
-- Assets will be served locally from `static/`
+
+* Assets will be served locally from `static/`
 
 **Option 2**: Use `npm run build:local`
-- Builds without uploading to R2
-- Useful for testing the build locally
+
+* Builds without uploading to R2
+* Useful for testing the build locally
 
 ## Troubleshooting
 
 ### Files still 404ing?
-- Check that environment variables are set in Cloudflare Pages
-- Verify R2 bucket is publicly accessible
-- Check browser network tab for the actual URL being requested
+
+* Check that environment variables are set in Cloudflare Pages
+* Verify R2 bucket is publicly accessible
+* Check browser network tab for the actual URL being requested
 
 ### Upload script failing?
-- Verify your R2 credentials are correct
-- Check that the bucket exists
-- Ensure you have write permissions
+
+* Verify your R2 credentials are correct
+* Check that the bucket exists
+* Ensure you have write permissions
 
 ### Want to skip R2 upload?
+
 ```bash
 npm run build:local
 ```
 
 ## File Size Threshold
 
-Currently set to 25MB in `scripts/upload-to-r2.js`. Files larger than this are uploaded to R2, smaller files remain on Cloudflare Pages for better performance.
+Currently set to 25MB in `scripts/upload-to-r2.js` . Files larger than this are uploaded to R2, smaller files remain on Cloudflare Pages for better performance.
 
-To change this, edit the `SIZE_THRESHOLD` in `scripts/upload-to-r2.js`:
+To change this, edit the `SIZE_THRESHOLD` in `scripts/upload-to-r2.js` :
+
 ```javascript
 const SIZE_THRESHOLD = 25 * 1024 * 1024; // 25MB in bytes
 ```

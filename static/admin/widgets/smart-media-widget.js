@@ -1,12 +1,12 @@
 // Smart Media Widget for Decap CMS
-// All media uploads go to Cloudflare R2
-// - Videos → R2 (video/ folder)
-// - Images → R2 (images/ folder)
-// Benefits: No Git bloat, fast uploads, browse/reuse existing media
+// Smart routing based on file type and size:
+// - Videos (all sizes) → R2 (video/ folder)
+// - Large images (>25MB) → R2 (images/ folder)
+// - Small images (<25MB) → Git (static/uploads/) with R2 fallback
 
 import { isImagePath, isVideoPath } from '/src/lib/utils/media-utils.js';
 
-const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024; // 25MB in bytes (not used, but kept for future)
+const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024; // 25MB threshold for routing decision
 
 const SmartMediaControl = window.createClass({
   getInitialState() {
@@ -21,6 +21,13 @@ const SmartMediaControl = window.createClass({
       activeTab: 'upload',
       searchQuery: '',
       fileType: null, // 'video', 'large-image', 'small-image'
+      // Pagination state
+      hasMore: false,
+      nextContinuationToken: null,
+      loadingMore: false,
+      // Filter state
+      selectedFileType: 'all', // 'all', 'images', 'videos'
+      dateFilter: 'all', // 'all', '7days', '30days', '90days'
     };
   },
 
@@ -40,38 +47,49 @@ const SmartMediaControl = window.createClass({
         this.setState({
           existingFiles: data.files,
           loadingFiles: false,
+          hasMore: data.isTruncated || false,
+          nextContinuationToken: data.nextContinuationToken,
         });
       } else {
-        this.loadFromManifest();
+        this.setState({
+          loadingFiles: false,
+          existingFiles: [],
+          error: 'Failed to load R2 files',
+        });
       }
     } catch (error) {
-      console.warn('Failed to load R2 files from API, falling back to manifest:', error);
-      this.loadFromManifest();
+      console.error('Failed to load R2 files from API:', error);
+      this.setState({
+        loadingFiles: false,
+        existingFiles: [],
+        error: 'Failed to load R2 files',
+      });
     }
   },
 
-  loadFromManifest() {
+  async loadMoreFiles() {
+    const { nextContinuationToken } = this.state;
+    if (!nextContinuationToken) return;
+
+    this.setState({ loadingMore: true, error: null });
+
     try {
-      import('/src/lib/r2-manifest.js').then(module => {
-        const files = (module.R2_FILES || []).map(path => {
-          const publicUrl = `https://assets.mikegrunwald.com${path}`;
-          return {
-            key: path.substring(1),
-            url: publicUrl,
-            isImage: isImagePath(path),
-            isVideo: isVideoPath(path),
-            size: 0,
-          };
-        });
-        this.setState({
-          existingFiles: files,
-          loadingFiles: false,
-        });
-      }).catch(() => {
-        this.setState({ loadingFiles: false, existingFiles: [] });
-      });
+      const url = `/api/r2/list-files?maxKeys=200&continuationToken=${encodeURIComponent(nextContinuationToken)}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (response.ok && data.files) {
+        this.setState(prevState => ({
+          existingFiles: [...prevState.existingFiles, ...data.files],
+          hasMore: data.isTruncated,
+          nextContinuationToken: data.nextContinuationToken,
+          loadingMore: false,
+        }));
+      } else {
+        this.setState({ loadingMore: false, error: 'Failed to load more files' });
+      }
     } catch (error) {
-      this.setState({ loadingFiles: false, existingFiles: [] });
+      this.setState({ loadingMore: false, error: error.message });
     }
   },
 
@@ -258,12 +276,49 @@ const SmartMediaControl = window.createClass({
     this.setState({ searchQuery: e.target.value.toLowerCase() });
   },
 
+  handleFileTypeChange(type) {
+    this.setState({ selectedFileType: type });
+  },
+
+  handleDateFilterChange(filter) {
+    this.setState({ dateFilter: filter });
+  },
+
+  handleClearFilters() {
+    this.setState({
+      searchQuery: '',
+      selectedFileType: 'all',
+      dateFilter: 'all',
+    });
+  },
+
   getFilteredFiles() {
-    const { existingFiles, searchQuery } = this.state;
-    if (!searchQuery) return existingFiles;
-    return existingFiles.filter(file =>
-      file.key.toLowerCase().includes(searchQuery)
-    );
+    const { existingFiles, searchQuery, selectedFileType, dateFilter } = this.state;
+    let filtered = existingFiles;
+
+    // Filter by file type
+    if (selectedFileType === 'images') {
+      filtered = filtered.filter(file => file.isImage);
+    } else if (selectedFileType === 'videos') {
+      filtered = filtered.filter(file => file.isVideo);
+    }
+
+    // Filter by date range
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const days = dateFilter === '7days' ? 7 : dateFilter === '30days' ? 30 : 90;
+      const cutoffDate = new Date(now - days * 24 * 60 * 60 * 1000);
+      filtered = filtered.filter(file => new Date(file.lastModified) >= cutoffDate);
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(file =>
+        file.key.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    return filtered;
   },
 
   renderUploadTab() {
@@ -371,6 +426,62 @@ const SmartMediaControl = window.createClass({
         'Browse R2 files (videos and large images)'
       ),
 
+      // File type filter
+      window.h(
+        'div',
+        { style: { marginBottom: '12px' } },
+        window.h('div', { style: { fontSize: '12px', fontWeight: '500', color: '#798291', marginBottom: '6px' } }, 'File Type'),
+        window.h(
+          'div',
+          { style: { display: 'flex', gap: '8px' } },
+          ['all', 'images', 'videos'].map(type =>
+            window.h(
+              'button',
+              {
+                key: type,
+                onClick: () => this.handleFileTypeChange(type),
+                style: {
+                  padding: '6px 12px',
+                  border: '1px solid #dfdfe3',
+                  borderRadius: '4px',
+                  background: this.state.selectedFileType === type ? '#3b82f6' : '#fff',
+                  color: this.state.selectedFileType === type ? '#fff' : '#798291',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textTransform: 'capitalize',
+                },
+              },
+              type === 'all' ? 'All Files' : type
+            )
+          )
+        )
+      ),
+
+      // Date range filter
+      window.h(
+        'div',
+        { style: { marginBottom: '12px' } },
+        window.h('div', { style: { fontSize: '12px', fontWeight: '500', color: '#798291', marginBottom: '6px' } }, 'Date Range'),
+        window.h(
+          'select',
+          {
+            value: this.state.dateFilter,
+            onChange: (e) => this.handleDateFilterChange(e.target.value),
+            style: {
+              width: '100%',
+              padding: '6px 12px',
+              border: '1px solid #dfdfe3',
+              borderRadius: '4px',
+              fontSize: '13px',
+            },
+          },
+          window.h('option', { value: 'all' }, 'All Time'),
+          window.h('option', { value: '7days' }, 'Last 7 Days'),
+          window.h('option', { value: '30days' }, 'Last 30 Days'),
+          window.h('option', { value: '90days' }, 'Last 90 Days')
+        )
+      ),
+
       // Search
       window.h(
         'div',
@@ -390,11 +501,48 @@ const SmartMediaControl = window.createClass({
         })
       ),
 
+      // Active filters chips
+      (this.state.searchQuery || this.state.selectedFileType !== 'all' || this.state.dateFilter !== 'all') && window.h(
+        'div',
+        { style: { marginBottom: '12px', display: 'flex', gap: '6px', flexWrap: 'wrap', fontSize: '12px', alignItems: 'center' } },
+        window.h('span', { style: { color: '#798291' } }, 'Filters:'),
+        this.state.selectedFileType !== 'all' && window.h(
+          'span',
+          { style: { padding: '4px 8px', background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '3px', color: '#1976d2' } },
+          `Type: ${this.state.selectedFileType}`
+        ),
+        this.state.dateFilter !== 'all' && window.h(
+          'span',
+          { style: { padding: '4px 8px', background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '3px', color: '#1976d2' } },
+          `Date: ${this.state.dateFilter.replace('days', ' days')}`
+        ),
+        this.state.searchQuery && window.h(
+          'span',
+          { style: { padding: '4px 8px', background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '3px', color: '#1976d2' } },
+          `Search: "${this.state.searchQuery}"`
+        ),
+        window.h(
+          'button',
+          {
+            onClick: () => this.handleClearFilters(),
+            style: { padding: '4px 8px', background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' },
+          },
+          'Clear all'
+        )
+      ),
+
       // Loading state
       loadingFiles && window.h(
         'div',
         { style: { textAlign: 'center', padding: '24px', color: '#798291' } },
         'Loading files...'
+      ),
+
+      // Results count
+      !loadingFiles && window.h(
+        'div',
+        { style: { fontSize: '13px', color: '#798291', marginBottom: '12px' } },
+        `Showing ${filteredFiles.length} of ${this.state.existingFiles.length} files${this.state.hasMore ? ' (more available)' : ''}`
       ),
 
       // File grid
@@ -473,6 +621,30 @@ const SmartMediaControl = window.createClass({
               file.key.split('/').pop()
             )
           )
+        )
+      ),
+
+      // Load More button
+      this.state.hasMore && !loadingFiles && filteredFiles.length > 0 && window.h(
+        'div',
+        { style: { marginTop: '16px', textAlign: 'center' } },
+        window.h(
+          'button',
+          {
+            onClick: () => this.loadMoreFiles(),
+            disabled: this.state.loadingMore,
+            style: {
+              padding: '10px 24px',
+              border: '1px solid #3b82f6',
+              borderRadius: '5px',
+              background: this.state.loadingMore ? '#e0e0e0' : '#fff',
+              color: this.state.loadingMore ? '#798291' : '#3b82f6',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: this.state.loadingMore ? 'not-allowed' : 'pointer',
+            },
+          },
+          this.state.loadingMore ? 'Loading...' : 'Load More Files'
         )
       ),
 
