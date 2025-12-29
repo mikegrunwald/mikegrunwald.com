@@ -17,11 +17,7 @@
 </script>
 
 <article class="project">
-	<ProjectHeader
-		title={content.title}
-		subtitle={content.subtitle}
-		{backgroundMedia}
-	/>
+	<ProjectHeader title={content.title} subtitle={content.subtitle} {backgroundMedia} />
 	<div class="content">
 		<div class="meta">
 			<dl>
@@ -80,7 +76,6 @@
 			</div>
 		{/if}
 	</div>
-	{@html data.project.html}
 </article>
 
 <style lang="scss">

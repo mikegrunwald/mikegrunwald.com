@@ -1,7 +1,7 @@
 <script>
 	import { getMediaInfo, sanitizeSVG } from '$lib/utils/media-utils';
 
-	let { media, alt = '' } = $props();
+	let { media, alt = '', className = '' } = $props();
 
 	// Extract string value from media (handle both string and object formats)
 	const mediaSrc = $derived(
@@ -15,19 +15,30 @@
 </script>
 
 {#if mediaInfo}
-	{#if mediaInfo.type === 'video'}
-		<video src={mediaInfo.src} autoplay muted loop playsinline></video>
-	{:else if mediaInfo.type === 'svg-inline'}
-		{@html sanitizedSVG}
-	{:else if mediaInfo.type === 'svg-path' || mediaInfo.type === 'image'}
-		<img src={mediaInfo.src} {alt} />
-	{/if}
+	<div class={className}>
+		{#if mediaInfo.type === 'video'}
+			<video src={mediaInfo.src} autoplay muted loop playsinline></video>
+		{:else if mediaInfo.type === 'svg-inline'}
+			{@html sanitizedSVG}
+		{:else if mediaInfo.type === 'svg-path' || mediaInfo.type === 'image'}
+			<img src={mediaInfo.src} {alt} />
+		{/if}
+	</div>
 {/if}
 
 <style>
-	:global(svg) {
-		max-width: 100%;
-		height: auto;
-		display: block;
+	div {
+		display: contents;
+	}
+
+	div :global(svg),
+	img {
+		height: var(--media-height, auto);
+		width: var(--media-width, auto);
+	}
+
+	video {
+		height: var(--media-height, auto);
+		width: var(--media-width, auto);
 	}
 </style>

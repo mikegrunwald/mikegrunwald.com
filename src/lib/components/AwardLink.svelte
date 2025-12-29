@@ -19,15 +19,13 @@
 	onclick={() => trackLink(award.link.label)}
 	target="_blank"
 	rel="noopener noreferrer"
-	data-cursor="magnetic"
 >
 	<article class="award">
 		<header class="sr-only">
 			<h3 class="label">{award.link.label}</h3>
 		</header>
 		<figure class="logo">
-			<!-- <img src={award.logo} alt={award.link.label} /> -->
-			<MediaItem media={award.logo} alt={award.link.label} />
+			<MediaItem class="logo-container" media={award.logo} alt={award.link.label} />
 		</figure>
 		<p class="award-type">{award.awardType}</p>
 		<p class="date">{formatDate(award.date)}</p>
@@ -36,34 +34,39 @@
 
 <style lang="scss">
 	a {
-		text-decoration: none;
 		display: inline-block;
+		text-decoration: none;
 		pointer-events: auto;
+
+		&:hover {
+			.logo {
+				color: var(--color-primary-light);
+			}
+		}
 	}
 
 	.award {
 		display: flex;
-		flex-direction: column;
-		// align-items: center;
+		align-items: center;
 		gap: var(--spacing-xxs);
 	}
 
 	.logo {
+		color: var(--color-white);
+		display: block;
+		filter: drop-shadow(0px 0px 14px color-mix(in srgb, currentColor 67%, transparent));
 		margin: 0;
-		height: 60px;
-
-		img {
-			height: 100%;
-			width: auto;
-			display: block;
-		}
+		--media-height: 40px;
+		--media-width: auto;
 	}
 
 	.award-type,
 	.date {
 		margin: 0;
-		font-size: var(--font-size-body-xxs);
-		// text-align: center;
+		font-family: var(--font-family-mono);
+		font-size: 0.375em;
+		letter-spacing: 0.01em;
+		margin-bottom: 0;
 	}
 
 	.date {

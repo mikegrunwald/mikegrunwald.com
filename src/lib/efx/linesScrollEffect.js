@@ -1,4 +1,3 @@
-// Import the TextSplitter class for handling text splitting.
 import { gsap } from 'gsap/dist/gsap';
 import { SplitText } from 'gsap/dist/SplitText';
 

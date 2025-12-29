@@ -39,7 +39,8 @@
 		}
 
 		&.awards {
-			gap: var(--spacing-xs);
+			gap: var(--spacing-sm);
+			margin-top: var(--spacing-xxs);
 		}
 	}
 
