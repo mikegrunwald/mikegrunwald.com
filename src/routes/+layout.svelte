@@ -10,8 +10,21 @@
 	import { SplitText } from 'gsap/dist/SplitText';
 	import { gsap } from 'gsap/dist/gsap';
 	import CursorDot from '$lib/components/CursorDot.svelte';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
+
+	// Handle navigation to ensure proper scroll behavior
+	beforeNavigate(() => {
+		// This ensures SvelteKit's navigation works properly
+	});
+
+	afterNavigate(() => {
+		// Reset scroll position on navigation
+		if (window.lenis) {
+			window.lenis.scrollTo(0, { immediate: true });
+		}
+	});
 
 	let { children } = $props();
 

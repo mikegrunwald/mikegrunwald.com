@@ -4,16 +4,19 @@
 	import MediaItem from '$lib/components/MediaItem.svelte';
 	import ProjectHeader from '$lib/components/ProjectHeader.svelte';
 	import MetaItem from '$lib/components/MetaItem.svelte';
+	import NextProjectLink from '$lib/components/NextProjectLink.svelte';
 
-	export let data;
+	let { data } = $props();
 	console.log('data: ', data);
-	const content = data.project.meta;
+
+	// Use $derived to make content reactive to data changes
+	const content = $derived(data.project.meta);
 
 	// get background media; return first available media based on file type - video || image. example in work/patreaon-com.md
-	const backgroundMedia = (() => {
+	const backgroundMedia = $derived.by(() => {
 		if (!content.media || !content.media[0]) return null;
 		return content.media[0];
-	})();
+	});
 </script>
 
 <article class="project">
@@ -75,6 +78,8 @@
 				{/each}
 			</div>
 		{/if}
+
+		<NextProjectLink nextProject={data.nextProject} />
 	</div>
 </article>
 
