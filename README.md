@@ -42,6 +42,12 @@ This project uses [Decap CMS](https://decapcms.org/) with a smart media upload s
 
 For detailed R2 setup instructions, see [static/admin/R2_MEDIA_SETUP.md](static/admin/R2_MEDIA_SETUP.md) -->
 
+<!-- ### Email (SMTP) Configuration
+
+* Service provided by [mailjet.com](https://www.mailjet.com/)
+* Forarded by [cloudflare.com](https://www.cloudflare.com/)
+* Aliased through Gmail -->
+
 ---
 
 # todos/notes:
