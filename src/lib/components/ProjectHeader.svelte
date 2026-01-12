@@ -50,7 +50,7 @@
 	.title {
 		position: absolute;
 		top: 0.051em;
-		right: 0;
+		right: 0.025em;
 		z-index: 3;
 	}
 

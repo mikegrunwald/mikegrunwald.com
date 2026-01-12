@@ -131,6 +131,9 @@
 	}
 
 	.media {
+		--media-width: 100%;
+		--media-height: auto;
+
 		border: var(--border);
 		border-radius: var(--border-radius);
 		box-shadow:
