@@ -32,13 +32,11 @@
 	}
 
 	div :global(svg),
-	img {
-		height: var(--media-height, auto);
-		width: var(--media-width, auto);
-	}
-
+	img,
 	video {
 		height: var(--media-height, auto);
 		width: var(--media-width, auto);
+		object-fit: var(--media-fit, cover);
+		object-position: var(--media-position, center);
 	}
 </style>

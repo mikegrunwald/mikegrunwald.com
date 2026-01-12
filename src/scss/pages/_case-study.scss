@@ -1,0 +1,18 @@
+.description {
+
+  h3 {
+    font-size: var(--font-size-h2);
+  }
+
+  h2,
+  h3,
+  h4,
+  h5 {
+    // color: var(--color-primary);
+    letter-spacing: normal;
+
+    &:not(:first-child) {
+      margin-top: var(--spacing-base);
+    }
+  }
+}

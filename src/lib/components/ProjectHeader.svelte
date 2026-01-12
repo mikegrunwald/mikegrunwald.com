@@ -24,21 +24,11 @@
 	.background-media {
 		position: relative;
 		z-index: -1;
-		&:before {
-			background-image:
-				url('/images/noise.webp'), url('/images/noise.webp'), url('/images/noise.webp'),
-				url('/images/noise.webp');
-			background-size: 200px 200px;
-			background-position: center center;
-			background-repeat: repeat;
-			content: '';
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			z-index: 1;
-		}
+		height: 100vh;
+		height: 100dvh;
+		--media-height: 100%;
+		--media-width: 100%;
+		overflow: hidden;
 
 		&:after {
 			background: linear-gradient(
@@ -55,30 +45,25 @@
 			height: 100%;
 			z-index: 2;
 		}
-
-		> :global(video),
-		> :global(img) {
-			min-width: 100dvw;
-			min-height: 100dvh;
-			width: auto;
-			height: auto;
-			object-fit: cover;
-		}
 	}
 
 	.title {
 		position: absolute;
-		top: 0;
+		top: 0.051em;
 		right: 0;
 		z-index: 3;
 	}
 
 	.subtitle {
 		position: absolute;
-		bottom: 0;
+		bottom: -0.047em;
 		z-index: 4;
-		line-height: 0.9;
 		margin-bottom: 0;
+	}
+
+	.title,
+	.subtitle {
+		--line-height-heading: 0.947;
 	}
 
 	@supports (-webkit-text-stroke: 3px black) {

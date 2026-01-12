@@ -4,7 +4,9 @@
 	import MediaItem from '$lib/components/MediaItem.svelte';
 	import ProjectHeader from '$lib/components/ProjectHeader.svelte';
 	import MetaItem from '$lib/components/MetaItem.svelte';
-	import NextProjectLink from '$lib/components/NextProjectLink.svelte';
+	import { tilt } from '$lib/actions/tilt';
+
+	const itemTiltOptions = { maxTilt: 8.2, perspective: 670, ease: 0.067 };
 
 	let { data } = $props();
 	console.log('data: ', data);
@@ -66,7 +68,7 @@
 		</div>
 
 		<div class="description">
-			<p>{content.description}</p>
+			{@html content.descriptionHtml || content.description}
 		</div>
 
 		{#if content.media && content.media.length > 0}
@@ -79,7 +81,26 @@
 			</div>
 		{/if}
 
-		<NextProjectLink nextProject={data.nextProject} />
+		{#if content.links && content.links.length > 0}
+			<section class="project-links">
+				<ul>
+					{#each content.links as link}
+						<li>
+							<a
+								use:tilt={itemTiltOptions}
+								data-cursor="magnetic"
+								class="button outline"
+								href={link.url}
+								target="_blank"
+								rel="noopener noreferrer">{link.label}</a
+							>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
+
+		<!-- <NextProjectLink nextProject={data.nextProject} /> -->
 	</div>
 </article>
 
@@ -117,5 +138,10 @@
 			inset 0 0 12px #33c5f3;
 		overflow: hidden;
 		margin-bottom: var(--spacing-sm);
+	}
+
+	.project-links {
+		text-align: center;
+		padding-block: var(--spacing-base);
 	}
 </style>

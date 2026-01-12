@@ -10,6 +10,11 @@ export function loadMarkdown(filePath: string) {
 
   const html = marked.parse(content);
 
+  // Parse description field if it exists and contains markdown
+  if (data.description && typeof data.description === 'string') {
+    data.descriptionHtml = marked.parse(data.description);
+  }
+
   return {
     html,
     meta: data
