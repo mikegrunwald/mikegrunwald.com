@@ -10,16 +10,16 @@ client: Hubspot
 role: Core Dreamwave Engineer
 year: 2021
 media:
-  + https://assets.mikegrunwald.com/video/inbound-22.mp4
-  + https://assets.mikegrunwald.com/video/inbound-22.mp4
-  + https://assets.mikegrunwald.com/video/1768264498210-GROW_Video_Session.mp4
-  + /uploads/oprah-time.png
-  + https://assets.mikegrunwald.com/video/1768264551789-GROW_Networking.mp4
-  + /uploads/landing-1.png
-  + /uploads/login-grow-2022.jpg
-  + /uploads/login-inbound-2022.jpg
+  - https://assets.mikegrunwald.com/video/inbound-22.mp4
+  - https://assets.mikegrunwald.com/video/inbound-22.mp4
+  - https://assets.mikegrunwald.com/video/1768264498210-GROW_Video_Session.mp4
+  - /uploads/oprah-time.png
+  - https://assets.mikegrunwald.com/video/1768264551789-GROW_Networking.mp4
+  - /uploads/landing-1.png
+  - /uploads/login-grow-2022.jpg
+  - /uploads/login-inbound-2022.jpg
 description: >-
-  ### TL; DR
+  ### TL;DR
 
   I was a core member of the Dreamwave team for over two years, focused on frontend development and scaling the architecture of the virtual events platform. I led the development of a scalable, token-based white-labeling system and partnered closely with design to implement a workflow that kept design tokens in sync between Figma and production code. During my time on the team, I built a large set of reusable components and helped deliver six major conferences for HubSpot, including their flagship INBOUND event and multiple regional Grow conferences across EMEA and ANZ.
 
@@ -37,18 +37,18 @@ description: >-
 
   Using Dreamwave to host these conferences was like moving from a simple television broadcast to building a fully interactive theme park; instead of just watching a screen, attendees could explore different lands, interact with each other, and access any attraction at their own pace.
 techList:
-  + Hydra.js
-  + Dreamwave
-  + Lottie
-  + Goober
-  + Firebase
-  + Firestore
-  + Airtable
-  + Storybook
-  + Jest
-  + Lerna
+  - Hydra.js
+  - Dreamwave
+  - Lottie
+  - Goober
+  - Firebase
+  - Firestore
+  - Airtable
+  - Storybook
+  - Jest
+  - Lerna
 awards:
-  + link:
+  - link:
       label: FWA
       url: http://localhost:5173/admin/index.html#/collections/work/new
     logo: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 512
