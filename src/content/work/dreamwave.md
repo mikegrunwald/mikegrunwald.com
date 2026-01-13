@@ -11,8 +11,13 @@ role: Frontend Developer
 year: 2018
 media:
   - https://assets.mikegrunwald.com/video/inbound-22.mp4
-  - https://assets.mikegrunwald.com/images/projects/hubspot/GROW Video
-    Session.gif
+  - https://assets.mikegrunwald.com/video/inbound-22.mp4
+  - https://assets.mikegrunwald.com/video/1768264498210-GROW_Video_Session.mp4
+  - /uploads/oprah-time.png
+  - https://assets.mikegrunwald.com/video/1768264551789-GROW_Networking.mp4
+  - /uploads/landing-1.png
+  - /uploads/login-grow-2022.jpg
+  - /uploads/login-inbound-2022.jpg
 description: >-
   ### TL;DR
 

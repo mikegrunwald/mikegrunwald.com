@@ -112,6 +112,10 @@
 
 	.content {
 		padding: var(--spacing-base);
+
+		@media (max-width: 1023px) {
+			padding: var(--spacing-sm);
+		}
 	}
 
 	.meta {
