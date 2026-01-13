@@ -19,7 +19,7 @@ description: >-
   ### **TL;DR**
 
 
-  I led the **frontend user experience** for Active Theory’s internal AI hub, a custom tool designed to streamline studio-wide operations. Working closely with backend developers, I translated complex model integrations into a **polished, intuitive web interface** that mimics the familiarity of ChatGPT while surfacing deep agency intelligence. My focus was on shaping the entire user experience—from high-level layout to micro-interactions—to ensure that powerful AI functionality felt accessible and highly performant for every team member.
+  I led the **frontend user experience** for Active Theory’s internal AI hub, a custom tool designed to streamline studio-wide operations. Working closely with backend developers, I translated complex model integrations into a **polished, intuitive web interface** that mimics the familiarity of ChatGPT while surfacing deep agency intelligence. My focus was on shaping the entire user experience from high-level layout to micro-interactions to ensure that powerful AI functionality felt accessible and highly performant for every team member.
 
 
   ### **Impact**
