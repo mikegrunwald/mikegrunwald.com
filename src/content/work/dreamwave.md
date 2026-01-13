@@ -7,19 +7,19 @@ title: Dreamwave
 subtitle: Powering HubSpot’s Global Stage
 agency: Active Theory
 client: Hubspot
-role: Frontend Developer
+role: Core Dreamwave Engineer
 year: 2021
 media:
-  - https://assets.mikegrunwald.com/video/inbound-22.mp4
-  - https://assets.mikegrunwald.com/video/inbound-22.mp4
-  - https://assets.mikegrunwald.com/video/1768264498210-GROW_Video_Session.mp4
-  - /uploads/oprah-time.png
-  - https://assets.mikegrunwald.com/video/1768264551789-GROW_Networking.mp4
-  - /uploads/landing-1.png
-  - /uploads/login-grow-2022.jpg
-  - /uploads/login-inbound-2022.jpg
+  + https://assets.mikegrunwald.com/video/inbound-22.mp4
+  + https://assets.mikegrunwald.com/video/inbound-22.mp4
+  + https://assets.mikegrunwald.com/video/1768264498210-GROW_Video_Session.mp4
+  + /uploads/oprah-time.png
+  + https://assets.mikegrunwald.com/video/1768264551789-GROW_Networking.mp4
+  + /uploads/landing-1.png
+  + /uploads/login-grow-2022.jpg
+  + /uploads/login-inbound-2022.jpg
 description: >-
-  ### TL;DR
+  ### TL; DR
 
   I was a core member of the Dreamwave team for over two years, focused on frontend development and scaling the architecture of the virtual events platform. I led the development of a scalable, token-based white-labeling system and partnered closely with design to implement a workflow that kept design tokens in sync between Figma and production code. During my time on the team, I built a large set of reusable components and helped deliver six major conferences for HubSpot, including their flagship INBOUND event and multiple regional Grow conferences across EMEA and ANZ.
 
@@ -27,28 +27,28 @@ description: >-
 
   I accelerated development velocity and improved UI consistency across conference implementations by leading targeted frontend refactors. I introduced a Style Dictionary–driven design token system using CSS custom properties, reducing rebranding work from hours to minutes.
 
-  I also consolidated fragmented frontend logic into a unified, composable architecture that supported multiple data types without sacrificing performance. These architectural improvements enabled the platform to scale reliably, powering global digital events with more than 75,000 attendees.
+  I also consolidated fragmented frontend logic into a unified, composable architecture that supported multiple data types without sacrificing performance. These architectural improvements enabled the platform to scale reliably, powering global digital events with more than 75, 000 attendees.
 
   ### Description
 
-  Dreamwave was engineered to solve the "disconnection" of early virtual events by replacing basic video players with a "fully branded web application" designed to feel intentional and cohesive. For HubSpot, this platform functioned as a "virtual campus," scaling the flagship INBOUND experience from a local 11,000-person event to a global digital ecosystem hosting more than 75,000 attendees. The product allowed users to move seamlessly between live sessions, metaverse-style networking rooms, and interactive sponsor environments.
+  Dreamwave was engineered to solve the "disconnection" of early virtual events by replacing basic video players with a "fully branded web application" designed to feel intentional and cohesive. For HubSpot, this platform functioned as a "virtual campus, " scaling the flagship INBOUND experience from a local 11, 000-person event to a global digital ecosystem hosting more than 75, 000 attendees. The product allowed users to move seamlessly between live sessions, metaverse-style networking rooms, and interactive sponsor environments.
 
-  Specifically for HubSpot's content-heavy conferences, we utilized an On-Demand session architecture where recordings were automatically uploaded to the cloud and surfaced in the UI via Airtable metadata for near-instant replays. I spearheaded the development of the platform's most dynamic 2D interactions, building a draggable grid component that served as the primary model for attendee networking and digital "Gift Bags". To ensure the system remained "customizable without complexity," I refactored the navigation logic to handle thousands of entries without lag, making the search experience feel "extremely fast". This unified digital ecosystem ultimately empowered HubSpot to deliver a "consumer-grade" learning and buying experience across its flagship and regional Grow conferences.
+  Specifically for HubSpot's content-heavy conferences, we utilized an On-Demand session architecture where recordings were automatically uploaded to the cloud and surfaced in the UI via Airtable metadata for near-instant replays. I spearheaded the development of the platform's most dynamic 2D interactions, building a draggable grid component that served as the primary model for attendee networking and digital "Gift Bags". To ensure the system remained "customizable without complexity, " I refactored the navigation logic to handle thousands of entries without lag, making the search experience feel "extremely fast". This unified digital ecosystem ultimately empowered HubSpot to deliver a "consumer-grade" learning and buying experience across its flagship and regional Grow conferences.
 
   Using Dreamwave to host these conferences was like moving from a simple television broadcast to building a fully interactive theme park; instead of just watching a screen, attendees could explore different lands, interact with each other, and access any attraction at their own pace.
 techList:
-  - Hydra.js
-  - Dreamwave
-  - Lottie
-  - Goober
-  - Firebase
-  - Firestore
-  - Airtable
-  - Storybook
-  - Jest
-  - Lerna
+  + Hydra.js
+  + Dreamwave
+  + Lottie
+  + Goober
+  + Firebase
+  + Firestore
+  + Airtable
+  + Storybook
+  + Jest
+  + Lerna
 awards:
-  - link:
+  + link:
       label: FWA
       url: http://localhost:5173/admin/index.html#/collections/work/new
     logo: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 512
@@ -91,4 +91,5 @@ awards:
       52" /></svg>
     awardType: FWA of the Day
     date: 2020-10-28T22:30:00.000-05:00
+
 ---
