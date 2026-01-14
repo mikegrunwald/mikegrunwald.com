@@ -1,3 +1,34 @@
+/**
+ * Upload Assets to Cloudflare R2
+ *
+ * This script uploads video and image assets to Cloudflare R2 storage.
+ * It's automatically run during the production build process.
+ *
+ * Purpose:
+ * - Uploads all files from static/video and static/images directories to R2
+ * - Ensures assets are available via CDN for production deployment
+ * - Bypasses Cloudflare Pages' 25MB file size limit by hosting large files on R2
+ *
+ * Usage:
+ * - Automatic: Runs via `npm run build` (after vite build)
+ * - Manual: Run `npm run upload-assets`
+ *
+ * Requirements:
+ * - R2_ACCOUNT_ID: Your Cloudflare account ID
+ * - R2_ACCESS_KEY_ID: R2 API token access key
+ * - R2_SECRET_ACCESS_KEY: R2 API token secret
+ * - R2_BUCKET_NAME: Name of your R2 bucket (default: mikegrunwald-assets)
+ * - PUBLIC_R2_URL: Public URL for accessing R2 files (e.g., https://assets.mikegrunwald.com)
+ *
+ * Environment Variables:
+ * Set these in .env for local builds or in Cloudflare Pages settings for production.
+ *
+ * Output:
+ * - Uploads files to R2 with proper MIME types
+ * - Logs upload progress and summary
+ * - Maintains directory structure from static/ folder
+ */
+
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';

@@ -81,13 +81,36 @@ PUBLIC_R2_URL=https://assets.mikegrunwald.com
 
    - `PUBLIC_R2_URL`
 
-### 5. Install Dependencies
+### 5. Configure CORS (Required for Decap CMS)
+
+If you're using Decap CMS to manage content and want to upload media files directly to R2, you need to configure CORS:
+
+```bash
+npm run configure-r2-cors
+```
+
+This script:
+- Sets up CORS rules to allow uploads from your domains and localhost
+- Enables the Decap CMS media library to work with R2
+- Only needs to be run once during initial setup
+
+**Note:** Your R2 API token must have "Edit" permissions for this to work.
+
+**When to run this:**
+- During initial R2 setup
+- If you get CORS errors when uploading files through Decap CMS
+- After creating a new R2 bucket
+- When adding new domains to your allowed origins
+
+To modify allowed origins, edit the `corsConfiguration` in `scripts/configure-r2-cors.js`.
+
+### 6. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 6. Build and Deploy
+### 7. Build and Deploy
 
 ```bash
 npm run build
@@ -182,3 +205,56 @@ To change this, edit the `SIZE_THRESHOLD` in `scripts/upload-to-r2.js` :
 ```javascript
 const SIZE_THRESHOLD = 25 * 1024 * 1024; // 25MB in bytes
 ```
+
+## Scripts Reference
+
+### `scripts/upload-to-r2.js`
+
+**Purpose:** Uploads video and image assets from `static/video` and `static/images` to Cloudflare R2.
+
+**When it runs:**
+- Automatically during `npm run build` (after Vite build)
+- Manually via `npm run upload-assets`
+
+**What it does:**
+- Recursively scans `static/video` and `static/images` directories
+- Uploads all files to R2 with appropriate MIME types
+- Maintains directory structure in R2
+- Logs upload progress and summary
+
+**Required environment variables:**
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET_NAME` (optional, defaults to mikegrunwald-assets)
+- `PUBLIC_R2_URL` (optional, defaults to https://assets.mikegrunwald.com)
+
+### `scripts/configure-r2-cors.js`
+
+**Purpose:** Configures Cross-Origin Resource Sharing (CORS) settings for your R2 bucket to allow Decap CMS uploads.
+
+**When to run:**
+- Once during initial R2 bucket setup
+- If you get CORS errors when uploading through Decap CMS
+- After creating a new R2 bucket
+- When modifying allowed origins
+
+**How to run:**
+```bash
+npm run configure-r2-cors
+```
+
+**What it does:**
+- Checks existing CORS configuration (if any)
+- Applies new CORS rules allowing uploads from configured domains
+- Configures allowed methods: GET, PUT, POST, DELETE, HEAD
+- Sets allowed origins for localhost and production domains
+
+**Required environment variables:**
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID` (must have "Edit" permissions)
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET_NAME` (optional, defaults to mikegrunwald-assets)
+
+**Modifying allowed origins:**
+Edit the `corsConfiguration.CORSRules[0].AllowedOrigins` array in the script to add or remove domains.
