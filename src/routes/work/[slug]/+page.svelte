@@ -83,7 +83,7 @@
 
 		{#if content.links && content.links.length > 0}
 			<section class="project-links">
-				<ul>
+				<ul class="link-list">
 					{#each content.links as link}
 						<li>
 							<a
@@ -114,7 +114,7 @@
 		padding: var(--spacing-base);
 
 		@media (max-width: 1023px) {
-			padding: var(--spacing-sm);
+			padding: var(--spacing-sm) var(--spacing-xs);
 		}
 	}
 
@@ -130,6 +130,7 @@
 	}
 
 	.description {
+		font-size: var(--font-size-h4);
 		margin-bottom: var(--spacing-base);
 		line-height: var(--line-height-text);
 	}
@@ -150,5 +151,24 @@
 	.project-links {
 		text-align: center;
 		padding-block: var(--spacing-base);
+	}
+
+	.link-list {
+		display: flex;
+		align-items: center;
+		justify-content: space-around;
+		gap: var(--spacing-xs);
+
+		@media (max-width: 1280px) {
+			flex-direction: column;
+			min-height: auto;
+			gap: var(--spacing-sm);
+			padding-top: var(--spacing-sm);
+		}
+
+		@media (max-width: 768px) {
+			justify-content: center;
+			padding: var(--spacing-sm);
+		}
 	}
 </style>

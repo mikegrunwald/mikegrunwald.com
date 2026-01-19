@@ -23,15 +23,12 @@ description: We redesigned Patreon.com with flexible, scalable Next.js pages,
   CMS-driven pages that required minimal tweaking. The result is a polished,
   consistent, and highly adaptable experience across the site.
 links:
-  - linkItem:
-      label: Visit Site
-      url: https://www.patreon.com/
-  - linkItem:
-      label: Little Black Book
-      url: https://lbbonline.com/work/153652
-  - linkItem:
-      label: Design Week
-      url: https://www.designweek.co.uk/issues/31-december-6-january-2023/patreon-redesign-buttermax/
+  - label: Little Black Book
+    url: https://lbbonline.com/work/153652
+  - label: Visit Site
+    url: https://www.patreon.com/
+  - label: Design Week
+    url: https://www.designweek.co.uk/issues/31-december-6-january-2023/patreon-redesign-buttermax/
 techList:
   - React
   - Next.js
