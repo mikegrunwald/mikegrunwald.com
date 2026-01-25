@@ -53,8 +53,8 @@ a[role="button"],
 
   &.small,
   &.sm {
-    font-size: var(--font-size-body-sm);
-    padding: calc(var(--spacing-sm) / 1.5) calc(var(--spacing-sm) / 1.5);
+    font-size: calc(var(--font-size-body-xs) * 1.2);
+    padding: var(--spacing-xs);
   }
 
   &.outline {
@@ -80,7 +80,7 @@ a[role="button"],
       color: var(--color-action-light);
       border-color: var(--color-action-light);
       box-shadow: 0 0 16px 0 #33c5f3,
-      inset 0 0 12px #33c5f3;
+        inset 0 0 12px #33c5f3;
 
       &:before {
         // transform: translateY(0);\
