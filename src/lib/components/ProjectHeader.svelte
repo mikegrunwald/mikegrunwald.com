@@ -52,6 +52,7 @@
 		top: 0.051em;
 		right: 0.025em;
 		z-index: 3;
+		text-align: right;
 	}
 
 	.subtitle {
