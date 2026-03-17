@@ -21,7 +21,8 @@
 * Accenture Meet Your Digital Maker
 * IBM TechXchange 2025
 * Google Next 2025 keynotes
-* Tripadvisor x San Diego
+* Tripadvisor x San Diego : https://buildyoursandiegotrip.com/
+* Tripadvisor x Williamsburg : http://thegreatamericanvirtualbirthdayquilt.com/
 
 ## Northern Ground
 
@@ -42,7 +43,7 @@
 * LJ Design & Mfg
 * Moderne
 * Muth
-* Nothern Ground (2, 3, 4)
+* Nothern Ground (v2, v3, v4)
 * Palermos Pizza
 * Screamin Sicilian
 * Urban Pie
@@ -65,3 +66,13 @@
 * Link Butter
 * (Chicago Camera Rentals)
 * 90 Second Poker
+
+### Project to talk about:
+
+* Dreamwave / Inbound
+* Delta x Air Basel
+* Operation Tripod
+* Branigan
+* GE Ursa | Avuri | Verisound Fleet Management
+* Greenprint
+* Workforce Navigators

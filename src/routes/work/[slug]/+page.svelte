@@ -1,10 +1,10 @@
 <script>
-	import Tag from '$lib/components/Tag.svelte';
+	import { tilt } from '$lib/actions/tilt';
 	import AwardLink from '$lib/components/AwardLink.svelte';
 	import MediaItem from '$lib/components/MediaItem.svelte';
-	import ProjectHeader from '$lib/components/ProjectHeader.svelte';
 	import MetaItem from '$lib/components/MetaItem.svelte';
-	import { tilt } from '$lib/actions/tilt';
+	import ProjectHeader from '$lib/components/ProjectHeader.svelte';
+	import Tag from '$lib/components/Tag.svelte';
 
 	const itemTiltOptions = { maxTilt: 8.2, perspective: 670, ease: 0.067 };
 
@@ -67,7 +67,7 @@
 			</dl>
 		</div>
 
-		<div class="description">
+		<div class="description bullets">
 			{@html content.descriptionHtml || content.description}
 		</div>
 
@@ -133,6 +133,7 @@
 		font-size: var(--font-size-h4);
 		margin-bottom: var(--spacing-base);
 		line-height: var(--line-height-text);
+		max-width: 64ch;
 	}
 
 	.media {

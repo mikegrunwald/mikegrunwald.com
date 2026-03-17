@@ -5,31 +5,20 @@ ol {
   padding: 0;
 }
 
-ul.bullets {
-  list-style-type: disc;
-  margin: revert;
-  padding: revert;
+.bullets {
+  list-style-type: revert;
+  // padding-inline-start: var(--spacing-sm);
 
-  ul {
-    list-style-type: circle;
-    margin: revert;
-    padding: revert;
-
-    ul {
-      list-style-type: square;
-    }
+  :where(li, ul, ol) {
+    list-style-type: revert;
   }
-}
 
-ol.bullets {
-  list-style-type: decimal;
-  margin-bottom: revert;
-  padding-left: revert;
+  :where(ul, ol) {
+    padding-inline-start: var(--spacing-xs);
+  }
 
-  ol {
-    list-style-type: decimal;
-    margin-bottom: revert;
-    padding-left: revert;
+  :where(li) {
+    margin-bottom: calc(var(--spacing-xs) / 2);
   }
 }
 
