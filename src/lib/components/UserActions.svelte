@@ -14,7 +14,7 @@
 					use:tilt={itemTiltOptions}
 					data-cursor="magnetic"
 					class="button outline"
-					href="/documents/Michael-Grunwald-Resume-2025.pdf"
+					href="/documents/Michael-Grunwald-Resume.pdf"
 					target="_blank"
 					rel="noopener noreferrer"
 					on:click={() => trackLink('Resume')}>Resume</a

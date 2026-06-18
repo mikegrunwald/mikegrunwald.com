@@ -1,5 +1,11 @@
  # Project Archives:
 
+ ## Use All Five
+
+* Google Cloud Next 26 Demos
+  + AI Science Explorer
+  + Agent Challenge
+
  note: add year and project link
 
 ## Active Theory
