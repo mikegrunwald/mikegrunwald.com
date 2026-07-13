@@ -95,6 +95,11 @@ export function runPass(device, encoder, pass, { target, uniforms, textureViews,
 	for (const view of textureViews ?? []) entries.push({ binding: binding++, resource: view });
 	for (const sampler of pass.samplers) entries.push({ binding: binding++, resource: sampler });
 
+	// WGSL bindings not statically reachable from the entry points are stripped
+	// by layout: 'auto', which makes createBindGroup throw an entry-count
+	// mismatch. Every declared texture/sampler in a pass's shader must be
+	// referenced in code (runtime-false branches are fine — reachability is
+	// static, not dynamic).
 	const bindGroup = device.createBindGroup({
 		layout: pass.pipeline.getBindGroupLayout(0),
 		entries

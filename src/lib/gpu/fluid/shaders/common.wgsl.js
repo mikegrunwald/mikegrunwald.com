@@ -3,6 +3,21 @@
 // uv = pos * vec2(0.5, -0.5) + 0.5, so a texture written by one pass and
 // sampled by the next round-trips identity in WebGPU's top-left texel space.
 // Every pass binds a uniform struct whose FIRST field is texelSize: vec2f.
+//
+// vT/vB SIGN CONVENTION — intentional, not a bug:
+// vT/vB deliberately KEEP the original WebGL offset signs
+// (vT = uv + texelSize.y, vB = uv - texelSize.y). Under the flipped
+// (top-left-origin) uv above, "vT" therefore numerically points
+// DOWN-screen, not up. This looks backwards at a glance but is
+// load-bearing: every fluid fragment shader is a verbatim port of the
+// WebGL originals and assumes these exact signs — including the
+// divergence shader's boundary checks (vT.y > 1.0 / vB.y < 0.0), which
+// would silently break if the signs were "corrected" in isolation.
+// The end-to-end simulation is mirror-equivariant, so with unflipped
+// pointer input and direct top-left display sampling this yields exact
+// screen parity with the WebGL original.
+// DO NOT swap these signs without conjugating every y-comparison in
+// every fragment shader that consumes vT/vB.
 export const VERTEX_WGSL = /* wgsl */ `
 struct VSOut {
   @builtin(position) position: vec4f,

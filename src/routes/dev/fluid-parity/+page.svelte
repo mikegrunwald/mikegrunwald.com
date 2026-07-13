@@ -19,7 +19,7 @@
 <div class="parity">
 	<div class="pane">
 		<h2>New (WebGPU)</h2>
-		<canvas bind:this={newCanvas} class="sim"></canvas>
+		<div class="sim sim-wrap"><canvas bind:this={newCanvas}></canvas></div>
 	</div>
 	<div class="pane">
 		<h2>Old (WebGL)</h2>
@@ -47,6 +47,14 @@
 		aspect-ratio: 16 / 10;
 		display: block;
 		background: #111;
+	}
+	.sim-wrap {
+		position: relative;
+	}
+	.sim-wrap :global(canvas) {
+		display: block;
+		width: 100%;
+		height: 100%;
 	}
 	.status {
 		grid-column: 1 / -1;
