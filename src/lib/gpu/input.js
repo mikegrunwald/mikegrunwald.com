@@ -32,6 +32,7 @@ function scaleByPixelRatio(input) {
 export function createPointerInput({ getSize }) {
 	const pointers = [makePointer()];
 	const listeners = [];
+	let mousemoveTimer = null;
 
 	function updateDown(pointer, id, posX, posY) {
 		const { width, height } = getSize();
@@ -71,7 +72,7 @@ export function createPointerInput({ getSize }) {
 		});
 
 		// Original delays mousemove attachment 500ms (WebGLFluid.js:1472-1478)
-		setTimeout(() => {
+		mousemoveTimer = setTimeout(() => {
 			on(document, 'mousemove', (e) => {
 				updateMove(pointers[0], scaleByPixelRatio(e.clientX), scaleByPixelRatio(e.clientY));
 			});
@@ -115,6 +116,8 @@ export function createPointerInput({ getSize }) {
 	}
 
 	function stop() {
+		clearTimeout(mousemoveTimer);
+		mousemoveTimer = null;
 		for (const [target, type, fn] of listeners) target.removeEventListener(type, fn);
 		listeners.length = 0;
 	}
