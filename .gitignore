@@ -24,4 +24,4 @@ vite.config.ts.timestamp-*
 
 # big files
 *.mov
-*.mp4
+*.mp4.superpowers/
