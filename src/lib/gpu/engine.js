@@ -31,15 +31,17 @@
 //      `updateScrollValues` via our own `setScroll()`. [ADAPTED from the brief, which left this
 //      option unset.]
 //
-// 2. Awaiting GPU init — `await curtains.setDevice()` (GPUCurtains.d.ts:116) is correct as
-//    written in the brief. GPUDeviceManager.setAdapter (GPUDeviceManager.mjs:71-84) calls the
-//    module-level `throwError()` helper (utils.mjs:44-46, `throw new Error(error)`) when
-//    `navigator.gpu` is missing or `requestAdapter()` resolves null; because this happens inside
-//    an async function, the throw becomes a rejected Promise that propagates up through
-//    `setAdapterAndDevice` → `GPUDeviceManager.init` → `GPUCurtains.setDevice`, so our
-//    `try { await curtains.setDevice() } catch { ... }` in the brief correctly catches adapter
-//    failures. `curtains.onError(cb)` (GPUCurtains.d.ts:207) also fires on the same failure but
-//    is not needed alongside the try/catch, so we don't register it.
+// 2. Awaiting GPU init — `await curtains.setDevice()` (GPUCurtains.d.ts:116) initializes the GPU.
+//    IMPORTANT: gpu-curtains' GPUDeviceManager does NOT reject setDevice() on adapter/device
+//    failures. Failures are caught internally (GPUDeviceManager.mjs) and routed to onError()
+//    callbacks WITHOUT rethrowing. Thus `await curtains.setDevice()` always resolves normally,
+//    even when adapter or device initialization fails. The try/catch at lines 102-107 is purely
+//    defensive (for unexpected async errors) but does NOT catch device failures. The actual
+//    failure guard is the `if (!device)` check at line 110: it verifies that
+//    curtains.deviceManager.device (GPUDevice | undefined, GPUDeviceManager.d.ts:62) resolved to
+//    a valid device. On failure, device is undefined, so we destroy and return null. This check is
+//    load-bearing and MUST NOT be removed. `curtains.onError(cb)` (GPUCurtains.d.ts:207) can be
+//    registered for logging but is not required for correctness.
 //
 // 3. Device/queue getters — `curtains.deviceManager.device` (GPUDeviceManager.d.ts:62,
 //    `device: GPUDevice | undefined`) is correct. There is no `deviceManager.queue` in the
@@ -99,6 +101,7 @@ export async function createEngine({ canvas }) {
 		watchScroll: false // Lenis drives scroll; see resolution notes above.
 	});
 
+	// Defensive try/catch; does not actually catch device failures (see section #2 above).
 	try {
 		await curtains.setDevice();
 	} catch {
@@ -107,6 +110,8 @@ export async function createEngine({ canvas }) {
 	}
 
 	const device = curtains.deviceManager.device;
+	// LOAD-BEARING: this check is the actual guard against device initialization failure.
+	// setDevice() always resolves (never rejects), so we must verify the device was actually set.
 	if (!device) {
 		curtains.destroy();
 		return null;
