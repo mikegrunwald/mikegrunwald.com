@@ -11,6 +11,14 @@ import {
 	ADVECTION_FRAG,
 	COPY_FRAG
 } from './shaders/sim.wgsl.js';
+import {
+	BLOOM_PREFILTER_FRAG,
+	BLOOM_BLUR_FRAG,
+	BLOOM_FINAL_FRAG,
+	SUNRAYS_MASK_FRAG,
+	SUNRAYS_FRAG,
+	BLUR_FRAG
+} from './shaders/post.wgsl.js';
 
 export class FluidSimulation {
 	constructor({ device, queue, getCanvasSize, config = { ...FLUID_CONFIG }, rng = Math.random }) {
@@ -92,6 +100,59 @@ export class FluidSimulation {
 				uniformSize: 16,
 				samplerTypes: ['linear'],
 				targetFormat: 'rgba16float'
+			}),
+			bloomPrefilter: createPass(device, {
+				label: 'bloom-prefilter',
+				fragment: BLOOM_PREFILTER_FRAG,
+				uniformSize: 48,
+				samplerTypes: ['linear'],
+				targetFormat: 'rgba16float'
+			}),
+			bloomBlur: createPass(device, {
+				label: 'bloom-blur',
+				fragment: BLOOM_BLUR_FRAG,
+				uniformSize: 16,
+				samplerTypes: ['linear'],
+				targetFormat: 'rgba16float'
+			}),
+			bloomBlurAdditive: createPass(device, {
+				label: 'bloom-blur-additive',
+				fragment: BLOOM_BLUR_FRAG,
+				uniformSize: 16,
+				samplerTypes: ['linear'],
+				targetFormat: 'rgba16float',
+				blend: {
+					color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' },
+					alpha: { srcFactor: 'one', dstFactor: 'one', operation: 'add' }
+				}
+			}),
+			bloomFinal: createPass(device, {
+				label: 'bloom-final',
+				fragment: BLOOM_FINAL_FRAG,
+				uniformSize: 16,
+				samplerTypes: ['linear'],
+				targetFormat: 'rgba16float'
+			}),
+			sunraysMask: createPass(device, {
+				label: 'sunrays-mask',
+				fragment: SUNRAYS_MASK_FRAG,
+				uniformSize: 16,
+				samplerTypes: ['linear'],
+				targetFormat: 'rgba16float'
+			}),
+			sunrays: createPass(device, {
+				label: 'sunrays',
+				fragment: SUNRAYS_FRAG,
+				uniformSize: 16,
+				samplerTypes: ['linear'],
+				targetFormat: 'r16float'
+			}),
+			blur: createPass(device, {
+				label: 'blur',
+				fragment: BLUR_FRAG,
+				uniformSize: 16,
+				samplerTypes: ['linear'],
+				targetFormat: 'r16float'
 			})
 		};
 
@@ -135,10 +196,49 @@ export class FluidSimulation {
 			'r16float',
 			'pressure'
 		);
+
+		this.bloom?.destroy();
+		this.bloomLevels?.forEach((t) => t.destroy());
+		this.sunrays?.destroy();
+		this.sunraysTemp?.destroy();
+
+		const bloomRes = getResolution(this.config.BLOOM_RESOLUTION, width, height);
+		this.bloom = createTarget(this.device, bloomRes.width, bloomRes.height, 'rgba16float', 'bloom');
+		this.bloomLevels = [];
+		for (let i = 0; i < this.config.BLOOM_ITERATIONS; i++) {
+			const w = bloomRes.width >> (i + 1);
+			const h = bloomRes.height >> (i + 1);
+			if (w < 2 || h < 2) break;
+			this.bloomLevels.push(createTarget(this.device, w, h, 'rgba16float', `bloom-${i}`));
+		}
+
+		const sunraysRes = getResolution(this.config.SUNRAYS_RESOLUTION, width, height);
+		this.sunrays = createTarget(
+			this.device,
+			sunraysRes.width,
+			sunraysRes.height,
+			'r16float',
+			'sunrays'
+		);
+		this.sunraysTemp = createTarget(
+			this.device,
+			sunraysRes.width,
+			sunraysRes.height,
+			'r16float',
+			'sunrays-temp'
+		);
 	}
 
 	get dyeTexture() {
 		return this.dye.read;
+	}
+
+	get bloomTexture() {
+		return this.bloom;
+	}
+
+	get sunraysTexture() {
+		return this.sunrays;
 	}
 
 	generateColor() {
@@ -342,11 +442,135 @@ export class FluidSimulation {
 		this.dye.swap();
 	}
 
+	// Port of applyBloom (WebGLFluid.js:1333-1380).
+	applyBloom(encoder) {
+		if (this.bloomLevels.length < 2) return;
+		let last = this.bloom;
+
+		const knee = this.config.BLOOM_THRESHOLD * this.config.BLOOM_SOFT_KNEE + 0.0001;
+		const uPre = new ArrayBuffer(48);
+		{
+			const f = new Float32Array(uPre);
+			f[0] = last.texelSizeX; // texelSize (vertex neighbors unused here but bound)
+			f[1] = last.texelSizeY;
+			f[4] = this.config.BLOOM_THRESHOLD - knee; // curve.x @16
+			f[5] = knee * 2; // curve.y
+			f[6] = 0.25 / knee; // curve.z
+			f[7] = this.config.BLOOM_THRESHOLD; // threshold @28
+		}
+		runPass(this.device, encoder, this.passes.bloomPrefilter, {
+			target: this.bloom,
+			uniforms: uPre,
+			textureViews: [this.dye.read.view]
+		});
+
+		// downsample chain — texelSize = SOURCE texel size (WebGLFluid.js:1352-1360)
+		for (const dest of this.bloomLevels) {
+			const u = new ArrayBuffer(16);
+			const f = new Float32Array(u);
+			f[0] = last.texelSizeX;
+			f[1] = last.texelSizeY;
+			runPass(this.device, encoder, this.passes.bloomBlur, {
+				target: dest,
+				uniforms: u,
+				textureViews: [last.view]
+			});
+			last = dest;
+		}
+
+		// additive upsample chain (WebGLFluid.js:1362-1372) — loadOp 'load' + ONE/ONE blend
+		for (let i = this.bloomLevels.length - 2; i >= 0; i--) {
+			const baseTex = this.bloomLevels[i];
+			const u = new ArrayBuffer(16);
+			const f = new Float32Array(u);
+			f[0] = last.texelSizeX;
+			f[1] = last.texelSizeY;
+			runPass(this.device, encoder, this.passes.bloomBlurAdditive, {
+				target: baseTex,
+				uniforms: u,
+				textureViews: [last.view],
+				loadOp: 'load'
+			});
+			last = baseTex;
+		}
+
+		// final (WebGLFluid.js:1374-1380)
+		const uFinal = new ArrayBuffer(16);
+		{
+			const f = new Float32Array(uFinal);
+			f[0] = last.texelSizeX;
+			f[1] = last.texelSizeY;
+			f[2] = this.config.BLOOM_INTENSITY;
+		}
+		runPass(this.device, encoder, this.passes.bloomFinal, {
+			target: this.bloom,
+			uniforms: uFinal,
+			textureViews: [last.view]
+		});
+	}
+
+	// Port of applySunrays + blur (WebGLFluid.js:1382-1408).
+	applySunrays(encoder) {
+		// mask into dye.write (WebGLFluid.js:1273, 1383-1388)
+		const uMask = new ArrayBuffer(16);
+		{
+			const f = new Float32Array(uMask);
+			f[0] = this.dye.texelSizeX;
+			f[1] = this.dye.texelSizeY;
+		}
+		runPass(this.device, encoder, this.passes.sunraysMask, {
+			target: this.dye.write,
+			uniforms: uMask,
+			textureViews: [this.dye.read.view]
+		});
+
+		const uSun = new ArrayBuffer(16);
+		{
+			const f = new Float32Array(uSun);
+			f[0] = this.sunrays.texelSizeX;
+			f[1] = this.sunrays.texelSizeY;
+			f[2] = this.config.SUNRAYS_WEIGHT;
+		}
+		runPass(this.device, encoder, this.passes.sunrays, {
+			target: this.sunrays,
+			uniforms: uSun,
+			textureViews: [this.dye.write.view]
+		});
+
+		// blur(sunrays, sunraysTemp, 1) (WebGLFluid.js:1274, 1397-1408)
+		const uBlurH = new ArrayBuffer(16);
+		{
+			const f = new Float32Array(uBlurH);
+			f[0] = this.sunrays.texelSizeX;
+			f[1] = 0;
+		}
+		runPass(this.device, encoder, this.passes.blur, {
+			target: this.sunraysTemp,
+			uniforms: uBlurH,
+			textureViews: [this.sunrays.view]
+		});
+		const uBlurV = new ArrayBuffer(16);
+		{
+			const f = new Float32Array(uBlurV);
+			f[0] = 0;
+			f[1] = this.sunrays.texelSizeY;
+		}
+		runPass(this.device, encoder, this.passes.blur, {
+			target: this.sunrays,
+			uniforms: uBlurV,
+			textureViews: [this.sunraysTemp.view]
+		});
+	}
+
 	destroy() {
 		this.dye?.destroy();
 		this.velocity?.destroy();
 		this.divergence?.destroy();
 		this.curl?.destroy();
 		this.pressure?.destroy();
+		this.bloom?.destroy();
+		this.bloomLevels?.forEach((t) => t.destroy());
+		this.sunrays?.destroy();
+		this.sunraysTemp?.destroy();
 	}
 }

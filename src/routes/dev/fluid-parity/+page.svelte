@@ -92,6 +92,8 @@ struct VSOutput {
 			sim.applyPointers(engine.input.pointers);
 			const encoder = engine.device.createCommandEncoder();
 			sim.step(dt, encoder);
+			sim.applyBloom(encoder);
+			sim.applySunrays(encoder);
 			engine.queue.submit([encoder.finish()]);
 			dyeDebugTexture.copyGPUTexture(sim.dyeTexture.texture);
 		});
