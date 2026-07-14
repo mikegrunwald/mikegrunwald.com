@@ -60,6 +60,7 @@ export default function (el, config) {
     SUNRAYS_RESOLUTION: 196,
     SUNRAYS_WEIGHT: 1.0,
     OPACITY: 1.0,
+    RNG: Math.random,
     ...config,
   };
 
@@ -1419,10 +1420,10 @@ export default function (el, config) {
       color.r *= 10.0;
       color.g *= 10.0;
       color.b *= 10.0;
-      const x = Math.random();
-      const y = Math.random();
-      const dx = 1000 * (Math.random() - 0.5);
-      const dy = 1000 * (Math.random() - 0.5);
+      const x = config.RNG();
+      const y = config.RNG();
+      const dx = 1000 * (config.RNG() - 0.5);
+      const dy = 1000 * (config.RNG() - 0.5);
       splat(x, y, dx, dy, color);
     }
   }
@@ -1576,11 +1577,7 @@ export default function (el, config) {
   }
 
   function generateColor() {
-    const c = HSVtoRGB(Math.random(), 1.0, 1.0);
-    c.r = config.PRIMARY_RGB.r;
-    c.g = config.PRIMARY_RGB.g;
-    c.b = config.PRIMARY_RGB.b;
-    return c;
+    return { ...config.PRIMARY_RGB };
   }
 
   function HSVtoRGB(h, s, v) {
@@ -1701,6 +1698,12 @@ export default function (el, config) {
     },
     updateOpacity(opacity) {
       canvas.style.opacity = opacity;
+    },
+    splat(x, y, dx, dy, color) {
+      splat(x, y, dx, dy, color);
+    },
+    multipleSplats(amount) {
+      multipleSplats(amount);
     }
   };
 }
