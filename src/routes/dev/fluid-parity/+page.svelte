@@ -1,32 +1,14 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
-	import { Texture, FullscreenPlane } from 'gpu-curtains';
 	import { createEngine } from '$lib/gpu/engine.js';
-	import { FluidSimulation } from '$lib/gpu/fluid/FluidSimulation.js';
-	import { mulberry32 } from '$lib/gpu/utils/rng.js';
+	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
 
 	let newCanvas;
 	let engine;
-	let sim;
-	let dyeDebugTexture;
-	let debugPlane;
-	let stopFrame;
+	let scene;
 	let wrapObserver;
 	let status = $state('booting…');
-
-	// TEMPORARY (until Task 9): pass-through fragment sampling sim.dyeTexture,
-	// mirroring gpu-curtains' own ShaderPass default fragment shader pattern
-	// (struct VSOutput + textureSample(<name>, defaultSampler, uv)).
-	const DYE_DEBUG_FRAG = `
-struct VSOutput {
-  @builtin(position) position: vec4f,
-  @location(0) uv: vec2f,
-};
-
-@fragment fn main(fsInput: VSOutput) -> @location(0) vec4f {
-  let color = textureSample(dyeTexture, defaultSampler, fsInput.uv);
-  return vec4f(color.rgb, 1.0);
-}`;
+	let progress = $state(0);
 
 	onMount(async () => {
 		engine = await createEngine({ canvas: newCanvas });
@@ -41,6 +23,12 @@ struct VSOutput {
 		// now-pinned box, so if the *first* measurement is taken before the grid
 		// layout has settled to its final size, it never self-corrects. Observing
 		// the wrapper directly sidesteps that feedback loop.
+		//
+		// NOTE: this only calls `renderer.resize()`. FluidScene registers its own
+		// `renderer.onAfterResize` callback (a single-callback slot in
+		// gpu-curtains) to run `sim.resize()` and re-bridge the gpu-curtains
+		// texture in the same tick — do not also call `scene.sim.resize()` here,
+		// it would double-resize and/or fight that single callback slot.
 		const syncCanvasSize = () => {
 			const rect = newCanvas.parentElement.getBoundingClientRect();
 			if (!rect.width || !rect.height) return;
@@ -50,61 +38,25 @@ struct VSOutput {
 				top: rect.top,
 				left: rect.left
 			});
-			sim?.resize();
 		};
 		wrapObserver = new ResizeObserver(syncCanvasSize);
 		wrapObserver.observe(newCanvas.parentElement);
 		syncCanvasSize();
 
-		sim = new FluidSimulation({
-			device: engine.device,
-			queue: engine.queue,
-			getCanvasSize: engine.getCanvasSize,
-			rng: mulberry32(1234)
-		});
-		// give the hover pointer a color so splats show
-		for (const p of engine.input.pointers) p.color = sim.generateColor();
-		sim.multipleSplats(10); // visible immediately without pointer interaction
-
-		// TEMPORARY debug view: bridge the raw dye GPUTexture into a gpu-curtains
-		// Texture via copyGPUTexture (aliases the texture, no copy), then sample it
-		// from a FullscreenPlane. Task 9 replaces this with the real composite.
-		dyeDebugTexture = new Texture(engine.curtains, {
-			label: 'dye debug texture',
-			name: 'dyeTexture',
-			format: 'rgba16float',
-			fixedSize: { width: sim.dye.width, height: sim.dye.height },
-			autoDestroy: false // lifecycle owned by FluidSimulation, not this wrapper
-		});
-		debugPlane = new FullscreenPlane(engine.curtains, {
-			label: 'dye debug view',
-			textures: [dyeDebugTexture],
-			shaders: { fragment: { code: DYE_DEBUG_FRAG } }
-		});
-
-		let last = performance.now();
-		stopFrame = engine.onFrame(() => {
-			const now = performance.now();
-			const dt = Math.min((now - last) / 1000, 0.016666);
-			last = now;
-			if (engine.hidden) return;
-			sim.updateColors(dt);
-			sim.applyPointers(engine.input.pointers);
-			const encoder = engine.device.createCommandEncoder();
-			sim.step(dt, encoder);
-			sim.applyBloom(encoder);
-			sim.applySunrays(encoder);
-			engine.queue.submit([encoder.finish()]);
-			dyeDebugTexture.copyGPUTexture(sim.dyeTexture.texture);
-		});
+		scene = new FluidScene({ engine, seed: 1234 });
+		scene.sim.multipleSplats(10); // visible immediately without pointer interaction
 	});
 
 	onDestroy(() => {
 		wrapObserver?.disconnect();
-		stopFrame?.();
-		sim?.destroy();
+		scene?.destroy();
 		engine?.destroy();
 	});
+
+	function onProgressInput(event) {
+		progress = Number(event.target.value);
+		scene?.setProgress(progress);
+	}
 </script>
 
 <svelte:head><title>Fluid parity — dev</title></svelte:head>
@@ -117,6 +69,18 @@ struct VSOutput {
 	<div class="pane">
 		<h2>Old (WebGL)</h2>
 		<canvas class="sim" id="old-sim"></canvas>
+	</div>
+	<div class="controls">
+		<label for="grading-progress">Grading progress: {progress.toFixed(2)}</label>
+		<input
+			id="grading-progress"
+			type="range"
+			min="0"
+			max="1"
+			step="0.01"
+			value={progress}
+			oninput={onProgressInput}
+		/>
 	</div>
 	<p class="status">{status}</p>
 </div>
@@ -148,6 +112,19 @@ struct VSOutput {
 		display: block;
 		width: 100%;
 		height: 100%;
+	}
+	.controls {
+		grid-column: 1 / -1;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: #fff;
+		font-family: monospace;
+		font-size: 12px;
+	}
+	.controls input[type='range'] {
+		flex: 1;
+		max-width: 400px;
 	}
 	.status {
 		grid-column: 1 / -1;

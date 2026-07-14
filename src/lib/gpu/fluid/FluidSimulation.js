@@ -19,6 +19,7 @@ import {
 	SUNRAYS_FRAG,
 	BLUR_FRAG
 } from './shaders/post.wgsl.js';
+import { DISPLAY_FRAG } from './shaders/display.wgsl.js';
 
 export class FluidSimulation {
 	constructor({ device, queue, getCanvasSize, config = { ...FLUID_CONFIG }, rng = Math.random }) {
@@ -153,8 +154,33 @@ export class FluidSimulation {
 				uniformSize: 16,
 				samplerTypes: ['linear'],
 				targetFormat: 'r16float'
+			}),
+			display: createPass(device, {
+				label: 'display',
+				fragment: DISPLAY_FRAG,
+				// texelSize@0, ditherScale@8, gradingMat 3 cols@16/32/48,
+				// gradingOffset@64, gradingAlpha@76, flags@80 — total 96.
+				uniformSize: 96,
+				samplerTypes: ['linear', { type: 'linear', address: 'repeat' }],
+				targetFormat: 'rgba16float'
 			})
 		};
+
+		// 1x1 white dithering texture (WebGLFluid.js:891 — createTextureAsync
+		// called with no URL in production, so the dithering sample is always 1.0;
+		// ported faithfully rather than special-cased away in the shader).
+		this.ditheringTexture = this.device.createTexture({
+			label: 'dithering-1x1-white',
+			size: { width: 1, height: 1 },
+			format: 'rgba8unorm',
+			usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+		});
+		this.queue.writeTexture(
+			{ texture: this.ditheringTexture },
+			new Uint8Array([255, 255, 255, 255]),
+			{ bytesPerRow: 4 },
+			{ width: 1, height: 1 }
+		);
 
 		this.resize();
 	}
@@ -227,6 +253,11 @@ export class FluidSimulation {
 			'r16float',
 			'sunrays-temp'
 		);
+
+		// Canvas-sized composite output; recreated on every resize like the other
+		// targets (resize-preserving copy is a follow-up, per the note above).
+		this.output?.destroy();
+		this.output = createTarget(this.device, width, height, 'rgba16float', 'fluid-output');
 	}
 
 	get dyeTexture() {
@@ -562,6 +593,41 @@ export class FluidSimulation {
 		});
 	}
 
+	// Port of render() (WebGLFluid.js:1267-1331), TRANSPARENT path — no back-color
+	// fill, checkerboard = transparent clear. Composites bloom + sunrays + dye into
+	// `this.output` with in-shader scroll grading (Task 3's gradingFromProgress).
+	render(encoder, grading) {
+		if (this.config.BLOOM) this.applyBloom(encoder);
+		if (this.config.SUNRAYS) this.applySunrays(encoder);
+
+		const { width, height } = this.getCanvasSize();
+		const u = new ArrayBuffer(96);
+		const f = new Float32Array(u);
+		f[0] = 1.0 / width;
+		f[1] = 1.0 / height;
+		// ditherScale = drawSize / ditherTexSize (WebGLFluid.js:1672-1677); 1x1 tex → (w, h)
+		f[2] = width;
+		f[3] = height;
+		f.set(grading.mat, 4); // 12 floats @16..64
+		f.set(grading.offset, 16); // @64
+		f[19] = grading.alpha; // @76
+		f[20] = this.config.SHADING ? 1 : 0; // flags @80
+		f[21] = this.config.BLOOM ? 1 : 0;
+		f[22] = this.config.SUNRAYS ? 1 : 0;
+
+		runPass(this.device, encoder, this.passes.display, {
+			target: this.output,
+			uniforms: u,
+			textureViews: [
+				this.dye.read.view,
+				this.bloom.view,
+				this.sunrays.view,
+				this.ditheringTexture.createView()
+			],
+			loadOp: 'clear' // TRANSPARENT: composite starts from vec4(0)
+		});
+	}
+
 	destroy() {
 		this.dye?.destroy();
 		this.velocity?.destroy();
@@ -572,5 +638,7 @@ export class FluidSimulation {
 		this.bloomLevels?.forEach((t) => t.destroy());
 		this.sunrays?.destroy();
 		this.sunraysTemp?.destroy();
+		this.output?.destroy();
+		this.ditheringTexture?.destroy();
 	}
 }

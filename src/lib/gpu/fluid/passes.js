@@ -74,15 +74,22 @@ export function createPass(
 		usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
 	});
 
-	// samplerTypes: array like ['linear','nearest'] mapped to bindings after textures
-	const samplers = (samplerTypes ?? []).map((type) =>
-		device.createSampler({
+	// samplerTypes: array of entries mapped to bindings after textures. Each entry
+	// is either a bare string ('linear'/'nearest', clamp-to-edge address — original
+	// shape, kept working) or an { type, address } object to override the address
+	// mode (e.g. the display pass's repeat-mode dithering sampler).
+	const samplers = (samplerTypes ?? []).map((entry) => {
+		const { type, address } =
+			typeof entry === 'string'
+				? { type: entry, address: 'clamp-to-edge' }
+				: { address: 'clamp-to-edge', ...entry };
+		return device.createSampler({
 			magFilter: type === 'linear' ? 'linear' : 'nearest',
 			minFilter: type === 'linear' ? 'linear' : 'nearest',
-			addressModeU: 'clamp-to-edge',
-			addressModeV: 'clamp-to-edge'
-		})
-	);
+			addressModeU: address,
+			addressModeV: address
+		});
+	});
 
 	return { pipeline, uniformBuffer, samplers, textureCount, label };
 }
