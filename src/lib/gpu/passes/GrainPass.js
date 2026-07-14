@@ -132,7 +132,8 @@ export function createGrainPass({ engine, noiseUrl = '/images/noise.webp' }) {
 
 	const noiseTexture = new MediaTexture(renderer, {
 		label: 'Grain noise texture',
-		name: 'noiseTexture'
+		name: 'noiseTexture',
+		placeholderColor: [0, 0, 0, 0]
 	});
 
 	const pass = new ShaderPass(renderer, {
@@ -144,9 +145,9 @@ export function createGrainPass({ engine, noiseUrl = '/images/noise.webp' }) {
 			params: {
 				struct: {
 					resolution: { type: 'vec2f', value: [width, height] },
-					// Placeholder until the image loads (see onSourceUploaded below);
-					// keeps `noise.a` sampling well-defined (texture starts filled with
-					// MediaTexture's placeholderColor) before the real size is known.
+					// Transparent placeholder until the image loads makes the pass a no-op
+					// (grain.a = 0) until the noise texture is ready; it prevents the shader
+					// from outputting solid black before the real texture size is known.
 					noiseSize: { type: 'vec2f', value: [1, 1] },
 					intensity: { type: 'f32', value: params.intensity },
 					scale: { type: 'f32', value: params.scale }
@@ -164,12 +165,14 @@ export function createGrainPass({ engine, noiseUrl = '/images/noise.webp' }) {
 	// reference and this shader, instead of every `naturalSize` DEVICE px
 	// (which would make the grain look ~dpr× finer than production on
 	// high-DPR screens).
-	noiseTexture.onSourceUploaded(() => {
+	const updateNoiseSize = () => {
 		pass.uniforms.params.noiseSize.value = [
 			noiseTexture.size.width * dpr,
 			noiseTexture.size.height * dpr
 		];
-	});
+	};
+	noiseTexture.onSourceUploaded(updateNoiseSize);
+	noiseTexture.onAllSourcesUploaded(updateNoiseSize);
 	noiseTexture.loadImage(noiseUrl);
 
 	const unsubscribe = engine.onFrame(() => {
