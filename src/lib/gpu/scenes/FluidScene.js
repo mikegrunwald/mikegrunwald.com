@@ -60,6 +60,7 @@ export class FluidScene {
 		this.params = { ...FLUID_CONFIG }; // live object shared with tweak panel
 		this.progress = 0;
 		this.grading = gradingFromProgress(0);
+		this.destroyed = false;
 
 		this.sim = new FluidSimulation({
 			device: engine.device,
@@ -113,6 +114,9 @@ export class FluidScene {
 		// creates a new one) so there is never a frame where curtainsTexture
 		// aliases an already-destroyed GPUTexture.
 		renderer.onAfterResize(() => {
+			// Guard against stale callback firing after destroy() — if FluidScene
+			// is destroyed before a resize event, this slot is cleared to a no-op.
+			if (this.destroyed) return;
 			this.sim.resize();
 			this.curtainsTexture.copyGPUTexture(this.sim.output.texture);
 		});
@@ -149,6 +153,10 @@ export class FluidScene {
 	}
 
 	destroy() {
+		this.destroyed = true;
+		// Clear the renderer.onAfterResize registration slot (single-owner pattern).
+		// Overwrite with a no-op so even a stale callback invocation is inert.
+		this.engine.curtains.renderer.onAfterResize(() => {});
 		this.unsubscribe();
 		this.plane.remove();
 		this.sim.destroy();
