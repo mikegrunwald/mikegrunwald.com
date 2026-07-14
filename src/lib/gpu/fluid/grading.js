@@ -54,8 +54,7 @@ export function gradingFromProgress(p) {
 		for (let row = 0; row < 3; row++) mat[col * 4 + row] = sh[row][col] * k;
 
 	const offset = new Float32Array(3);
-	for (let row = 0; row < 3; row++)
-		offset[row] = (sh[row][0] + sh[row][1] + sh[row][2]) * p;
+	for (let row = 0; row < 3; row++) offset[row] = (sh[row][0] + sh[row][1] + sh[row][2]) * p;
 
 	return { mat, offset, alpha: 1 - 0.5 * p };
 }

@@ -18,7 +18,7 @@
 
 	beforeNavigate(() => {});
 	afterNavigate(() => {
-		if (window.lenis) window.lenis.scrollTo(0, { immediate: true });
+		if (lenis.current) lenis.current.scrollTo(0, { immediate: true });
 	});
 
 	let { children } = $props();

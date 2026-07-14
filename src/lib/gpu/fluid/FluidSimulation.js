@@ -8,8 +8,7 @@ import {
 	CLEAR_FRAG,
 	PRESSURE_FRAG,
 	GRADIENT_SUBTRACT_FRAG,
-	ADVECTION_FRAG,
-	COPY_FRAG
+	ADVECTION_FRAG
 } from './shaders/sim.wgsl.js';
 import {
 	BLOOM_PREFILTER_FRAG,

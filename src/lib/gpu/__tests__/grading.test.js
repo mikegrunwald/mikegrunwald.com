@@ -12,9 +12,7 @@ function rows(mat) {
 
 function applyGrading(g, c) {
 	const m = rows(g.mat);
-	return [0, 1, 2].map(
-		(i) => m[i][0] * c[0] + m[i][1] * c[1] + m[i][2] * c[2] + g.offset[i]
-	);
+	return [0, 1, 2].map((i) => m[i][0] * c[0] + m[i][1] * c[1] + m[i][2] * c[2] + g.offset[i]);
 }
 
 describe('scrollProgress', () => {
@@ -75,9 +73,7 @@ describe('gradingFromProgress', () => {
 			[0.426, 0.43, 0.144],
 			[0.426, 1.43, -0.856]
 		];
-		const expected0 = [0, 1, 2].map(
-			(j) => -(S0[0] * H[0][j] + S0[1] * H[1][j] + S0[2] * H[2][j])
-		);
+		const expected0 = [0, 1, 2].map((j) => -(S0[0] * H[0][j] + S0[1] * H[1][j] + S0[2] * H[2][j]));
 		expect(m[0][0]).toBeCloseTo(expected0[0], 3);
 		expect(m[0][1]).toBeCloseTo(expected0[1], 3);
 		expect(m[0][2]).toBeCloseTo(expected0[2], 3);
