@@ -3,6 +3,7 @@
 	import { createEngine } from '$lib/gpu/engine.js';
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
+	import { maybeCreatePanel } from '$lib/gpu/debug/panel.js';
 	import WebGLFluid from '$lib/efx/WebGLFluid';
 	import { mulberry32 } from '$lib/gpu/utils/rng.js';
 
@@ -13,8 +14,22 @@
 	let grain;
 	let oldFluid;
 	let wrapObserver;
+	let panel;
 	let status = $state('booting…');
 	let progress = $state(0);
+	// Set (non-null) by the debug panel's grading override scrubber; while set,
+	// the real range input below is ignored and this value drives scene grading.
+	let progressOverride = null;
+
+	function forceProgress(p) {
+		progressOverride = p;
+		if (p !== null) {
+			progress = p;
+			scene?.setProgress(p);
+		} else {
+			scene?.setProgress(progress);
+		}
+	}
 
 	onMount(async () => {
 		engine = await createEngine({ canvas: newCanvas });
@@ -117,16 +132,20 @@
 		// splat positions/velocities/colors in both panes.
 		scene.sim.multipleSplats(10);
 		oldFluid.multipleSplats(10);
+
+		panel = await maybeCreatePanel({ fluidScene: scene, grainPass: grain, engine, forceProgress });
 	});
 
 	onDestroy(() => {
 		wrapObserver?.disconnect();
+		panel?.destroy();
 		grain?.destroy();
 		scene?.destroy();
 		engine?.destroy();
 	});
 
 	function onProgressInput(event) {
+		if (progressOverride !== null) return; // panel's grading override takes priority
 		progress = Number(event.target.value);
 		scene?.setProgress(progress);
 	}
