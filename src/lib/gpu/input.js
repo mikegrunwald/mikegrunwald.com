@@ -24,9 +24,15 @@ function makePointer() {
 	};
 }
 
-function scaleByPixelRatio(input) {
-	const pixelRatio = window.devicePixelRatio || 1;
-	return Math.floor(input * pixelRatio);
+// Invariant: texcoord must equal clientX/cssWidth (CSS pixels on both sides),
+// regardless of devicePixelRatio. `getSize` passed in below must therefore
+// return CSS pixel dimensions (canvas.clientWidth/clientHeight), NOT the
+// device-pixel backing-store size — that size is capped (Math.min(dpr, 2) in
+// engine.js pickQuality) and would desync from the raw devicePixelRatio on
+// dpr>2 devices if we scaled clientX/Y here. Do not reintroduce a DPR
+// multiply on clientX/clientY in this file.
+export function texcoordFromClient(client, cssSize) {
+	return client / cssSize;
 }
 
 export function createPointerInput({ getSize }) {
@@ -39,8 +45,8 @@ export function createPointerInput({ getSize }) {
 		pointer.id = id;
 		pointer.down = true;
 		pointer.moved = false;
-		pointer.texcoordX = posX / width;
-		pointer.texcoordY = posY / height; // top-left uv convention (no flip)
+		pointer.texcoordX = texcoordFromClient(posX, width);
+		pointer.texcoordY = texcoordFromClient(posY, height); // top-left uv convention (no flip)
 		pointer.prevTexcoordX = pointer.texcoordX;
 		pointer.prevTexcoordY = pointer.texcoordY;
 		pointer.deltaX = 0;
@@ -52,8 +58,8 @@ export function createPointerInput({ getSize }) {
 		const aspect = width / height;
 		pointer.prevTexcoordX = pointer.texcoordX;
 		pointer.prevTexcoordY = pointer.texcoordY;
-		pointer.texcoordX = posX / width;
-		pointer.texcoordY = posY / height;
+		pointer.texcoordX = texcoordFromClient(posX, width);
+		pointer.texcoordY = texcoordFromClient(posY, height);
 		pointer.deltaX = correctDeltaX(pointer.texcoordX - pointer.prevTexcoordX, aspect);
 		pointer.deltaY = correctDeltaY(pointer.texcoordY - pointer.prevTexcoordY, aspect);
 		// TRIGGER === 'hover' semantics (the only trigger used in production)
@@ -68,13 +74,13 @@ export function createPointerInput({ getSize }) {
 	function start() {
 		on(document, 'mousedown', (e) => {
 			let pointer = pointers.find((p) => p.id === -1) ?? makePointer();
-			updateDown(pointer, -1, scaleByPixelRatio(e.clientX), scaleByPixelRatio(e.clientY));
+			updateDown(pointer, -1, e.clientX, e.clientY);
 		});
 
 		// Original delays mousemove attachment 500ms (WebGLFluid.js:1472-1478)
 		mousemoveTimer = setTimeout(() => {
 			on(document, 'mousemove', (e) => {
-				updateMove(pointers[0], scaleByPixelRatio(e.clientX), scaleByPixelRatio(e.clientY));
+				updateMove(pointers[0], e.clientX, e.clientY);
 			});
 		}, 500);
 
@@ -86,23 +92,14 @@ export function createPointerInput({ getSize }) {
 			const touches = e.targetTouches;
 			while (touches.length >= pointers.length) pointers.push(makePointer());
 			for (let i = 0; i < touches.length; i++) {
-				updateDown(
-					pointers[i + 1],
-					touches[i].identifier,
-					scaleByPixelRatio(touches[i].clientX),
-					scaleByPixelRatio(touches[i].clientY)
-				);
+				updateDown(pointers[i + 1], touches[i].identifier, touches[i].clientX, touches[i].clientY);
 			}
 		});
 
 		on(document, 'touchmove', (e) => {
 			const touches = e.targetTouches;
 			for (let i = 0; i < touches.length; i++) {
-				updateMove(
-					pointers[i + 1],
-					scaleByPixelRatio(touches[i].clientX),
-					scaleByPixelRatio(touches[i].clientY)
-				);
+				updateMove(pointers[i + 1], touches[i].clientX, touches[i].clientY);
 			}
 		});
 

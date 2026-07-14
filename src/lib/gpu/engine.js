@@ -118,11 +118,21 @@ export async function createEngine({ canvas }) {
 	}
 	const queue = device.queue;
 
+	// CSS-pixel size for pointer input, NOT device-pixel canvas.width/height
+	// (that's engine.getCanvasSize() below, kept separate for FluidSimulation/
+	// GrainPass texel-size math). clientWidth/Height falls back to
+	// getBoundingClientRect() when 0 (e.g. canvas not yet laid out / display:none).
 	const input = createPointerInput({
-		getSize: () => ({
-			width: canvas.width,
-			height: canvas.height
-		})
+		getSize: () => {
+			let width = canvas.clientWidth;
+			let height = canvas.clientHeight;
+			if (!width || !height) {
+				const rect = canvas.getBoundingClientRect();
+				width = rect.width;
+				height = rect.height;
+			}
+			return { width, height };
+		}
 	});
 	input.start();
 

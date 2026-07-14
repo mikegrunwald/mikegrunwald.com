@@ -8,6 +8,7 @@
 	import { gsap } from 'gsap/dist/gsap';
 	import CursorDot from '$lib/components/CursorDot.svelte';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { page } from '$app/state';
 	import { createEngine } from '$lib/gpu/engine.js';
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
@@ -32,6 +33,14 @@
 	let grainPass;
 	let debugPanel;
 	let forcedProgress = null;
+
+	// /dev/ routes (e.g. /dev/fluid-parity) boot their own engine + debug panel
+	// directly in their +page.svelte. Booting the layout's engine there too
+	// would mean two sims, two pointer listener sets, and two debug panels
+	// running simultaneously — gate the whole layout engine boot off on those
+	// routes and hide the layout's fixed canvas so it doesn't sit behind the
+	// dev route's own panes.
+	let isDevRoute = $derived(page.url.pathname.startsWith('/dev/'));
 
 	let lenis = useLenis((lenis) => {
 		if (!engine || !fluidScene) return;
@@ -72,6 +81,7 @@
 	}
 
 	onMount(async () => {
+		if (page.url.pathname.startsWith('/dev/')) return; // dev routes boot their own engine
 		engine = await createEngine({ canvas });
 		if (!engine) return; // no WebGPU / reduced motion → DOM-only experience
 
@@ -113,7 +123,9 @@
 </script>
 
 <div class="app" id="app">
-	<canvas class="canvas" bind:this={canvas}></canvas>
+	{#if !isDevRoute}
+		<canvas class="canvas" bind:this={canvas}></canvas>
+	{/if}
 	<CursorDot class="dot" />
 	<SvelteLenis root {options}>
 		<main>
