@@ -114,15 +114,21 @@ export class FluidScene {
 		// creates a new one) so there is never a frame where curtainsTexture
 		// aliases an already-destroyed GPUTexture.
 		renderer.onAfterResize(() => {
-			// Guard against stale callback firing after destroy() — if FluidScene
-			// is destroyed before a resize event, this slot is cleared to a no-op.
-			if (this.destroyed) return;
-			this.sim.resize();
-			this.curtainsTexture.copyGPUTexture(this.sim.output.texture);
+			this.resizeSim();
 		});
 
 		this.lastTime = performance.now();
 		this.unsubscribe = engine.onFrame(() => this.update());
+	}
+
+	// Owns the resize+rebridge invariant: after sim.resize() destroys the old
+	// output texture and creates a new one, copyGPUTexture re-aliases the
+	// gpu-curtains wrapper onto it. sim.resize() + copyGPUTexture must
+	// always be called together, never separately.
+	resizeSim() {
+		if (this.destroyed) return;
+		this.sim.resize();
+		this.curtainsTexture.copyGPUTexture(this.sim.output.texture);
 	}
 
 	setProgress(p) {

@@ -39,8 +39,7 @@ export async function maybeCreatePanel({ fluidScene, grainPass, engine, forcePro
 	// plane keeps sampling the destroyed GPUTexture (black canvas + WebGPU
 	// validation errors on the next presented frame).
 	const rebuildTargets = () => {
-		fluidScene.sim.resize();
-		fluidScene.curtainsTexture.copyGPUTexture(fluidScene.sim.output.texture);
+		fluidScene.resizeSim();
 	};
 	const res = pane.addFolder({ title: 'Resolutions (rebuilds targets)' });
 	res
