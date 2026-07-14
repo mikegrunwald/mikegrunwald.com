@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { createEngine } from '$lib/gpu/engine.js';
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
+	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
 	import WebGLFluid from '$lib/efx/WebGLFluid';
 	import { mulberry32 } from '$lib/gpu/utils/rng.js';
 
@@ -9,6 +10,7 @@
 	let oldCanvas;
 	let engine;
 	let scene;
+	let grain;
 	let oldFluid;
 	let wrapObserver;
 	let status = $state('booting…');
@@ -33,6 +35,13 @@
 		// gpu-curtains) to run `sim.resize()` and re-bridge the gpu-curtains
 		// texture in the same tick — do not also call `scene.sim.resize()` here,
 		// it would double-resize and/or fight that single callback slot.
+		//
+		// GrainPass composes around that same single-slot constraint instead of
+		// fighting it: it doesn't touch `onAfterResize` at all (see GrainPass.js
+		// doc comment), so its `resize()` is driven from this route's own
+		// ResizeObserver signal, right after the renderer itself has resized (so
+		// `engine.getCanvasSize()` below already reflects the new drawing-buffer
+		// pixel size).
 		const syncCanvasSize = () => {
 			const rect = newCanvas.parentElement.getBoundingClientRect();
 			if (!rect.width || !rect.height) return;
@@ -42,12 +51,14 @@
 				top: rect.top,
 				left: rect.left
 			});
+			if (grain) grain.resize(engine.getCanvasSize().width, engine.getCanvasSize().height);
 		};
 		wrapObserver = new ResizeObserver(syncCanvasSize);
 		wrapObserver.observe(newCanvas.parentElement);
 		syncCanvasSize();
 
 		scene = new FluidScene({ engine, seed: 1234 });
+		grain = createGrainPass({ engine });
 
 		// Old (WebGL) sim — exact production config from src/routes/+layout.svelte:67-103,
 		// plus a seeded RNG (Task 10 patch) so the two sims draw identical splat
@@ -110,6 +121,7 @@
 
 	onDestroy(() => {
 		wrapObserver?.disconnect();
+		grain?.destroy();
 		scene?.destroy();
 		engine?.destroy();
 	});
@@ -174,6 +186,16 @@
 		aspect-ratio: 16 / 10;
 		display: block;
 		background: #111;
+	}
+	/* Task 11: fair visual reference for GrainPass. The production `.app`
+	   background (src/routes/+layout.svelte) carries this same
+	   background-image rule (url, no background-size — native 1 image px ==
+	   1 CSS px, tiled), but it's normally hidden behind this dev route's own
+	   opaque `.parity` backdrop. Applying it directly to the old pane lets
+	   Step 3 compare the new WebGPU pane's grain tile size/character against
+	   the real CSS compositing, instead of the featureless #111. */
+	#old-sim {
+		background-image: url('/images/noise.webp');
 	}
 	.sim-wrap {
 		position: relative;
