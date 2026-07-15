@@ -4,15 +4,14 @@
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
 	import { maybeCreatePanel } from '$lib/gpu/debug/panel.js';
-	// TEMP Task 3 bake check, removed in Task 4
-	import { bakeLogoImage } from '$lib/gpu/particles/bakeLogo.js';
+	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
 
 	let newCanvas;
-	// TEMP Task 3 bake check, removed in Task 4
-	let bakeCanvas;
+	let logoHost;
 	let engine;
 	let scene;
 	let grain;
+	let logoScene;
 	let wrapObserver;
 	let unsubGrainResize;
 	let panel;
@@ -82,22 +81,14 @@
 
 		panel = await maybeCreatePanel({ fluidScene: scene, grainPass: grain, engine, forceProgress });
 
-		// TEMP Task 3 bake check, removed in Task 4
-		try {
-			const imageData = await bakeLogoImage({ size: 512 });
-			const bctx = bakeCanvas.getContext('2d');
-			bakeCanvas.width = imageData.width;
-			bakeCanvas.height = imageData.height;
-			bctx.putImageData(imageData, 0, 0);
-		} catch (err) {
-			console.error('bakeLogoImage check failed', err);
-		}
+		logoScene = await LogoParticlesScene.create({ engine, element: logoHost, seed: 1234 });
 	});
 
 	onDestroy(() => {
 		wrapObserver?.disconnect();
 		unsubGrainResize?.();
 		panel?.destroy();
+		logoScene?.destroy();
 		grain?.destroy();
 		scene?.destroy();
 		engine?.destroy();
@@ -114,8 +105,11 @@
 
 <div class="parity">
 	<div class="pane">
-		<h2>WebGPU fluid</h2>
-		<div class="sim sim-wrap"><canvas bind:this={newCanvas}></canvas></div>
+		<h2>WebGPU fluid + logo particles</h2>
+		<div class="sim sim-wrap">
+			<canvas bind:this={newCanvas}></canvas>
+			<div class="logo-host" data-gpu-logo bind:this={logoHost}></div>
+		</div>
 	</div>
 	<div class="controls">
 		<label for="grading-progress">Grading progress: {progress.toFixed(2)}</label>
@@ -130,11 +124,6 @@
 		/>
 	</div>
 	<p class="status">{status}</p>
-	<!-- TEMP Task 3 bake check, removed in Task 4 -->
-	<div class="bake-check">
-		<h2>Logo bake check</h2>
-		<canvas id="bake-check" bind:this={bakeCanvas} width="512"></canvas>
-	</div>
 </div>
 
 <style>
@@ -165,6 +154,23 @@
 		width: 100%;
 		height: 100%;
 	}
+	/* DOM-sync target for LogoParticlesScene's Plane. Must overlap the WebGPU
+	   canvas on screen — gpu-curtains positions the synced mesh in NDC space
+	   relative to the RENDERER's (canvas's) own bounding rect
+	   (DOMObject3D.mjs#documentToWorldSpace), so a box outside the canvas's
+	   screen area would project outside the visible frustum. `position:
+	   absolute` + `inset: 0` + `margin: 2rem auto` centers it within
+	   `.sim-wrap` (classic absolute-positioning centering trick) while keeping
+	   the brief's literal width/aspect-ratio/margin/outline values. */
+	.logo-host {
+		position: absolute;
+		inset: 0;
+		width: 60%;
+		aspect-ratio: 1.153594844873037 / 1;
+		margin: 2rem auto;
+		outline: 1px dashed #333;
+		pointer-events: none;
+	}
 	.controls {
 		grid-column: 1 / -1;
 		display: flex;
@@ -182,20 +188,5 @@
 		grid-column: 1 / -1;
 		color: #0f0;
 		font-family: monospace;
-	}
-	/* TEMP Task 3 bake check, removed in Task 4 */
-	.bake-check {
-		grid-column: 1 / -1;
-	}
-	.bake-check h2 {
-		color: #fff;
-		font-size: 12px;
-		margin: 0 0 4px;
-	}
-	.bake-check canvas {
-		background: #222;
-		max-width: 512px;
-		width: 100%;
-		height: auto;
 	}
 </style>
