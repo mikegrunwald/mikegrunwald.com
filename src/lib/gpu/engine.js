@@ -69,6 +69,7 @@
 
 import { GPUCurtains } from 'gpu-curtains';
 import { createPointerInput } from './input.js';
+import { createResizeHub } from './utils/resizeHub.js';
 
 export function pickQuality({ userAgent, devicePixelRatio }) {
 	const isMobile = /Mobi|Android/i.test(userAgent);
@@ -118,6 +119,12 @@ export async function createEngine({ canvas }) {
 	}
 	const queue = device.queue;
 
+	const resizeHub = createResizeHub();
+	// gpu-curtains' renderer.onAfterResize is a SINGLE-callback slot (last
+	// registration wins, not a Set — see GPURenderer.mjs). The engine owns it
+	// exclusively from now on; everything else subscribes via onResize().
+	curtains.renderer.onAfterResize(() => resizeHub.dispatch());
+
 	// CSS-pixel size for pointer input, NOT device-pixel canvas.width/height
 	// (that's engine.getCanvasSize() below, kept separate for FluidSimulation/
 	// GrainPass texel-size math). clientWidth/Height falls back to
@@ -165,6 +172,9 @@ export async function createEngine({ canvas }) {
 			frameCallbacks.add(cb);
 			return () => frameCallbacks.delete(cb);
 		},
+		onResize(cb) {
+			return resizeHub.add(cb);
+		},
 		setScroll({ y, velocity }) {
 			scroll.y = y;
 			scroll.velocity = velocity;
@@ -176,6 +186,7 @@ export async function createEngine({ canvas }) {
 		destroy() {
 			document.removeEventListener('visibilitychange', onVisibility);
 			input.stop();
+			resizeHub.clear();
 			curtains.destroy();
 		}
 	};

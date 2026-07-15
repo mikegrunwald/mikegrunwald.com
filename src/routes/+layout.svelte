@@ -33,6 +33,7 @@
 	let grainPass;
 	let debugPanel;
 	let forcedProgress = null;
+	let unsubGrainResize;
 
 	// /dev/ routes (e.g. /dev/fluid-parity) boot their own engine + debug panel
 	// directly in their +page.svelte. Booting the layout's engine there too
@@ -59,25 +60,17 @@
 	// `renderer.resize()` already invokes gpu-curtains' single-slot
 	// `onAfterResize` callback synchronously before returning (confirmed in
 	// node_modules/gpu-curtains/dist/esm/core/renderers/GPURenderer.mjs:193-197),
-	// and FluidScene's constructor registers `() => this.resizeSim()` on that
-	// exact slot. So `fluidScene.resizeSim()` runs automatically as part of
-	// `renderer.resize()` — calling it again here would double-resize the sim
-	// (destroy-and-recreate its output texture twice) and fight the single
-	// callback slot, exactly what FluidScene's own doc comment and the
-	// fluid-parity route's resize comment warn against. Only `grainPass.resize()`
-	// needs an explicit call, since GrainPass intentionally does not hook
-	// `onAfterResize` (see GrainPass.js doc comment) to avoid stomping
-	// FluidScene's registration.
+	// which the engine owns exclusively and fans out via `engine.onResize()`
+	// (Task 1 of Phase 2). FluidScene and the grain wiring below both subscribe
+	// there instead of touching `renderer.onAfterResize` directly, so
+	// `syncCanvasSize` only needs to trigger the resize itself — every consumer
+	// reacts via the fan-out.
 	function syncCanvasSize() {
 		if (!engine) return;
 		const width = window.innerWidth;
 		const height = window.innerHeight;
 		if (!width || !height) return;
 		engine.curtains.renderer.resize({ width, height, top: 0, left: 0 });
-		if (grainPass) {
-			const size = engine.getCanvasSize();
-			grainPass.resize(size.width, size.height);
-		}
 	}
 
 	onMount(async () => {
@@ -87,6 +80,10 @@
 
 		fluidScene = new FluidScene({ engine });
 		grainPass = createGrainPass({ engine });
+		unsubGrainResize = engine.onResize(() => {
+			const size = engine.getCanvasSize();
+			grainPass.resize(size.width, size.height);
+		});
 
 		window.addEventListener('resize', syncCanvasSize);
 		syncCanvasSize();
@@ -115,6 +112,7 @@
 		// calls are already safe; only the unconditional `window` reference
 		// needs the explicit guard.
 		if (typeof window !== 'undefined') window.removeEventListener('resize', syncCanvasSize);
+		unsubGrainResize?.();
 		debugPanel?.destroy();
 		grainPass?.destroy();
 		fluidScene?.destroy();

@@ -10,6 +10,7 @@
 	let scene;
 	let grain;
 	let wrapObserver;
+	let unsubGrainResize;
 	let panel;
 	let status = $state('booting…');
 	let progress = $state(0);
@@ -41,18 +42,12 @@
 		// layout has settled to its final size, it never self-corrects. Observing
 		// the wrapper directly sidesteps that feedback loop.
 		//
-		// NOTE: this only calls `renderer.resize()`. FluidScene registers its own
-		// `renderer.onAfterResize` callback (a single-callback slot in
-		// gpu-curtains) to run `sim.resize()` and re-bridge the gpu-curtains
-		// texture in the same tick — do not also call `scene.sim.resize()` here,
-		// it would double-resize and/or fight that single callback slot.
-		//
-		// GrainPass composes around that same single-slot constraint instead of
-		// fighting it: it doesn't touch `onAfterResize` at all (see GrainPass.js
-		// doc comment), so its `resize()` is driven from this route's own
-		// ResizeObserver signal, right after the renderer itself has resized (so
-		// `engine.getCanvasSize()` below already reflects the new drawing-buffer
-		// pixel size).
+		// NOTE: this only calls `renderer.resize()`. gpu-curtains' single-callback
+		// `renderer.onAfterResize` slot is owned exclusively by the engine, which
+		// fans it out via `engine.onResize()` (Task 1 of Phase 2). FluidScene and
+		// the grain wiring below both subscribe there — do not also call
+		// `scene.sim.resize()` or `grain.resize()` directly from here, it would
+		// double-resize and/or fight the fan-out.
 		const syncCanvasSize = () => {
 			const rect = newCanvas.parentElement.getBoundingClientRect();
 			if (!rect.width || !rect.height) return;
@@ -62,7 +57,6 @@
 				top: rect.top,
 				left: rect.left
 			});
-			if (grain) grain.resize(engine.getCanvasSize().width, engine.getCanvasSize().height);
 		};
 		wrapObserver = new ResizeObserver(syncCanvasSize);
 		wrapObserver.observe(newCanvas.parentElement);
@@ -75,6 +69,10 @@
 		// see src/lib/gpu/scenes/FluidScene.js) instead of pinning to seed 1234.
 		scene = new FluidScene({ engine });
 		grain = createGrainPass({ engine });
+		unsubGrainResize = engine.onResize(() => {
+			const size = engine.getCanvasSize();
+			grain.resize(size.width, size.height);
+		});
 
 		scene.sim.multipleSplats(10);
 
@@ -83,6 +81,7 @@
 
 	onDestroy(() => {
 		wrapObserver?.disconnect();
+		unsubGrainResize?.();
 		panel?.destroy();
 		grain?.destroy();
 		scene?.destroy();
