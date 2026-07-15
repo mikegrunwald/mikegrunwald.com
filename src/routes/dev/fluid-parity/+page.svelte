@@ -4,8 +4,12 @@
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
 	import { maybeCreatePanel } from '$lib/gpu/debug/panel.js';
+	// TEMP Task 3 bake check, removed in Task 4
+	import { bakeLogoImage } from '$lib/gpu/particles/bakeLogo.js';
 
 	let newCanvas;
+	// TEMP Task 3 bake check, removed in Task 4
+	let bakeCanvas;
 	let engine;
 	let scene;
 	let grain;
@@ -77,6 +81,17 @@
 		scene.sim.multipleSplats(10);
 
 		panel = await maybeCreatePanel({ fluidScene: scene, grainPass: grain, engine, forceProgress });
+
+		// TEMP Task 3 bake check, removed in Task 4
+		try {
+			const imageData = await bakeLogoImage({ size: 512 });
+			const bctx = bakeCanvas.getContext('2d');
+			bakeCanvas.width = imageData.width;
+			bakeCanvas.height = imageData.height;
+			bctx.putImageData(imageData, 0, 0);
+		} catch (err) {
+			console.error('bakeLogoImage check failed', err);
+		}
 	});
 
 	onDestroy(() => {
@@ -115,6 +130,11 @@
 		/>
 	</div>
 	<p class="status">{status}</p>
+	<!-- TEMP Task 3 bake check, removed in Task 4 -->
+	<div class="bake-check">
+		<h2>Logo bake check</h2>
+		<canvas id="bake-check" bind:this={bakeCanvas} width="512"></canvas>
+	</div>
 </div>
 
 <style>
@@ -162,5 +182,20 @@
 		grid-column: 1 / -1;
 		color: #0f0;
 		font-family: monospace;
+	}
+	/* TEMP Task 3 bake check, removed in Task 4 */
+	.bake-check {
+		grid-column: 1 / -1;
+	}
+	.bake-check h2 {
+		color: #fff;
+		font-size: 12px;
+		margin: 0 0 4px;
+	}
+	.bake-check canvas {
+		background: #222;
+		max-width: 512px;
+		width: 100%;
+		height: auto;
 	}
 </style>
