@@ -637,7 +637,31 @@ export class LogoParticlesScene {
 		// curtainsTexture — must not destroy someone else's resource here). The
 		// no-fluid placeholder case owns its own 1x1 GPUTexture that nothing else
 		// references, so it must be cleaned up explicitly.
+		//
+		// [Final-review fix] Either way, the gpu-curtains `Texture`/`Sampler`
+		// WRAPPER objects themselves are still registered on the renderer/device
+		// manager (`new Texture()`/`new Sampler()` call `renderer.addTexture(this)`
+		// / push onto `deviceManager.samplers` — Texture.mjs, Sampler.mjs) and are
+		// never auto-removed by `texture.destroy()`. Since this scene is destroyed
+		// and recreated on every homepage nav-away/return, leaving them registered
+		// grows `renderer.textures`/`deviceManager.samplers` unboundedly (a slow
+		// leak — the stale wrappers do no per-frame GPU work, but the arrays never
+		// shrink). Unregister both explicitly:
+		// - `GPURenderer.removeTexture(texture)` (GPURenderer.mjs) just filters
+		//   `this.textures` by `uuid` — it does NOT touch `texture.texture` (the
+		//   underlying GPUTexture), so this is safe to call unconditionally,
+		//   including the aliased fluid-present case: we are unregistering our own
+		//   JS wrapper, not the GPUTexture it points at.
+		// - `GPURenderer.removeSampler(sampler)` delegates to
+		//   `GPUDeviceManager.removeSampler(sampler)` (GPUDeviceManager.mjs), which
+		//   likewise just filters `deviceManager.samplers` by `uuid` — no GPU
+		//   resource is touched. (Confirmed by reading both methods in
+		//   node_modules/gpu-curtains/dist/esm/core/renderers/GPURenderer.mjs and
+		//   .../GPUDeviceManager.mjs; no splice-the-array-manually fallback needed,
+		//   a real removal API exists for both.)
 		if (!this.hasFluid) this.fluidVelocityTexture.texture?.destroy();
+		this.engine.curtains.renderer.removeTexture(this.fluidVelocityTexture);
+		this.engine.curtains.renderer.removeSampler(this.fluidVelocitySampler);
 		this.computePass.remove();
 		this.plane.remove();
 	}
