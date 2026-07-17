@@ -70,7 +70,9 @@ export async function maybeCreatePanel({
 		grain.addBinding(grainPass.params, 'scale', { min: 0.25, max: 4 });
 	}
 
-	let cancelled = false;
+	let disposed = false;
+	let sceneWatchRafId = null;
+
 	if (getLogoScene) {
 		const particles = pane.addFolder({ title: 'Particles' });
 		// The scene may not exist yet (not-yet-created on `/`, or non-home route)
@@ -118,21 +120,23 @@ export async function maybeCreatePanel({
 		// proxy's initial `read()` at bind time can land before `getLogoScene()`
 		// resolves to a real scene, seeding every slider's displayed value at
 		// the proxy's `?? 0` fallback instead of the scene's real defaults.
-		// That's a display-only staleness (nothing writes back to params until
-		// a slider is touched) — refresh once the scene exists so the pane
-		// reflects the live defaults instead of misleading zeros. Non-home
-		// routes never create a logo scene at all, so this must stop polling
-		// once the panel is destroyed (see `destroy()` below) — otherwise it
-		// rAF-loops forever on e.g. /work?debug.
-		const refreshOnceReady = () => {
-			if (cancelled) return;
-			if (getLogoScene()) {
-				pane.refresh();
-			} else {
-				requestAnimationFrame(refreshOnceReady);
+		// Identity-watch the scene across its lifetime: refresh the pane whenever
+		// getLogoScene() returns a different instance (covers both first-load and
+		// navigation-recreate). Non-home routes never create a logo scene at all,
+		// so this must stop polling once the panel is destroyed (see `destroy()`
+		// below) — otherwise it rAF-loops forever on e.g. /work?debug. Home-route
+		// layout creates the panel BEFORE the scene, making this watcher load-bearing.
+		let lastLogoScene = null;
+		const watchSceneIdentity = () => {
+			if (disposed) return;
+			const scene = getLogoScene();
+			if (scene !== lastLogoScene) {
+				lastLogoScene = scene;
+				if (scene) pane.refresh();
 			}
+			sceneWatchRafId = requestAnimationFrame(watchSceneIdentity);
 		};
-		refreshOnceReady();
+		watchSceneIdentity();
 	}
 
 	const eng = pane.addFolder({ title: 'Engine' });
@@ -159,7 +163,10 @@ export async function maybeCreatePanel({
 	return {
 		pane,
 		destroy() {
-			cancelled = true;
+			disposed = true;
+			if (sceneWatchRafId !== null) {
+				cancelAnimationFrame(sceneWatchRafId);
+			}
 			unsub();
 			pane.dispose();
 		}
