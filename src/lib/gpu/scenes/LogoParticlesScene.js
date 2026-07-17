@@ -117,11 +117,108 @@
 //    1` is kept below purely as documentation of intent, not because it
 //    changes behavior.
 
-import { Plane } from 'gpu-curtains';
+// --- Task 5 additions: [VERIFY-API] resolution notes ---------------------
+// (Task 5, [VERIFY-API] markers from p2-task-5-brief.md.) Verified against
+// node_modules/gpu-curtains/dist/types/**/*.d.ts (shapes) and the
+// corresponding dist/esm/**/*.mjs runtime source.
+//
+// 6. Sharing the particle storage buffer between the render `Plane` and a
+//    compute-shader `ComputePass` — THE CORE OF THIS TASK.
+//    `WritableBufferBinding.mjs`'s constructor UNCONDITIONALLY overwrites its
+//    own params before calling `super()`: `bindingType = "storage";
+//    visibility = ["compute"];` (no `??` guard — any `visibility` passed in
+//    is discarded). This means a `WritableBufferBinding` (`access:
+//    'read_write'`, required for the compute shader to write) can NEVER be
+//    visible to the vertex stage, and the render Plane's vertex shader reads
+//    `particles[attributes.instanceIndex]` (see particles.wgsl.js). WebGPU
+//    itself independently forbids a `storage` (read/write) buffer binding
+//    from being visible to the vertex stage at all (only `read-only-storage`
+//    is legal there) — so the SAME `WritableBufferBinding` instance literally
+//    cannot be handed to both the Plane and the ComputePass; two different
+//    binding objects are required, one per access level.
+//    The documented mechanism for that split is `BufferBindingParams.buffer`
+//    ("Optional already existing Buffer to use instead of creating a new
+//    one. Allow to reuse an already created Buffer but with different read
+//    or visibility values, or with a different WGSL struct." —
+//    BufferBinding.d.ts). `BufferBinding`'s constructor does
+//    `this.buffer = this.options.buffer ?? new Buffer()` (BufferBinding.mjs)
+//    — passing an existing binding's `.buffer` (its `Buffer` wrapper, not a
+//    raw `GPUBuffer`) makes the two `BufferBinding`/`WritableBufferBinding`
+//    instances share the literal same `Buffer` object. `BindGroup.mjs`'s
+//    `fillEntries()` only calls `createBindingBuffer` (which allocates the
+//    actual `GPUBuffer`) `if (!binding.buffer.GPUBuffer && !binding.parent)`
+//    — so whichever bind group is set up first allocates the real
+//    `GPUBuffer` once, and the second consumer finds it already there and
+//    reuses it. `getBindGroupLayoutBindingType()` (core/bindings/utils.mjs)
+//    independently derives each bind group's own layout entry `type`
+//    ('read-only-storage' for `access: 'read'`, valid in the vertex stage;
+//    'storage' for `access: 'read_write'`, compute/fragment only) from each
+//    binding's OWN `bindingType`/`access` — since the render-side and
+//    compute-side bindings are separate JS objects living in separate
+//    `BindGroup`s (Plane's render bind group vs ComputePass's compute bind
+//    group), each gets the layout entry appropriate to its own access level
+//    while pointing at the same underlying `GPUBuffer` resource. This is
+//    exactly the WebGPU "shared storage buffer, different binding types per
+//    pipeline" pattern (the okaydev "Dive into WebGPU part 4" pattern the
+//    brief references).
+//    Passing the same `struct` shape (with real initial values, not zeros)
+//    to BOTH binding instances is safe, not a hazard: `BufferBinding.mjs
+//    #setBindings` builds a FRESH internal wrapper object per struct field
+//    (`const binding = {}`) and copies from the passed-in `struct[key]`
+//    object rather than mutating it in place, so the same struct object (or
+//    two structurally-identical ones) can be handed to both constructors
+//    without cross-contamination. Both bindings independently compute
+//    identical initial `arrayBuffer` bytes from identical struct
+//    definitions/values, so even though both have `shouldUpdate = true` at
+//    construction (`setBufferAttributes()`: `this.shouldUpdate =
+//    this.arrayBufferSize > 0`) and thus both perform an initial
+//    `queueWriteBuffer` to the shared `GPUBuffer`, the two writes are
+//    byte-identical — no race. After frame 0 the render-side binding's own
+//    `.value`s are never reassigned by this scene, so its `shouldUpdate`
+//    never re-fires and it never stomps the compute pass's per-frame writes.
+//    Concretely: the compute-side `WritableBufferBinding` is constructed
+//    FIRST (it owns/creates the `Buffer`); the render-side plain
+//    `BufferBinding` (`bindingType: 'storage'`, `access: 'read'`, default
+//    (unset) `visibility` — `Binding`'s base constructor defaults to ALL
+//    THREE stages when omitted, Binding.mjs) is constructed second, passing
+//    `buffer: computeBinding.buffer`. `BufferBinding` and
+//    `WritableBufferBinding` are both direct named exports of the
+//    `gpu-curtains` package root (`dist/esm/index.mjs` re-exports them), so
+//    no deep-import path is needed. Both instances are then handed to their
+//    respective materials via the generic `bindings: [binding]` constructor
+//    param (`BindGroupInputs.bindings: BindGroupBindingElement[]`,
+//    types/BindGroups.d.ts) INSTEAD OF the `storages` shorthand param used
+//    in Task 4 — `storages` always routes through
+//    `BindGroup.mjs#createInputBindings`, which hardcodes `visibility:
+//    binding.access === 'read_write' ? ['compute'] : binding.visibility` and
+//    offers no way to pass an existing `Buffer` in, so it cannot express
+//    this split; explicit `bindings:` is required.
+//
+// 7. `ComputePass` dispatch order relative to the Plane's render — already
+//    resolved by Task 4's [VERIFY-API #5] above: Scene.mjs's render order is
+//    (1) ComputePass, (2) pingPong, (3)-(7) meshes — so with the default
+//    `autoRender: true` (ComputePassOptions, ComputePass.d.ts) the compute
+//    dispatch always runs BEFORE this scene's Plane renders in the same
+//    frame, with no extra hook needed; particles are same-frame-fresh.
+//
+// 8. `ComputePipelineEntry.mjs#patchShaders` (dist/esm/core/pipelines/
+//    ComputePipelineEntry.mjs) only prepends bind-group struct/variable WGSL
+//    fragments to the compute shader head — unlike a render `Geometry`, it
+//    injects no `Attributes`-style builtin-param struct of its own. So the
+//    compute entry point declares `@builtin(global_invocation_id) id: vec3u`
+//    as a plain function parameter with no collision risk (see
+//    particlesCompute.wgsl.js header for the full note).
+
+import { Plane, ComputePass, BufferBinding, WritableBufferBinding } from 'gpu-curtains';
 import { bakeLogoImage } from '../particles/bakeLogo.js';
 import { sampleSpawnPoints } from '../particles/spawnSampler.js';
 import { mulberry32 } from '../utils/rng.js';
 import { PARTICLES_VERTEX, PARTICLES_FRAGMENT } from '../particles/shaders/particles.wgsl.js';
+import { PARTICLES_COMPUTE } from '../particles/shaders/particlesCompute.wgsl.js';
+
+// Bake box aspect (width/height), locked in Task 2/3 — reused here so
+// compute-side forces stay isotropic regardless of the plane's aspect ratio.
+const BAKE_ASPECT = 1.153594844873037;
 
 // Matches FluidScene's PREMULTIPLIED_BLEND pattern (canvas alphaMode is
 // 'premultiplied'; gpu-curtains' generic `transparent: true` default is
@@ -186,6 +283,39 @@ export class LogoParticlesScene {
 			seedArr[i * 2 + 1] = brightness[i]; // brightness
 		}
 
+		// [VERIFY-API #6] The particle struct shape (four `array<vec2f>` SoA
+		// fields, matching order pos/vel/home/seed) is shared by both binding
+		// instances below so they independently generate the identical locked
+		// 32 B/particle AoS layout. The compute-side WritableBufferBinding is
+		// constructed FIRST — it owns the `Buffer` wrapper (creates the real
+		// GPUBuffer, access 'read_write', gpu-curtains forces its visibility to
+		// ['compute'] regardless of what's passed). The render-side plain
+		// BufferBinding reuses that same Buffer via `buffer:` with its own
+		// access 'read' (-> 'read-only-storage' bind group layout entry, legal
+		// in the vertex stage, unlike 'storage') — see header comment for the
+		// full resolution.
+		const particleStruct = () => ({
+			pos: { type: 'array<vec2f>', value: posArr },
+			vel: { type: 'array<vec2f>', value: velArr },
+			home: { type: 'array<vec2f>', value: homeArr },
+			seed: { type: 'array<vec2f>', value: seedArr }
+		});
+
+		this.particlesComputeBinding = new WritableBufferBinding({
+			label: 'particles',
+			name: 'particles',
+			struct: particleStruct()
+		});
+
+		this.particlesRenderBinding = new BufferBinding({
+			label: 'particles',
+			name: 'particles',
+			bindingType: 'storage',
+			access: 'read',
+			buffer: this.particlesComputeBinding.buffer,
+			struct: particleStruct()
+		});
+
 		this.plane = new Plane(engine.curtains, element, {
 			label: 'logo-particles',
 			instancesCount: count,
@@ -204,25 +334,68 @@ export class LogoParticlesScene {
 					}
 				}
 			},
-			storages: {
-				particles: {
-					access: 'read', // default; explicit for documentation (see [VERIFY-API #2])
+			bindings: [this.particlesRenderBinding]
+		});
+
+		// [VERIFY-API #7] dispatchSize is workgroups, not particle count —
+		// workgroup_size(64) in particlesCompute.wgsl.js, so ceil(count/64).
+		this.computePass = new ComputePass(engine.curtains, {
+			label: 'logo-particles-sim',
+			shaders: {
+				compute: { code: PARTICLES_COMPUTE }
+			},
+			dispatchSize: Math.ceil(count / 64),
+			bindings: [this.particlesComputeBinding],
+			uniforms: {
+				sim: {
 					struct: {
-						pos: { type: 'array<vec2f>', value: posArr },
-						vel: { type: 'array<vec2f>', value: velArr },
-						home: { type: 'array<vec2f>', value: homeArr },
-						seed: { type: 'array<vec2f>', value: seedArr }
+						dt: { type: 'f32', value: 0 },
+						time: { type: 'f32', value: 0 },
+						spring: { type: 'f32', value: this.params.spring },
+						damping: { type: 'f32', value: this.params.damping },
+						curlStrength: { type: 'f32', value: this.params.curlStrength },
+						curlScale: { type: 'f32', value: this.params.curlScale },
+						curlSpeed: { type: 'f32', value: this.params.curlSpeed },
+						// Pointer fields zeroed until Task 6 wires real pointer data.
+						pointer: { type: 'vec2f', value: [0, 0] },
+						pointerRadius: { type: 'f32', value: this.params.pointerRadius },
+						pointerForce: { type: 'f32', value: this.params.pointerForce },
+						pointerVel: { type: 'f32', value: 0 },
+						pointerActive: { type: 'f32', value: 0 },
+						// Placeholder, wired by Task 6's FLUID_COUPLING_SLOT.
+						coupling: { type: 'f32', value: this.params.coupling },
+						aspect: { type: 'f32', value: BAKE_ASPECT }
 					}
 				}
 			}
 		});
+
+		this._lastFrameTime = performance.now();
+		this._simTime = 0;
 
 		this.unsubFrame = engine.onFrame(() => this.update());
 	}
 
 	update() {
 		if (this.destroyed || this.engine.hidden) return;
-		// Task 4: static field — sync live params only.
+
+		const now = performance.now();
+		const dt = Math.min((now - this._lastFrameTime) / 1000, 0.033);
+		this._lastFrameTime = now;
+		this._simTime += dt;
+
+		const sim = this.computePass.uniforms.sim;
+		sim.dt.value = dt;
+		sim.time.value = this._simTime;
+		sim.spring.value = this.params.spring;
+		sim.damping.value = this.params.damping;
+		sim.curlStrength.value = this.params.curlStrength;
+		sim.curlScale.value = this.params.curlScale;
+		sim.curlSpeed.value = this.params.curlSpeed;
+		sim.pointerRadius.value = this.params.pointerRadius;
+		sim.pointerForce.value = this.params.pointerForce;
+		sim.coupling.value = this.params.coupling;
+
 		this.plane.uniforms.render.size.value = this.params.size;
 		this.plane.uniforms.render.opacity.value = this.params.opacity;
 	}
@@ -230,6 +403,7 @@ export class LogoParticlesScene {
 	destroy() {
 		this.destroyed = true;
 		this.unsubFrame();
+		this.computePass.remove();
 		this.plane.remove();
 	}
 }
