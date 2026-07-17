@@ -81,7 +81,12 @@
 
 		panel = await maybeCreatePanel({ fluidScene: scene, grainPass: grain, engine, forceProgress });
 
-		logoScene = await LogoParticlesScene.create({ engine, element: logoHost, seed: 1234 });
+		logoScene = await LogoParticlesScene.create({
+			engine,
+			element: logoHost,
+			fluidScene: scene,
+			seed: 1234
+		});
 	});
 
 	onDestroy(() => {

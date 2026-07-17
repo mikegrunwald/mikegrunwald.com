@@ -167,15 +167,24 @@
 //    (`const binding = {}`) and copies from the passed-in `struct[key]`
 //    object rather than mutating it in place, so the same struct object (or
 //    two structurally-identical ones) can be handed to both constructors
-//    without cross-contamination. Both bindings independently compute
-//    identical initial `arrayBuffer` bytes from identical struct
-//    definitions/values, so even though both have `shouldUpdate = true` at
-//    construction (`setBufferAttributes()`: `this.shouldUpdate =
-//    this.arrayBufferSize > 0`) and thus both perform an initial
-//    `queueWriteBuffer` to the shared `GPUBuffer`, the two writes are
-//    byte-identical — no race. After frame 0 the render-side binding's own
-//    `.value`s are never reassigned by this scene, so its `shouldUpdate`
-//    never re-fires and it never stomps the compute pass's per-frame writes.
+//    without cross-contamination.
+//    CORRECTION (Task 6 review): the render-side binding NEVER performs a
+//    write, not even an initial one — `BufferBinding.mjs#update()` starts
+//    with `if (this.options.buffer) { this.shouldUpdate = false; return; }`,
+//    an unconditional short-circuit for any binding constructed with the
+//    `buffer:` option. `BindGroup.mjs#updateBufferBindings()` calls
+//    `binding.update()` immediately before checking `binding.shouldUpdate`
+//    in the same loop iteration, so the `shouldUpdate = true` that
+//    `setBufferAttributes()` set at construction is cleared before that
+//    check ever runs, on every call including the first. The compute-side
+//    `WritableBufferBinding` (constructed WITHOUT `buffer:` — it owns the
+//    `Buffer`) has no such guard in its own `update()` path, so it is the
+//    single writer for this shared `GPUBuffer`. In practice that write only
+//    ever fires once (the initial upload): this scene never reassigns the
+//    compute binding's `.inputs.*.value`s afterward either, so `shouldUpdate`
+//    never re-arms on the CPU side — from frame 1 onward the compute
+//    shader's own `particles[i] = p;` writes mutate the GPUBuffer directly in
+//    VRAM, with no further `queueWriteBuffer` calls from either binding.
 //    Concretely: the compute-side `WritableBufferBinding` is constructed
 //    FIRST (it owns/creates the `Buffer`); the render-side plain
 //    `BufferBinding` (`bindingType: 'storage'`, `access: 'read'`, default
@@ -209,7 +218,82 @@
 //    as a plain function parameter with no collision risk (see
 //    particlesCompute.wgsl.js header for the full note).
 
-import { Plane, ComputePass, BufferBinding, WritableBufferBinding } from 'gpu-curtains';
+// --- Task 6 additions: [VERIFY-API] resolution notes ----------------------
+// (Task 6, [VERIFY-API] markers from p2-task-6-brief.md.) Verified against
+// node_modules/gpu-curtains/dist/types/**/*.d.ts + dist/esm/**/*.mjs.
+//
+// 9. Binding a texture into a `ComputePass` — `ComputePassParams` extends
+//    `MaterialParams` extends `MaterialInputBindingsParams`
+//    (types/Materials.d.ts), which declares `textures?: MaterialTexture[]`
+//    and `samplers?: Sampler[]` — arrays of already-constructed gpu-curtains
+//    `Texture`/`Sampler` wrapper instances (NOT raw GPUTexture/GPUSampler),
+//    passed as top-level `ComputePass` constructor options exactly like
+//    `bindings`/`uniforms`. `Material.mjs#addTexture`/`#addSampler` only wire
+//    a texture/sampler into the bind group if its `name` string appears in
+//    `options.shaders.compute.code` (confirmed: the same reachability check
+//    used for vertex/fragment also scans `.compute.code` — the FullscreenPlane
+//    pattern from FluidScene.js generalizes to compute passes unchanged), so
+//    referencing `fluidVelocity`/`fluidSampler` in particlesCompute.wgsl.js's
+//    WGSL is sufficient; we do not declare `var fluidVelocity`/`var
+//    fluidSampler` ourselves.
+//    A `Texture`'s default `visibility` is `['fragment']` only
+//    (types/Textures.d.ts `TextureVisibility` doc comment: "Default to
+//    'fragment'") — passing `visibility: ['compute']` explicitly when
+//    constructing the fluid-velocity `Texture` below is load-bearing;
+//    without it the compute bind-group layout omits the entry and the
+//    pipeline fails to compile/bind. A `Sampler`'s underlying
+//    `SamplerBinding` is built via the base `Binding` constructor with no
+//    `visibility` passed (Sampler.mjs `createBinding()`), which defaults to
+//    ALL THREE stages (`Binding.mjs`, same default already proven for
+//    `BufferBinding`/`WritableBufferBinding` in note #6 above) — no explicit
+//    visibility needed on the `Sampler`.
+//    Same zero-copy aliasing pattern as FluidScene.js's `curtainsTexture`
+//    bridge: construct `new Texture(engine.curtains, { fixedSize, format:
+//    'rg16float', visibility: ['compute'], autoDestroy: false })`, destroy
+//    the placeholder GPUTexture it allocates, then `copyGPUTexture(...)` onto
+//    `fluidScene.sim.velocitySharedTexture.texture` — a STABLE (non-swapping)
+//    target per FluidSimulation.js's Task 6 addition, so (unlike
+//    FluidScene's ping-ponging `dye.read` debug case) this bridge only needs
+//    to re-run on resize, not every frame; `velocityShared` itself is
+//    refreshed in place via `copyTextureToTexture` inside
+//    `FluidSimulation.render()`.
+//    Resize caveat: `fixedSize` makes `Texture#resize()` a no-op, and
+//    `FluidSimulation.resize()` destroys+recreates `velocityShared` (new
+//    GPUTexture identity) on every renderer resize. This scene re-runs
+//    `copyGPUTexture` onto the fresh texture from its own `engine.onResize`
+//    subscription — correct ONLY if `FluidScene`'s own `onResize` (which
+//    calls `sim.resize()`) was registered first, since `engine.onResize`'s
+//    `Set`-based fan-out (resizeHub) preserves insertion order. True in both
+//    known hosts (FluidScene is always constructed, and thus subscribed,
+//    before LogoParticlesScene) but not independently enforced — flagged as
+//    a carry-forward concern in the Task 6 report.
+//
+// 10. `fluidScene` may be `null` (e.g. a future dev harness without a fluid
+//    layer). The compute shader is one static WGSL string with a runtime
+//    (not static) `if (sim.coupling > 0.0)` branch around the
+//    `fluidVelocity`/`fluidSampler` reads, so per `passes.js`'s
+//    "WGSL bindings not statically reachable are stripped by layout:'auto'"
+//    note, these bindings ARE reachable (the branch is real control flow,
+//    not dead code) and therefore always required by the pipeline's
+//    auto-generated layout, independent of whether `sim.coupling` is ever
+//    nonzero at runtime. So a real GPU resource must always be bound; we
+//    cannot literally omit the texture when `fluidScene` is `null`. Instead:
+//    construct the `Texture` at a harmless 1x1 `fixedSize` and skip the
+//    `copyGPUTexture` aliasing step (leaving its own placeholder GPUTexture,
+//    zero-initialized per the WebGPU spec, bound but never sampled) AND
+//    force `sim.coupling.value = 0` every frame in `update()` regardless of
+//    `this.params.coupling` — the branch never executes, so the placeholder
+//    is inert. This satisfies the brief's "guard coupling (uniform 0 + skip
+//    texture binding)" option without an invalid/missing bind-group entry.
+
+import {
+	Plane,
+	ComputePass,
+	BufferBinding,
+	WritableBufferBinding,
+	Texture,
+	Sampler
+} from 'gpu-curtains';
 import { bakeLogoImage } from '../particles/bakeLogo.js';
 import { sampleSpawnPoints } from '../particles/spawnSampler.js';
 import { mulberry32 } from '../utils/rng.js';
@@ -337,6 +421,44 @@ export class LogoParticlesScene {
 			bindings: [this.particlesRenderBinding]
 		});
 
+		// [VERIFY-API #9] Fluid-velocity coupling texture + sampler — see header
+		// note #9/#10. `hasFluid` gates real aliasing vs the inert 1x1
+		// placeholder; either way a valid GPUTexture is always bound so the
+		// compute pipeline (one static WGSL string, coupling branch is real
+		// control flow) always compiles.
+		const hasFluid = !!fluidScene?.sim?.velocitySharedTexture;
+		const velocitySrc = hasFluid ? fluidScene.sim.velocitySharedTexture : null;
+
+		this.fluidVelocitySampler = new Sampler(engine.curtains, {
+			label: 'fluid-velocity-sampler',
+			name: 'fluidSampler',
+			magFilter: 'linear',
+			minFilter: 'linear',
+			addressModeU: 'clamp-to-edge',
+			addressModeV: 'clamp-to-edge'
+		});
+
+		this.fluidVelocityTexture = new Texture(engine.curtains, {
+			label: 'fluid-velocity-coupling',
+			name: 'fluidVelocity',
+			format: 'rg16float',
+			fixedSize: velocitySrc
+				? { width: velocitySrc.width, height: velocitySrc.height }
+				: { width: 1, height: 1 },
+			visibility: ['compute'], // load-bearing — Texture defaults to fragment-only, see note #9
+			autoDestroy: false
+		});
+		if (velocitySrc) {
+			// Drop the placeholder GPUTexture the constructor just allocated
+			// (never rendered into) before aliasing onto the real fluid
+			// velocityShared texture — same pattern as FluidScene's
+			// curtainsTexture bridge.
+			this.fluidVelocityTexture.texture?.destroy();
+			this.fluidVelocityTexture.copyGPUTexture(velocitySrc.texture);
+		}
+		// else: keep the auto-allocated 1x1 placeholder (zero-initialized by
+		// the WebGPU spec) — never sampled, sim.coupling is forced to 0 below.
+
 		// [VERIFY-API #7] dispatchSize is workgroups, not particle count —
 		// workgroup_size(64) in particlesCompute.wgsl.js, so ceil(count/64).
 		this.computePass = new ComputePass(engine.curtains, {
@@ -346,6 +468,8 @@ export class LogoParticlesScene {
 			},
 			dispatchSize: Math.ceil(count / 64),
 			bindings: [this.particlesComputeBinding],
+			textures: [this.fluidVelocityTexture],
+			samplers: [this.fluidVelocitySampler],
 			uniforms: {
 				sim: {
 					struct: {
@@ -356,15 +480,18 @@ export class LogoParticlesScene {
 						curlStrength: { type: 'f32', value: this.params.curlStrength },
 						curlScale: { type: 'f32', value: this.params.curlScale },
 						curlSpeed: { type: 'f32', value: this.params.curlSpeed },
-						// Pointer fields zeroed until Task 6 wires real pointer data.
 						pointer: { type: 'vec2f', value: [0, 0] },
 						pointerRadius: { type: 'f32', value: this.params.pointerRadius },
 						pointerForce: { type: 'f32', value: this.params.pointerForce },
 						pointerVel: { type: 'f32', value: 0 },
 						pointerActive: { type: 'f32', value: 0 },
-						// Placeholder, wired by Task 6's FLUID_COUPLING_SLOT.
 						coupling: { type: 'f32', value: this.params.coupling },
-						aspect: { type: 'f32', value: BAKE_ASPECT }
+						aspect: { type: 'f32', value: BAKE_ASPECT },
+						// Task 6 additions — see FLUID_COUPLING_SLOT in
+						// particlesCompute.wgsl.js and update() below.
+						planeRect: { type: 'vec4f', value: [0, 0, 0, 0] },
+						canvasSize: { type: 'vec2f', value: [1, 1] },
+						fluidTexel: { type: 'vec2f', value: [0, 0] }
 					}
 				}
 			}
@@ -372,6 +499,18 @@ export class LogoParticlesScene {
 
 		this._lastFrameTime = performance.now();
 		this._simTime = 0;
+
+		// Re-bridge the fluid-velocity texture after every engine resize — see
+		// header note #9's resize caveat (fixedSize Texture#resize() is a
+		// no-op; FluidSimulation.resize() gives velocityShared a new GPUTexture
+		// identity every time). Only relevant when a real fluid is present.
+		this.unsubResize = hasFluid
+			? engine.onResize(() => {
+					if (this.destroyed) return;
+					const fresh = this.fluidScene?.sim?.velocitySharedTexture;
+					if (fresh) this.fluidVelocityTexture.copyGPUTexture(fresh.texture);
+				})
+			: null;
 
 		this.unsubFrame = engine.onFrame(() => this.update());
 	}
@@ -394,7 +533,34 @@ export class LogoParticlesScene {
 		sim.curlSpeed.value = this.params.curlSpeed;
 		sim.pointerRadius.value = this.params.pointerRadius;
 		sim.pointerForce.value = this.params.pointerForce;
-		sim.coupling.value = this.params.coupling;
+		// Guard: no real fluid bound -> force coupling off regardless of the
+		// live param, so the compute shader's inert placeholder texture (see
+		// header note #10) is never meaningfully sampled.
+		sim.coupling.value = this.fluidScene ? this.params.coupling : 0;
+
+		// Pointer -> logo-local uv. `plane.domElement.boundingRect` is CSS px
+		// ([VERIFY-API #4]); input texcoords are already canvas CSS uv (Phase 1
+		// fix, see input.js). `engine.input.getSize()` (Task 6 addition to
+		// input.js) reuses the exact same CSS-px canvas measurement the pointer
+		// texcoords were computed from, instead of duplicating the fallback.
+		const rect = this.plane.domElement.boundingRect;
+		const { width: cw, height: ch } = this.engine.input.getSize();
+		const ptr = this.engine.input.pointers[0];
+		const localX = cw > 0 && rect.width > 0 ? (ptr.texcoordX * cw - rect.left) / rect.width : 0;
+		const localY = ch > 0 && rect.height > 0 ? (ptr.texcoordY * ch - rect.top) / rect.height : 0;
+		const speed = Math.hypot(ptr.deltaX, ptr.deltaY) * 60; // per-second-ish
+		const inside = localX > -0.2 && localX < 1.2 && localY > -0.2 && localY < 1.2;
+
+		sim.pointer.value = [localX, localY];
+		sim.pointerVel.value = Math.min(speed, 8);
+		sim.pointerActive.value = inside ? 1 : 0;
+
+		sim.planeRect.value = [rect.left, rect.top, rect.width, rect.height];
+		sim.canvasSize.value = [cw, ch];
+		if (this.fluidScene) {
+			const v = this.fluidScene.sim.velocity;
+			sim.fluidTexel.value = [v.texelSizeX, v.texelSizeY];
+		}
 
 		this.plane.uniforms.render.size.value = this.params.size;
 		this.plane.uniforms.render.opacity.value = this.params.opacity;
@@ -403,6 +569,13 @@ export class LogoParticlesScene {
 	destroy() {
 		this.destroyed = true;
 		this.unsubFrame();
+		this.unsubResize?.();
+		// The fluid-present case aliases fluidVelocityTexture onto a GPUTexture
+		// owned by FluidSimulation (autoDestroy: false, same as FluidScene's
+		// curtainsTexture — must not destroy someone else's resource here). The
+		// no-fluid placeholder case owns its own 1x1 GPUTexture that nothing else
+		// references, so it must be cleaned up explicitly.
+		if (!this.fluidScene) this.fluidVelocityTexture.texture?.destroy();
 		this.computePass.remove();
 		this.plane.remove();
 	}

@@ -38,12 +38,33 @@
 // anything gpu-curtains generates.
 //
 // sim uniform struct fields (all f32 unless noted): dt, time, spring,
-// damping, curlStrength, curlScale, curlSpeed, pointer (vec2f, logo-local uv,
-// zeroed until Task 6), pointerRadius, pointerForce, pointerVel,
-// pointerActive (zeroed until Task 6 supplies real pointer data — the force
-// code below is complete and already gated on it), coupling (placeholder,
-// wired by Task 6's FLUID_COUPLING_SLOT), aspect (bake box aspect,
-// 1.153594844873037, used to make forces isotropic in plane-local uv space).
+// damping, curlStrength, curlScale, curlSpeed, pointer (vec2f, logo-local uv),
+// pointerRadius, pointerForce, pointerVel, pointerActive, coupling, aspect
+// (bake box aspect, 1.153594844873037, used to make forces isotropic in
+// plane-local uv space).
+//
+// --- Task 6 additions ---
+// sim struct extended with planeRect (vec4f: x,y,w,h of the logo box in
+// canvas CSS px), canvasSize (vec2f, canvas CSS px), fluidTexel (vec2f, the
+// fluid velocity target's texelSize — see FluidSimulation.js resize()).
+//
+// [VERIFY-API] `fluidVelocity`/`fluidSampler` bindings — declared via the
+// ComputePass's `textures`/`samplers` constructor params in
+// LogoParticlesScene.js (gpu-curtains `Texture`/`Sampler` instances, NOT raw
+// GPUTexture/GPUSampler — see types/Materials.d.ts `MaterialInputBindingsParams`).
+// `Material.mjs#addTexture`/`#addSampler` only bind a texture/sampler into the
+// bind group if its `name` string appears in `options.shaders.compute.code`
+// (confirmed: the same reachability check also scans `.compute.code`, not
+// just vertex/fragment), so declaring `textureSampleLevel(fluidVelocity,
+// fluidSampler, ...)` below is sufficient — we do not declare `var
+// fluidVelocity`/`var fluidSampler` ourselves, gpu-curtains auto-injects them
+// (`getTextureBindingWGSLVarType`: default `type: 'texture'` + rg16float ->
+// `var fluidVelocity: texture_2d<f32>;`, filterable since rg16float supports
+// linear sampling). A `Texture`'s default `visibility` is `['fragment']`
+// only (types/Textures.d.ts `TextureVisibility`) — LogoParticlesScene passes
+// `visibility: ['compute']` explicitly when constructing it, or the compute
+// bind-group layout would omit the entry entirely and the pipeline would fail
+// to compile/bind.
 export const PARTICLES_COMPUTE = /* wgsl */ `
 struct Particle {
   pos: vec2f,
@@ -109,7 +130,20 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
     force += normalize(toP + vec2f(1e-5)) * falloff * falloff * sim.pointerForce * (0.35 + sim.pointerVel);
   }
 
-  // FLUID_COUPLING_SLOT — Task 6 inserts velocity-field sampling here.
+  // One-way fluid coupling: sample the fluid's velocity field at this
+  // particle's screen position and advect along the current.
+  // planeRect = (x, y, w, h) of the logo box in canvas CSS px; canvasSize in CSS px.
+  if (sim.coupling > 0.0) {
+    let screenUv = (sim.planeRect.xy + p.pos * sim.planeRect.zw) / sim.canvasSize;
+    // Fluid velocity is stored in sim-texel units/sec (see FluidSimulation
+    // advection); texelSize converts to uv/sec, planeRect scale converts to
+    // logo-local units/sec. textureSampleLevel: compute shaders have no
+    // implicit derivatives.
+    let v = textureSampleLevel(fluidVelocity, fluidSampler, screenUv, 0.0).xy;
+    let vUv = v * sim.fluidTexel;                       // uv/sec in canvas space
+    let vLocal = vUv * (sim.canvasSize / sim.planeRect.zw); // logo-local/sec
+    force += vLocal * asp * sim.coupling;
+  }
 
   var vel = p.vel + force * sim.dt;
   vel *= max(0.0, 1.0 - sim.damping * sim.dt);

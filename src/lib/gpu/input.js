@@ -119,5 +119,9 @@ export function createPointerInput({ getSize }) {
 		listeners.length = 0;
 	}
 
-	return { pointers, start, stop };
+	// Re-export the CSS-px `getSize` closure passed in (engine.js's canvas
+	// clientWidth/clientHeight-with-fallback measurement) so other scenes
+	// (Task 6's LogoParticlesScene pointer-to-plane-local transform) can reuse
+	// the exact same measurement instead of duplicating the fallback logic.
+	return { pointers, start, stop, getSize };
 }

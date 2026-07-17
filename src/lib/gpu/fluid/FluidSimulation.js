@@ -222,6 +222,44 @@ export class FluidSimulation {
 			'pressure'
 		);
 
+		// Task 6: stable-identity copy of velocity.read for external consumers
+		// (LogoParticlesScene's particle-fluid coupling). The ping-pong
+		// velocity.read texture IDENTITY changes every frame (swap()), which
+		// would force a bind-group rebuild each frame in any consumer that
+		// binds it directly; this non-swapping target is refreshed in place via
+		// copyTextureToTexture at the end of render() instead, so a consumer can
+		// bind it once. Sim-res (~128x228), so the copy is negligible.
+		// NOT built via createTarget(): that helper's usage flags (RENDER_ATTACHMENT
+		// | TEXTURE_BINDING | COPY_SRC) omit COPY_DST, but this target is the
+		// destination of a copyTextureToTexture below — without COPY_DST the copy is
+		// a WebGPU validation error that invalidates the entire command buffer for
+		// the frame (silently dropping ALL fluid work that frame, not just the
+		// copy). Built inline instead, matching createTarget's return shape plus
+		// COPY_DST. createTarget() itself is untouched (parity lock — every other
+		// target it produces is unaffected).
+		this.velocityShared?.destroy();
+		{
+			const vsTexture = this.device.createTexture({
+				label: 'velocity-shared',
+				size: { width: simRes.width, height: simRes.height },
+				format: 'rg16float',
+				usage:
+					GPUTextureUsage.RENDER_ATTACHMENT |
+					GPUTextureUsage.TEXTURE_BINDING |
+					GPUTextureUsage.COPY_SRC |
+					GPUTextureUsage.COPY_DST
+			});
+			this.velocityShared = {
+				texture: vsTexture,
+				view: vsTexture.createView(),
+				width: simRes.width,
+				height: simRes.height,
+				texelSizeX: 1.0 / simRes.width,
+				texelSizeY: 1.0 / simRes.height,
+				destroy: () => vsTexture.destroy()
+			};
+		}
+
 		this.bloom?.destroy();
 		this.bloomLevels?.forEach((t) => t.destroy());
 		this.sunrays?.destroy();
@@ -269,6 +307,11 @@ export class FluidSimulation {
 
 	get sunraysTexture() {
 		return this.sunrays;
+	}
+
+	// Task 6: stable-identity velocity copy — see resize() comment above.
+	get velocitySharedTexture() {
+		return this.velocityShared;
 	}
 
 	generateColor() {
@@ -625,6 +668,15 @@ export class FluidSimulation {
 			],
 			loadOp: 'clear' // TRANSPARENT: composite starts from vec4(0)
 		});
+
+		// Task 6: stable-identity copy of the ping-pong velocity for external
+		// consumers (particle coupling). Copied AFTER step() so it's this
+		// frame's field.
+		encoder.copyTextureToTexture(
+			{ texture: this.velocity.read.texture },
+			{ texture: this.velocityShared.texture },
+			{ width: this.velocity.width, height: this.velocity.height }
+		);
 	}
 
 	destroy() {
@@ -633,6 +685,7 @@ export class FluidSimulation {
 		this.divergence?.destroy();
 		this.curl?.destroy();
 		this.pressure?.destroy();
+		this.velocityShared?.destroy();
 		this.bloom?.destroy();
 		this.bloomLevels?.forEach((t) => t.destroy());
 		this.sunrays?.destroy();
