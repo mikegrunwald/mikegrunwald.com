@@ -37,6 +37,7 @@ struct VSOut {
   @location(1) brightness: f32,
   @location(2) phase: f32,
   @location(3) speed: f32,        // |vel| for glint (0 until Task 5 moves things)
+  @location(4) twinkle: f32,      // Task 7: per-particle shimmer phase sample
 };
 
 @vertex
@@ -51,7 +52,10 @@ fn main(attributes: Attributes) -> VSOut {
   // Sprite corner from the base quad vertex position (-1..1), scaled to a
   // fraction of the plane. render.size is sprite radius in plane-local units.
   let corner = attributes.position.xy;
-  let jitter = 0.7 + 0.6 * fract(p.seed.x * 13.37); // per-particle size jitter
+  // Per-particle size oscillation: independent phase + frequency from seed.
+  let freq = 0.7 + 1.3 * fract(p.seed.x * 7.31);
+  let tw = sin(render.time * render.shimmerSpeed * freq + p.seed.x * 6.2831853);
+  let jitter = (0.7 + 0.6 * fract(p.seed.x * 13.37)) * (1.0 + render.sizeVariation * 0.35 * tw);
   let offset = corner * render.size * jitter;
 
   var out: VSOut;
@@ -67,6 +71,7 @@ fn main(attributes: Attributes) -> VSOut {
   out.brightness = p.seed.y;
   out.phase = p.seed.x;
   out.speed = length(p.vel);
+  out.twinkle = tw;
   return out;
 }
 `;
@@ -88,6 +93,7 @@ struct VSOut {
   @location(1) brightness: f32,
   @location(2) phase: f32,
   @location(3) speed: f32,
+  @location(4) twinkle: f32,
 };
 
 @fragment
@@ -97,8 +103,11 @@ fn fsMain(in: VSOut) -> @location(0) vec4f {
   let disc = smoothstep(1.0, 0.35, d);
   if (disc <= 0.001) { discard; }
 
-  // Static base for Task 4; Task 7 adds shimmer(t, phase) and glint(speed).
-  let intensity = in.brightness * disc * render.opacity;
+  // atlab.io-style twinkle: brightness oscillates per particle...
+  let shimmer = 1.0 + render.shimmerIntensity * in.twinkle;
+  // ...and disturbed particles briefly glint brighter.
+  let glint = 1.0 + min(render.glintGain * in.speed, 3.0);
+  let intensity = in.brightness * disc * render.opacity * shimmer * glint;
 
   // Premultiplied output (canvas alphaMode is premultiplied; blend ONE/1-src-alpha).
   let color = vec3f(1.0, 1.0, 1.0) * intensity;

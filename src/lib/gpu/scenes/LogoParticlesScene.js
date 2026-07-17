@@ -414,7 +414,14 @@ export class LogoParticlesScene {
 				render: {
 					struct: {
 						size: { type: 'f32', value: this.params.size },
-						opacity: { type: 'f32', value: this.params.opacity }
+						opacity: { type: 'f32', value: this.params.opacity },
+						// Task 7 additions — shimmer/glint, synced from params each
+						// frame in update() off the same _simTime clock as sim.time.
+						time: { type: 'f32', value: 0 },
+						shimmerSpeed: { type: 'f32', value: this.params.shimmerSpeed },
+						shimmerIntensity: { type: 'f32', value: this.params.shimmerIntensity },
+						sizeVariation: { type: 'f32', value: this.params.sizeVariation },
+						glintGain: { type: 'f32', value: this.params.glintGain }
 					}
 				}
 			},
@@ -422,12 +429,15 @@ export class LogoParticlesScene {
 		});
 
 		// [VERIFY-API #9] Fluid-velocity coupling texture + sampler — see header
-		// note #9/#10. `hasFluid` gates real aliasing vs the inert 1x1
+		// note #9/#10. `this.hasFluid` gates real aliasing vs the inert 1x1
 		// placeholder; either way a valid GPUTexture is always bound so the
 		// compute pipeline (one static WGSL string, coupling branch is real
 		// control flow) always compiles.
-		const hasFluid = !!fluidScene?.sim?.velocitySharedTexture;
-		const velocitySrc = hasFluid ? fluidScene.sim.velocitySharedTexture : null;
+		// (T6-review drive-by: stored on `this` — was a local — so update()/
+		// destroy() can gate on it consistently instead of re-deriving fluid
+		// presence from `this.fluidScene` each time.)
+		this.hasFluid = !!fluidScene?.sim?.velocitySharedTexture;
+		const velocitySrc = this.hasFluid ? fluidScene.sim.velocitySharedTexture : null;
 
 		this.fluidVelocitySampler = new Sampler(engine.curtains, {
 			label: 'fluid-velocity-sampler',
@@ -504,7 +514,7 @@ export class LogoParticlesScene {
 		// header note #9's resize caveat (fixedSize Texture#resize() is a
 		// no-op; FluidSimulation.resize() gives velocityShared a new GPUTexture
 		// identity every time). Only relevant when a real fluid is present.
-		this.unsubResize = hasFluid
+		this.unsubResize = this.hasFluid
 			? engine.onResize(() => {
 					if (this.destroyed) return;
 					const fresh = this.fluidScene?.sim?.velocitySharedTexture;
@@ -536,7 +546,7 @@ export class LogoParticlesScene {
 		// Guard: no real fluid bound -> force coupling off regardless of the
 		// live param, so the compute shader's inert placeholder texture (see
 		// header note #10) is never meaningfully sampled.
-		sim.coupling.value = this.fluidScene ? this.params.coupling : 0;
+		sim.coupling.value = this.hasFluid ? this.params.coupling : 0;
 
 		// Pointer -> logo-local uv. `plane.domElement.boundingRect` is CSS px
 		// ([VERIFY-API #4]); input texcoords are already canvas CSS uv (Phase 1
@@ -546,10 +556,15 @@ export class LogoParticlesScene {
 		const rect = this.plane.domElement.boundingRect;
 		const { width: cw, height: ch } = this.engine.input.getSize();
 		const ptr = this.engine.input.pointers[0];
-		const localX = cw > 0 && rect.width > 0 ? (ptr.texcoordX * cw - rect.left) / rect.width : 0;
-		const localY = ch > 0 && rect.height > 0 ? (ptr.texcoordY * ch - rect.top) / rect.height : 0;
+		const hasRect = cw > 0 && rect.width > 0 && ch > 0 && rect.height > 0;
+		const localX = hasRect ? (ptr.texcoordX * cw - rect.left) / rect.width : 0;
+		const localY = hasRect ? (ptr.texcoordY * ch - rect.top) / rect.height : 0;
 		const speed = Math.hypot(ptr.deltaX, ptr.deltaY) * 60; // per-second-ish
-		const inside = localX > -0.2 && localX < 1.2 && localY > -0.2 && localY < 1.2;
+		// T6-review drive-by: without a valid rect/canvas size (pre-layout),
+		// localX/localY fall back to 0 which sits inside the -0.2..1.2 window
+		// below — force `inside` false in that case so pointerActive doesn't
+		// spuriously read 1 before the plane has ever measured its own rect.
+		const inside = hasRect && localX > -0.2 && localX < 1.2 && localY > -0.2 && localY < 1.2;
 
 		sim.pointer.value = [localX, localY];
 		sim.pointerVel.value = Math.min(speed, 8);
@@ -557,13 +572,19 @@ export class LogoParticlesScene {
 
 		sim.planeRect.value = [rect.left, rect.top, rect.width, rect.height];
 		sim.canvasSize.value = [cw, ch];
-		if (this.fluidScene) {
+		if (this.hasFluid) {
 			const v = this.fluidScene.sim.velocity;
 			sim.fluidTexel.value = [v.texelSizeX, v.texelSizeY];
 		}
 
 		this.plane.uniforms.render.size.value = this.params.size;
 		this.plane.uniforms.render.opacity.value = this.params.opacity;
+		// Task 7: shimmer/glint uniforms, same _simTime clock as sim.time above.
+		this.plane.uniforms.render.time.value = this._simTime;
+		this.plane.uniforms.render.shimmerSpeed.value = this.params.shimmerSpeed;
+		this.plane.uniforms.render.shimmerIntensity.value = this.params.shimmerIntensity;
+		this.plane.uniforms.render.sizeVariation.value = this.params.sizeVariation;
+		this.plane.uniforms.render.glintGain.value = this.params.glintGain;
 	}
 
 	destroy() {
@@ -575,7 +596,7 @@ export class LogoParticlesScene {
 		// curtainsTexture — must not destroy someone else's resource here). The
 		// no-fluid placeholder case owns its own 1x1 GPUTexture that nothing else
 		// references, so it must be cleaned up explicitly.
-		if (!this.fluidScene) this.fluidVelocityTexture.texture?.destroy();
+		if (!this.hasFluid) this.fluidVelocityTexture.texture?.destroy();
 		this.computePass.remove();
 		this.plane.remove();
 	}
