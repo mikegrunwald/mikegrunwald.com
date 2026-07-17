@@ -79,13 +79,19 @@
 
 		scene.sim.multipleSplats(10);
 
-		panel = await maybeCreatePanel({ fluidScene: scene, grainPass: grain, engine, forceProgress });
-
 		logoScene = await LogoParticlesScene.create({
 			engine,
 			element: logoHost,
 			fluidScene: scene,
 			seed: 1234
+		});
+
+		panel = await maybeCreatePanel({
+			fluidScene: scene,
+			grainPass: grain,
+			engine,
+			forceProgress,
+			getLogoScene: () => logoScene
 		});
 	});
 

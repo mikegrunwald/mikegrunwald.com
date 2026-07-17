@@ -134,7 +134,8 @@
 				forceProgress: (p) => {
 					forcedProgress = p;
 					if (p !== null) fluidScene.setProgress(p);
-				}
+				},
+				getLogoScene: () => logoScene
 			});
 		}
 

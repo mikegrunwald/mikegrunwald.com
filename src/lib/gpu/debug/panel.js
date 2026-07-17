@@ -3,7 +3,13 @@ export function shouldShowPanel() {
 	return import.meta.env.DEV || new URLSearchParams(location.search).has('debug');
 }
 
-export async function maybeCreatePanel({ fluidScene, grainPass, engine, forceProgress }) {
+export async function maybeCreatePanel({
+	fluidScene,
+	grainPass,
+	engine,
+	forceProgress,
+	getLogoScene
+}) {
 	if (!shouldShowPanel()) return null;
 	const { Pane } = await import('tweakpane');
 	const pane = new Pane({ title: 'GPU debug' });
@@ -64,6 +70,71 @@ export async function maybeCreatePanel({ fluidScene, grainPass, engine, forcePro
 		grain.addBinding(grainPass.params, 'scale', { min: 0.25, max: 4 });
 	}
 
+	let cancelled = false;
+	if (getLogoScene) {
+		const particles = pane.addFolder({ title: 'Particles' });
+		// The scene may not exist yet (not-yet-created on `/`, or non-home route)
+		// — bind through a proxy object that reads/writes the live scene's
+		// params when present. Verified against Tweakpane v4's BindingTarget
+		// (node_modules/tweakpane/dist/tweakpane.js): simple number bindings
+		// call `read()`/`write()`, which are plain `obj[key]` / `obj[key] = v`
+		// property accesses — no `in`/`ownKeys` checks — so the Proxy's get/set
+		// traps are sufficient; no plain-object-with-refresh fallback needed.
+		// `count` is intentionally NOT a live binding — it requires buffer
+		// rebuilds; changing it stays a code-level decision.
+		const proxy = new Proxy(
+			{},
+			{
+				get: (_, key) => getLogoScene()?.params?.[key] ?? 0,
+				set: (_, key, value) => {
+					const scene = getLogoScene();
+					if (scene) scene.params[key] = value;
+					return true;
+				}
+			}
+		);
+		particles.addBinding(proxy, 'size', { min: 0.001, max: 0.02 });
+		particles.addBinding(proxy, 'opacity', { min: 0, max: 1 });
+		particles.addBinding(proxy, 'spring', { min: 0, max: 20 });
+		particles.addBinding(proxy, 'damping', { min: 0, max: 10 });
+		particles.addBinding(proxy, 'curlStrength', { min: 0, max: 1 });
+		particles.addBinding(proxy, 'curlScale', { min: 0.5, max: 10 });
+		particles.addBinding(proxy, 'curlSpeed', { min: 0, max: 2 });
+		particles.addBinding(proxy, 'pointerRadius', { min: 0.02, max: 0.5 });
+		particles.addBinding(proxy, 'pointerForce', { min: 0, max: 5 });
+		particles.addBinding(proxy, 'coupling', { min: 0, max: 2 });
+		particles.addBinding(proxy, 'shimmerSpeed', { min: 0, max: 5 });
+		particles.addBinding(proxy, 'shimmerIntensity', { min: 0, max: 1 });
+		// Capped at 1 (not the earlier-drafted 2): T7 review found sizeVariation
+		// > 2.86 flips sprite corners in the shader's per-particle size formula.
+		particles.addBinding(proxy, 'sizeVariation', { min: 0, max: 1 });
+		particles.addBinding(proxy, 'glintGain', { min: 0, max: 5 });
+		particles.addBinding(proxy, 'maxTilt', { min: 0, max: 30 });
+		particles.addBinding(proxy, 'tiltEase', { min: 0.01, max: 0.3 });
+		particles.addBinding(proxy, 'tiltDepth', { min: 0, max: 0.5 });
+
+		// The scene mounts asynchronously after the panel is created (bake +
+		// buffer setup race — see +layout.svelte's syncParticlesScene), so the
+		// proxy's initial `read()` at bind time can land before `getLogoScene()`
+		// resolves to a real scene, seeding every slider's displayed value at
+		// the proxy's `?? 0` fallback instead of the scene's real defaults.
+		// That's a display-only staleness (nothing writes back to params until
+		// a slider is touched) — refresh once the scene exists so the pane
+		// reflects the live defaults instead of misleading zeros. Non-home
+		// routes never create a logo scene at all, so this must stop polling
+		// once the panel is destroyed (see `destroy()` below) — otherwise it
+		// rAF-loops forever on e.g. /work?debug.
+		const refreshOnceReady = () => {
+			if (cancelled) return;
+			if (getLogoScene()) {
+				pane.refresh();
+			} else {
+				requestAnimationFrame(refreshOnceReady);
+			}
+		};
+		refreshOnceReady();
+	}
+
 	const eng = pane.addFolder({ title: 'Engine' });
 	eng.addBinding(engine.quality, 'tier', { readonly: true });
 	eng.addBinding(engine.quality, 'dpr', { readonly: true });
@@ -88,6 +159,7 @@ export async function maybeCreatePanel({ fluidScene, grainPass, engine, forcePro
 	return {
 		pane,
 		destroy() {
+			cancelled = true;
 			unsub();
 			pane.dispose();
 		}
