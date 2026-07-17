@@ -13,12 +13,14 @@
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
 	import { scrollProgress } from '$lib/gpu/fluid/grading.js';
+	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
 	beforeNavigate(() => {});
 	afterNavigate(() => {
 		if (lenis.current) lenis.current.scrollTo(0, { immediate: true });
+		syncParticlesScene();
 	});
 
 	let { children } = $props();
@@ -34,6 +36,8 @@
 	let debugPanel;
 	let forcedProgress = null;
 	let unsubGrainResize;
+	let logoScene;
+	let creatingParticles = false;
 
 	// /dev/ routes (e.g. /dev/fluid-parity) boot their own engine + debug panel
 	// directly in their +page.svelte. Booting the layout's engine there too
@@ -73,6 +77,39 @@
 		engine.curtains.renderer.resize({ width, height, top: 0, left: 0 });
 	}
 
+	// Keys the hero particle scene's lifecycle off the presence of
+	// HeroHeader's `[data-gpu-logo]` box in the current page — present only
+	// on the homepage, so this creates the scene on `/` and destroys it on
+	// navigation away, recreating it on return. `creatingParticles` guards
+	// against a double-create race: `LogoParticlesScene.create()` awaits an
+	// async bake (bakeLogoImage), and `afterNavigate` can fire again (e.g. a
+	// fast nav away and back) while that create is still in flight. The
+	// `el.isConnected` recheck after the await covers the case where the
+	// element that was present when the create started has since been
+	// unmounted by a navigation that completed before the create resolved.
+	async function syncParticlesScene() {
+		if (!engine) return; // /dev/ routes (or no WebGPU) never boot the layout engine
+		const el = document.querySelector('[data-gpu-logo]');
+		if (el && !logoScene && !creatingParticles) {
+			creatingParticles = true;
+			try {
+				const created = await LogoParticlesScene.create({ engine, element: el, fluidScene });
+				if (!engine || !el.isConnected) {
+					created.destroy();
+					return;
+				}
+				logoScene = created;
+				document.documentElement.classList.add('gpu-particles-live');
+			} finally {
+				creatingParticles = false;
+			}
+		} else if (!el && logoScene) {
+			logoScene.destroy();
+			logoScene = undefined;
+			document.documentElement.classList.remove('gpu-particles-live');
+		}
+	}
+
 	onMount(async () => {
 		if (page.url.pathname.startsWith('/dev/')) return; // dev routes boot their own engine
 		engine = await createEngine({ canvas });
@@ -100,6 +137,8 @@
 				}
 			});
 		}
+
+		await syncParticlesScene();
 	});
 
 	onDestroy(() => {
@@ -107,14 +146,17 @@
 		// after rendering each component (svelte/src/internal/server/index.js),
 		// unlike the browser where onDestroy only fires on real unmount — so this
 		// callback also executes during the build's prerender pass, where
-		// `window` does not exist. `engine`/`fluidScene`/etc. are always
-		// undefined there too (onMount never runs server-side), so their `?.`
-		// calls are already safe; only the unconditional `window` reference
-		// needs the explicit guard.
+		// `window`/`document` do not exist. `engine`/`fluidScene`/`logoScene`/etc.
+		// are always undefined there too (onMount never runs server-side), so
+		// their `?.` calls are already safe; only the unconditional `window`/
+		// `document` references need the explicit guards.
 		if (typeof window !== 'undefined') window.removeEventListener('resize', syncCanvasSize);
 		unsubGrainResize?.();
 		debugPanel?.destroy();
 		grainPass?.destroy();
+		logoScene?.destroy();
+		if (typeof document !== 'undefined')
+			document.documentElement.classList.remove('gpu-particles-live');
 		fluidScene?.destroy();
 		engine?.destroy();
 	});

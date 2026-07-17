@@ -286,6 +286,23 @@
 //    is inert. This satisfies the brief's "guard coupling (uniform 0 + skip
 //    texture binding)" option without an invalid/missing bind-group entry.
 
+// --- Task 8 additions: [VERIFY-API] resolution notes ----------------------
+// (Task 8, Step 1b tilt. [VERIFY-API] marker from p2-task-8-brief.md.)
+// Verified against node_modules/gpu-curtains/dist/types + dist/esm.
+//
+// 11. `plane.rotation` (DOMObject3D -> ProjectedObject3D -> Object3D) is a
+//    real settable `Vec3`, not a plain object — Object3D.mjs's constructor
+//    does `this.transforms.rotation = new Vec3(); this.rotation.onChange(()
+//    => this.applyRotation());`, and Vec3.mjs's `set x()`/`set y()`/`set z()`
+//    each unconditionally invoke `this._onChangeCallback()` when the value
+//    actually changes. So direct `plane.rotation.x = value` / `.y = value`
+//    (as used in update() below) DOES mark the model matrix dirty via
+//    `applyRotation()` on every assignment — no special setter, no
+//    `plane.rotation = new Vec3(x, y, 0)` replacement-object dance, and no
+//    extra "mark dirty" call needed. DOMObject3D.mjs does not override
+//    rotation handling (its own `onChange` wiring is only for
+//    `documentPosition`), so this is unmodified base Object3D behavior.
+
 import {
 	Plane,
 	ComputePass,
@@ -421,7 +438,10 @@ export class LogoParticlesScene {
 						shimmerSpeed: { type: 'f32', value: this.params.shimmerSpeed },
 						shimmerIntensity: { type: 'f32', value: this.params.shimmerIntensity },
 						sizeVariation: { type: 'f32', value: this.params.sizeVariation },
-						glintGain: { type: 'f32', value: this.params.glintGain }
+						glintGain: { type: 'f32', value: this.params.glintGain },
+						// Task 8 (Step 1b) — per-particle z spread read by the vertex
+						// shader's zOffset calc, giving the in-scene tilt real parallax.
+						tiltDepth: { type: 'f32', value: this.params.tiltDepth }
 					}
 				}
 			},
@@ -509,6 +529,10 @@ export class LogoParticlesScene {
 
 		this._lastFrameTime = performance.now();
 		this._simTime = 0;
+		// Tilt Step 1b: current eased tilt (radians), lerped toward a
+		// pointer-driven target each frame in update().
+		this.tiltX = 0;
+		this.tiltY = 0;
 
 		// Re-bridge the fluid-velocity texture after every engine resize — see
 		// header note #9's resize caveat (fixedSize Texture#resize() is a
@@ -577,6 +601,22 @@ export class LogoParticlesScene {
 			sim.fluidTexel.value = [v.texelSizeX, v.texelSizeY];
 		}
 
+		// In-scene tilt (replaces the retired DOM use:tilt; same production
+		// tuning — see src/lib/actions/tilt.js). Pointer-driven target rotation
+		// from localX/localY (already computed above), clamped to maxTilt and
+		// eased toward each frame by tiltEase. When the pointer is outside the
+		// box (!inside), the target relaxes back to 0 (matches tilt.js's
+		// mouseleave behavior).
+		const nx = Math.min(Math.max(localX * 2 - 1, -1), 1); // -1..1 across the box
+		const ny = Math.min(Math.max(localY * 2 - 1, -1), 1);
+		const maxRad = (this.params.maxTilt * Math.PI) / 180;
+		const targetX = inside ? ny * maxRad : 0; // pointer below center tips the top toward viewer
+		const targetY = inside ? -nx * maxRad : 0;
+		this.tiltX += (targetX - this.tiltX) * this.params.tiltEase;
+		this.tiltY += (targetY - this.tiltY) * this.params.tiltEase;
+		this.plane.rotation.x = this.tiltX; // Vec3 setter marks the model matrix dirty (Object3D onChange)
+		this.plane.rotation.y = this.tiltY;
+
 		this.plane.uniforms.render.size.value = this.params.size;
 		this.plane.uniforms.render.opacity.value = this.params.opacity;
 		// Task 7: shimmer/glint uniforms, same _simTime clock as sim.time above.
@@ -585,6 +625,7 @@ export class LogoParticlesScene {
 		this.plane.uniforms.render.shimmerIntensity.value = this.params.shimmerIntensity;
 		this.plane.uniforms.render.sizeVariation.value = this.params.sizeVariation;
 		this.plane.uniforms.render.glintGain.value = this.params.glintGain;
+		this.plane.uniforms.render.tiltDepth.value = this.params.tiltDepth;
 	}
 
 	destroy() {

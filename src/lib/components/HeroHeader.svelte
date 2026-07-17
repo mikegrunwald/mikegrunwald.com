@@ -1,11 +1,11 @@
 <script>
 	import ScrollIndicator from './ScrollIndicator.svelte';
-	import { tilt } from '$lib/actions/tilt';
 </script>
 
 <header class="hero">
-	<div class="logo-wrapper" use:tilt={{ maxTilt: 13, perspective: 871, ease: 0.067 }}>
+	<div class="logo-wrapper">
 		<h1 class="display"><span class="sr-only">Michael Grunwald</span></h1>
+		<div class="logo-box" data-gpu-logo aria-hidden="true"></div>
 	</div>
 	<ScrollIndicator />
 </header>
@@ -63,6 +63,22 @@
 			mask-repeat: no-repeat;
 
 			filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.25));
+			transition: opacity 0.6s ease;
 		}
+	}
+
+	:global(.gpu-particles-live) .display:before {
+		opacity: 0;
+	}
+
+	.logo-box {
+		position: absolute;
+		inset: 0;
+		margin: auto auto 6.66vh;
+		max-width: 96vw;
+		height: 66vh;
+		height: 66dvh;
+		aspect-ratio: 1.153594844873037 / 1;
+		pointer-events: none;
 	}
 </style>

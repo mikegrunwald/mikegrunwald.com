@@ -58,8 +58,13 @@ fn main(attributes: Attributes) -> VSOut {
   let jitter = (0.7 + 0.6 * fract(p.seed.x * 13.37)) * (1.0 + render.sizeVariation * 0.35 * tw);
   let offset = corner * render.size * jitter;
 
+  // Tilt Step 1b: per-particle z-offset (seeded, fixed per particle) so the
+  // in-scene pointer tilt (LogoParticlesScene.update()) produces real
+  // parallax between near/far particles instead of a flat rotating card.
+  let zOffset = (fract(p.seed.x * 3.71) - 0.5) * render.tiltDepth;
+  let worldPos = vec3f(local + offset, zOffset);
+
   var out: VSOut;
-  let worldPos = vec3f(local + offset, 0.0);
   // [VERIFY-API] getOutputPosition(position: vec3f) -> vec4f is a gpu-curtains
   // chunk helper (core/shaders/chunks/vertex/head/get-position-helpers.mjs),
   // auto-injected into every vertex shader head:
