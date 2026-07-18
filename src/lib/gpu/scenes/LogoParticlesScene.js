@@ -15,6 +15,9 @@
 //    is correct as drafted. Default `widthSegments`/`heightSegments` are both
 //    `1`, giving a single indexed quad (4 vertices) per instance — exactly the
 //    sprite base geometry we want; no need to pass either.
+//    [Task 2 update: the projected `Plane` described here has been REMOVED —
+//    see the Task 2 block below. Kept for history/context on the buffer
+//    layout it established, which the new unprojected renderer still uses.]
 //
 // 2. Storage buffer shape — THE BIGGEST DEVIATION FROM THE BRIEF'S DRAFT.
 //    `storages` is `Record<bindingName, BufferBindingParams>` (types/BindGroups.d.ts
@@ -85,6 +88,8 @@
 //    appears multiple times as pipeline input") must NOT also declare a
 //    separate `@builtin(instance_index)` function parameter; instance index
 //    is read as `attributes.instanceIndex`.
+//    [Task 2 update: no longer relevant — the render path no longer uses a
+//    gpu-curtains Plane/Geometry at all, see the Task 2 block below.]
 //
 // 4. `plane.domElement.boundingRect` fields (needed by Task 6's coordinate
 //    transform) — `DOMElementBoundingRect extends RectCoords, RectBBox,
@@ -100,6 +105,9 @@
 //    why the dev route's `[data-gpu-logo]` box is positioned to overlap the
 //    fluid canvas (see +page.svelte `.logo-host`), not placed in a separate
 //    page section the way Task 3's temp bake-check canvas was.
+//    [Task 2 update: there is no more `plane.domElement` — this scene now
+//    reads `element.getBoundingClientRect()` directly every frame (see the
+//    Task 2 block below), which returns the identical CSS-px DOMRect shape.]
 //
 // 5. Draw order vs the fluid's FullscreenPlane — `renderOrder` is a real
 //    `MeshBaseParams`/`MeshBaseRenderParams` field, but it does not need to do
@@ -116,10 +124,13 @@
 //    proven in Phase 1 per GrainPass.js), so it draws after both. `renderOrder:
 //    1` is kept below purely as documentation of intent, not because it
 //    changes behavior.
+//    [Task 2 update: the particle field is now ALSO a `FullscreenPlane`
+//    (category 3/4, same as the fluid's), so `renderOrder` now DOES do real
+//    work — see Task 2 note below on ordering within that category.]
 
 // --- Task 5 additions: [VERIFY-API] resolution notes ---------------------
 // (Task 5, [VERIFY-API] markers from p2-task-5-brief.md.) Verified against
-// node_modules/gpu-curtains/dist/types/**/*.d.ts (shapes) and the
+// node_modules/gpu-curtains/dist/types/**/*.d.ts and the
 // corresponding dist/esm/**/*.mjs runtime source.
 //
 // 6. Sharing the particle storage buffer between the render `Plane` and a
@@ -202,6 +213,8 @@
 //    binding.access === 'read_write' ? ['compute'] : binding.visibility` and
 //    offers no way to pass an existing `Buffer` in, so it cannot express
 //    this split; explicit `bindings:` is required.
+//    [Task 2 update: the render-side `BufferBinding` described above has been
+//    REMOVED — see Task 2 note #14 below for why it's no longer needed.]
 //
 // 7. `ComputePass` dispatch order relative to the Plane's render — already
 //    resolved by Task 4's [VERIFY-API #5] above: Scene.mjs's render order is
@@ -209,6 +222,10 @@
 //    `autoRender: true` (ComputePassOptions, ComputePass.d.ts) the compute
 //    dispatch always runs BEFORE this scene's Plane renders in the same
 //    frame, with no extra hook needed; particles are same-frame-fresh.
+//    [Task 2 update: `autoRender` is now explicitly `false` and the dispatch
+//    is manual — see Task 2 note #12 below; this note's ordering conclusion
+//    no longer applies (there is no more automatic scene-driven dispatch at
+//    all for this ComputePass).]
 //
 // 8. `ComputePipelineEntry.mjs#patchShaders` (dist/esm/core/pipelines/
 //    ComputePipelineEntry.mjs) only prepends bind-group struct/variable WGSL
@@ -302,21 +319,200 @@
 //    extra "mark dirty" call needed. DOMObject3D.mjs does not override
 //    rotation handling (its own `onChange` wiring is only for
 //    `documentPosition`), so this is unmodified base Object3D behavior.
+//    [Task 2 update: there is no more `plane`/rotation to set — tilt is now
+//    baked directly into the unprojected render uniform's `tilt`/`tiltDepth`
+//    fields, read by particlesRender.wgsl.js's vertex shader as a screen-
+//    space NDC offset. Same eased tilt math, different destination.]
+
+// --- Task 2 (P2b) additions: [VERIFY-API] resolution notes ----------------
+// (Task 2, [VERIFY-API] markers from p2b-task-2-brief.md.) Verified against
+// node_modules/gpu-curtains/dist/types + dist/esm. Consumes Task 1's
+// `createParticleRenderer`/`logoLocalToNdc` (see particleRenderer.js) to
+// replace the projected `Plane` render path entirely with an unprojected
+// offscreen render + FullscreenPlane composite (FluidScene's own pattern).
+//
+// 12. Manual compute dispatch, ONE encoder per frame, no double-dispatch.
+//    `ComputePass`'s constructor destructures `autoRender` (ComputePass.mjs):
+//    when explicitly `false`, `addToScene(true)` still pushes this pass onto
+//    `renderer.computePasses` (so `.remove()`'s bookkeeping/cleanup still
+//    works) but SKIPS `renderer.scene.addComputePass(this)` — i.e. gpu-
+//    curtains' own automatic per-frame scene walk NEVER dispatches this
+//    ComputePass. We still want its `ComputeMaterial` (lazy pipeline compile,
+//    bind-group creation/update, uniform value sync via
+//    `computePass.uniforms.sim.*.value = ...`) for free, so `update()` still
+//    calls the real public `computePass.onBeforeRenderPass()` every frame —
+//    exactly the call already proven safe in the Task 1 report's pane
+//    verification ("Forced the shared particle GPUBuffer into existence...
+//    by calling `logoScene.computePass.onBeforeRenderPass()` directly") —
+//    which lazily compiles the pipeline/bind groups and pushes any dirty
+//    uniform values to the GPU, with NO dispatch and NO draw.
+//    The actual dispatch is issued by hand on our OWN manually-created
+//    `GPUComputePassEncoder`, deliberately NOT via `computePass.render(pass)`
+//    / `ComputeMaterial.render(pass)`. Reason (the T5 report's proven
+//    pitfall): `Material.render()` calls `this.setPipeline(pass)` ->
+//    `renderer.pipelineManager.setCurrentPipeline(pass, pipelineEntry)`
+//    (PipelineManager.mjs), which SKIPS the actual `pass.setPipeline(...)`
+//    WebGPU call whenever `pipelineEntry.index === currentPipelineIndex` — a
+//    single index tracked GLOBALLY on the shared `renderer.pipelineManager`,
+//    not per native pass object. `resetCurrentPipeline()` (which clears that
+//    cache) is only ever called by `GPURenderer.renderOnce()` and on device
+//    restoration (confirmed by grepping every call site in dist/esm/core/
+//    renderers/*.mjs) — the ordinary automatic per-frame `render()` path
+//    never resets it. T5's pane-verification hit this directly: driving the
+//    sim via nothing but repeated manual `material.render(pass)` calls (no
+//    interleaved curtains scene render in between) left `currentPipelineIndex`
+//    stuck on our own pipeline after the first call, silently dropping every
+//    subsequent frame's `pass.setPipeline()` (symptom: exactly one effective
+//    step). Even though in PRODUCTION something else (curtains' own scene
+//    render, with different pipelines) runs between our manual frames — which
+//    would likely keep re-differentiating the cached index — relying on that
+//    interleaving as an implicit invariant is fragile and unproven. We instead
+//    replicate `ComputeMaterial.render()`'s own bind-group-set/dispatch body
+//    by hand with the RAW pass encoder, exactly T5's documented workaround:
+//      pass.setPipeline(material.pipelineEntry.pipeline);
+//      for (const bg of material.bindGroups) pass.setBindGroup(bg.index, bg.bindGroup);
+//      pass.dispatchWorkgroups(...material.dispatchSize);
+//    `material.pipelineEntry.pipeline` is the compiled `GPUComputePipeline`
+//    (PipelineEntry.mjs: `this.pipeline = null` then set by
+//    `createComputePipeline`/`createComputePipelineAsync` once ready);
+//    `material.bindGroups` is the `Material` base class's public array of
+//    already-built `BindGroup`s (each with `.index`/`.bindGroup`, Material.mjs);
+//    `material.dispatchSize` is the ceil'd `[x,y,z]` array (ComputeMaterial.mjs
+//    constructor). Gated on `computePass.ready` (public getter, flips true
+//    once `material.ready` — i.e. bind groups built AND pipeline compiled)
+//    so the first async-compile frames safely no-op instead of touching a
+//    null pipeline.
+//    Then, in the SAME command encoder (created fresh every frame in
+//    `update()`), `particleRenderer.render(encoder, {...})` runs the
+//    unprojected draw into its own offscreen target — satisfying the brief's
+//    "one command encoder, fresh each frame" requirement end to end.
+//
+// 13. Composite bridge — reuses FluidScene.js's exact `Texture` +
+//    `copyGPUTexture` + `FullscreenPlane` pattern verbatim (see FluidScene.js's
+//    own header comment for the zero-copy aliasing mechanism). `particleRenderer
+//    .outputTexture` (particleRenderer.js) is a single STABLE (non-swapping)
+//    target recreated only by its own `resize()` — same shape as FluidScene's
+//    `sim.output` — so, like FluidScene's `curtainsTexture`, this bridge only
+//    needs to re-run once at construction and once per `engine.onResize`, not
+//    every frame. `renderOrder` is real, load-bearing work here (unlike the
+//    old projected Plane, which drew after the fluid structurally regardless
+//    of its `renderOrder` value per note #5 above): this composite plane is a
+//    `FullscreenPlane` — an UNPROJECTED, transparent mesh, the SAME Scene.mjs
+//    category (3/4) as the fluid's own display plane. Scene.mjs sorts within
+//    that category ascending by `renderOrder` (confirmed: Scene.mjs L109/402,
+//    `if (a.renderOrder !== b.renderOrder) return a.renderOrder - b.renderOrder`).
+//    The fluid's plane never sets `renderOrder` (default 0); this composite
+//    plane sets `renderOrder: 1`, so it draws strictly after the fluid within
+//    that category. The grain `ShaderPass` is a separate post-processing pass
+//    over the whole composited canvas texture, proven (Phase 1/Task 4 note #5)
+//    to run after ALL scene meshes regardless — no interaction with this
+//    ordering. Blend: identical `PREMULTIPLIED_BLEND` to FluidScene's own
+//    composite plane and to the old projected Plane (both the canvas's own
+//    `alphaMode: 'premultiplied'` and this scene's own offscreen render target
+//    already output premultiplied color, per particlesRender.wgsl.js's
+//    fragment: `vec4f(color, intensity)` with `color = white * intensity`).
+//
+// 14. Removed the render-side `BufferBinding` (`particlesRenderBinding`) from
+//    Task 5/6. Its ENTIRE purpose (note #6 above) was making the shared
+//    storage buffer legally bindable to the OLD Plane's VERTEX stage via a
+//    gpu-curtains-generated `read-only-storage` bind-group-layout entry —
+//    a gpu-curtains bind-group concern. The new unprojected `particleRenderer`
+//    (particleRenderer.js) builds its OWN raw `GPURenderPipeline` via
+//    `layout: 'auto'` directly from `particlesRender.wgsl.js`'s
+//    `var<storage, read> particles` declaration — WebGPU derives the correct
+//    `read-only-storage` bind-group-layout type from the shader source itself,
+//    entirely independent of gpu-curtains. `particleRenderer.render()`'s only
+//    contract on its `renderBinding` argument is `renderBinding.buffer.GPUBuffer`
+//    (any object with that shape — see particleRenderer.js's own header note
+//    and the Task 1 report's confirmation that this accessor works against
+//    the SAME `BufferBinding.mjs`-constructed `.buffer` this file already
+//    relies on for note #6's sharing mechanism). `this.particlesComputeBinding`
+//    (the `WritableBufferBinding`) already exposes exactly that shape once its
+//    OWN bind group has allocated the real `GPUBuffer` (same `.buffer.GPUBuffer`
+//    accessor, `WritableBufferBinding extends BufferBinding`) — GPUBuffer
+//    `usage` flags (`STORAGE`) don't distinguish read vs read_write at the
+//    resource level (only the bind-group-LAYOUT entry type does, which is now
+//    derived independently per pipeline), so handing the compute binding
+//    straight to `particleRenderer.render({ renderBinding: this
+//    .particlesComputeBinding, ... })` is safe. This also removes the
+//    previously-flagged "render-side initial write redundancy" carry-forward
+//    (T5 report concern #1) outright: there is now only ONE binding, so only
+//    ONE initial 4.8 MB upload, not two byte-identical ones.
+//
+// 15. Per-frame rect sanity guard. `element.getBoundingClientRect()` replaces
+//    the old `plane.domElement.boundingRect` DOM-sync (there is no more
+//    DOMObject3D doing that automatically — see note #4's Task 2 update).
+//    Rather than re-deriving the "is this rect/canvas usable" check, `update()`
+//    calls Task 1's own pure, already-tested `logoLocalToNdc` with a cheap
+//    probe point (`px: 0, py: 0`) and reads its `.ok` flag — exactly "per
+//    logoLocalToNdc's ok=false logic" per the brief. `px`/`py` = 0 are always
+//    finite, so the probe's `ok` reduces to exactly the rect/canvas
+//    finite-and-positive checks `logoLocalToNdc` already performs; no
+//    duplicate validity logic is written here. `ok: false` → skip the
+//    compute dispatch AND `particleRenderer.render()` for this frame entirely
+//    (the fluid scene is a fully independent `onFrame` subscriber — it is
+//    never touched by this scene's early return).
+//
+// 16. Units: CSS px vs DEVICE px. `element.getBoundingClientRect()` is always
+//    CSS px. The render uniform's `canvas` field MUST be in the SAME units
+//    as `rect` for the shader's ratio math (`sx = (rect.x + px*rect.w) /
+//    canvas.x`) to be correct — mixing a DEVICE-px canvas size against a
+//    CSS-px rect would scale the mapped box by `1/dpr`, squeezing it into a
+//    corner of the canvas on any HiDPI screen. So the uniform's `canvas`
+//    field uses `engine.input.getSize()` (CSS px — `canvas.clientWidth`/
+//    `clientHeight` with a `getBoundingClientRect()` fallback, engine.js),
+//    the SAME CSS-px canvas measurement already used for the pointer-mapping
+//    math below (and already used pre-Task-2 for the identical reason). This
+//    is completely independent from the OFFSCREEN TEXTURE RESOLUTION
+//    `particleRenderer` renders into and the composite `Texture`'s
+//    `fixedSize` — both of those use `engine.getCanvasSize()` (DEVICE px,
+//    already DPR-scaled, per engine.js's own resolution notes) purely for
+//    visual sharpness, matching FluidScene's `curtainsTexture` sizing.
+//    Feeding NDC coordinates (already resolution-independent, computed in
+//    the vertex shader from the CSS-px ratio above) into a DEVICE-px-sized
+//    render target is exactly how the old projected Plane behaved too (its
+//    camera/viewport were sized in device px while its DOM-sync rect was CSS
+//    px) — no new invariant, just made explicit since there's no more
+//    gpu-curtains camera doing this transparently.
+//
+// 17. Suspended/degraded behavior (budgetGuard 'degrade' verdict) deviates
+//    slightly from the pre-Task-2 scene, and this is intentional: previously,
+//    once `suspended`, `update()` returned early BEFORE the pointer/tilt math
+//    and BEFORE any uniform sync — but the Plane still visually tracked
+//    scroll/resize every frame regardless, because DOMObject3D's DOM-sync ran
+//    inside gpu-curtains' OWN per-frame scene walk, entirely independent of
+//    whether this scene's `update()` did anything. Now that DOM-sync is
+//    manual (`element.getBoundingClientRect()` inside `update()` itself),
+//    an early return would ALSO freeze on-screen position — a real scroll-
+//    tracking regression, not a faithful translation of the old behavior.
+//    So: the rect probe, pointer/tilt math, and the render-uniform fill +
+//    `particleRenderer.render()` call all keep running every frame even while
+//    `suspended` (cheap — one draw call, matches the ORIGINAL degrade intent
+//    of "stop the expensive part, keep rendering"); only the compute
+//    dispatch (the actual per-particle spring/curl/pointer/fluid pass — the
+//    expensive part the guard exists to shed) is skipped while `suspended`.
+//    `computePass.active` is no longer toggled/consulted anywhere (dead in
+//    the old code path now that `autoRender: false` means curtains' own scene
+//    walk never looks at it, and our manual dispatch gates on `this.suspended`
+//    directly) — removed rather than left as a vestigial, misleading flag.
 
 import {
-	Plane,
 	ComputePass,
-	BufferBinding,
 	WritableBufferBinding,
 	Texture,
-	Sampler
+	Sampler,
+	FullscreenPlane
 } from 'gpu-curtains';
 import { bakeLogoImage } from '../particles/bakeLogo.js';
 import { sampleSpawnPoints } from '../particles/spawnSampler.js';
 import { mulberry32 } from '../utils/rng.js';
 import { createBudgetGuard } from '../particles/budgetGuard.js';
-import { PARTICLES_VERTEX, PARTICLES_FRAGMENT } from '../particles/shaders/particles.wgsl.js';
 import { PARTICLES_COMPUTE } from '../particles/shaders/particlesCompute.wgsl.js';
+import {
+	createParticleRenderer,
+	logoLocalToNdc,
+	PARTICLE_RENDER_UNIFORM_SIZE
+} from '../particles/particleRenderer.js';
 
 // Bake box aspect (width/height), locked in Task 2/3 — reused here so
 // compute-side forces stay isotropic regardless of the plane's aspect ratio.
@@ -360,6 +556,22 @@ const PREMULTIPLIED_BLEND = {
 	alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
 };
 
+// Composite bridge fragment — identical shape to FluidScene.js's PASSTHROUGH_FRAG,
+// sampling this scene's own offscreen `particleRenderer` output instead of the
+// fluid's. Default vertex shader / `VSOutput` struct / `main` entry point /
+// `defaultSampler` auto-add are all the same proven FullscreenPlane mechanism
+// (see FluidScene.js header comment + GrainPass.js note).
+const PARTICLES_COMPOSITE_FRAG = /* wgsl */ `
+struct VSOutput {
+  @builtin(position) position: vec4f,
+  @location(0) uv: vec2f,
+};
+
+@fragment fn main(fsInput: VSOutput) -> @location(0) vec4f {
+  return textureSample(particlesTexture, defaultSampler, fsInput.uv);
+}
+`;
+
 export class LogoParticlesScene {
 	static async create({ engine, element, fluidScene = null, seed = Date.now(), onGuardKill }) {
 		const imageData = await bakeLogoImage();
@@ -368,6 +580,7 @@ export class LogoParticlesScene {
 
 	constructor({ engine, element, fluidScene, seed, imageData, onGuardKill }) {
 		this.engine = engine;
+		this.element = element;
 		this.fluidScene = fluidScene;
 		this.destroyed = false;
 		// Layout-provided teardown hook — see the safety-valve header note above
@@ -428,68 +641,20 @@ export class LogoParticlesScene {
 			seedArr[i * 2 + 1] = brightness[i]; // brightness
 		}
 
-		// [VERIFY-API #6] The particle struct shape (four `array<vec2f>` SoA
-		// fields, matching order pos/vel/home/seed) is shared by both binding
-		// instances below so they independently generate the identical locked
-		// 32 B/particle AoS layout. The compute-side WritableBufferBinding is
-		// constructed FIRST — it owns the `Buffer` wrapper (creates the real
-		// GPUBuffer, access 'read_write', gpu-curtains forces its visibility to
-		// ['compute'] regardless of what's passed). The render-side plain
-		// BufferBinding reuses that same Buffer via `buffer:` with its own
-		// access 'read' (-> 'read-only-storage' bind group layout entry, legal
-		// in the vertex stage, unlike 'storage') — see header comment for the
-		// full resolution.
-		const particleStruct = () => ({
-			pos: { type: 'array<vec2f>', value: posArr },
-			vel: { type: 'array<vec2f>', value: velArr },
-			home: { type: 'array<vec2f>', value: homeArr },
-			seed: { type: 'array<vec2f>', value: seedArr }
-		});
-
+		// [VERIFY-API #6/#14] The particle struct shape (four `array<vec2f>` SoA
+		// fields, matching order pos/vel/home/seed) locks the 32 B/particle AoS
+		// layout the compute shader (and the offscreen render shader) both read.
+		// Only ONE binding owns this buffer now (see Task 2 note #14) — the
+		// render side no longer needs a second `BufferBinding` counterpart.
 		this.particlesComputeBinding = new WritableBufferBinding({
 			label: 'particles',
 			name: 'particles',
-			struct: particleStruct()
-		});
-
-		this.particlesRenderBinding = new BufferBinding({
-			label: 'particles',
-			name: 'particles',
-			bindingType: 'storage',
-			access: 'read',
-			buffer: this.particlesComputeBinding.buffer,
-			struct: particleStruct()
-		});
-
-		this.plane = new Plane(engine.curtains, element, {
-			label: 'logo-particles',
-			instancesCount: count,
-			transparent: true,
-			targets: [{ blend: PREMULTIPLIED_BLEND }],
-			renderOrder: 1, // documentation only — see [VERIFY-API #5] above
-			shaders: {
-				vertex: { code: PARTICLES_VERTEX },
-				fragment: { code: PARTICLES_FRAGMENT, entryPoint: 'fsMain' }
-			},
-			uniforms: {
-				render: {
-					struct: {
-						size: { type: 'f32', value: this.params.size },
-						opacity: { type: 'f32', value: this.params.opacity },
-						// Task 7 additions — shimmer/glint, synced from params each
-						// frame in update() off the same _simTime clock as sim.time.
-						time: { type: 'f32', value: 0 },
-						shimmerSpeed: { type: 'f32', value: this.params.shimmerSpeed },
-						shimmerIntensity: { type: 'f32', value: this.params.shimmerIntensity },
-						sizeVariation: { type: 'f32', value: this.params.sizeVariation },
-						glintGain: { type: 'f32', value: this.params.glintGain },
-						// Task 8 (Step 1b) — per-particle z spread read by the vertex
-						// shader's zOffset calc, giving the in-scene tilt real parallax.
-						tiltDepth: { type: 'f32', value: this.params.tiltDepth }
-					}
-				}
-			},
-			bindings: [this.particlesRenderBinding]
+			struct: {
+				pos: { type: 'array<vec2f>', value: posArr },
+				vel: { type: 'array<vec2f>', value: velArr },
+				home: { type: 'array<vec2f>', value: homeArr },
+				seed: { type: 'array<vec2f>', value: seedArr }
+			}
 		});
 
 		// [VERIFY-API #9] Fluid-velocity coupling texture + sampler — see header
@@ -497,9 +662,6 @@ export class LogoParticlesScene {
 		// placeholder; either way a valid GPUTexture is always bound so the
 		// compute pipeline (one static WGSL string, coupling branch is real
 		// control flow) always compiles.
-		// (T6-review drive-by: stored on `this` — was a local — so update()/
-		// destroy() can gate on it consistently instead of re-deriving fluid
-		// presence from `this.fluidScene` each time.)
 		this.hasFluid = !!fluidScene?.sim?.velocitySharedTexture;
 		const velocitySrc = this.hasFluid ? fluidScene.sim.velocitySharedTexture : null;
 
@@ -535,8 +697,12 @@ export class LogoParticlesScene {
 
 		// [VERIFY-API #7] dispatchSize is workgroups, not particle count —
 		// workgroup_size(64) in particlesCompute.wgsl.js, so ceil(count/64).
+		// [VERIFY-API #12] `autoRender: false` — this ComputePass is NEVER
+		// dispatched by gpu-curtains' own automatic scene walk; update() drives
+		// it by hand, in the same encoder as the offscreen particle render.
 		this.computePass = new ComputePass(engine.curtains, {
 			label: 'logo-particles-sim',
+			autoRender: false,
 			shaders: {
 				compute: { code: PARTICLES_COMPUTE }
 			},
@@ -571,24 +737,67 @@ export class LogoParticlesScene {
 			}
 		});
 
+		// [VERIFY-API #13] Unprojected offscreen particle renderer (Task 1) +
+		// FluidScene-style composite bridge. Offscreen target sized in DEVICE
+		// px (visual sharpness — see note #16); composited via a FullscreenPlane
+		// that draws after the fluid (renderOrder) and before grain (structural).
+		const { width: devW, height: devH } = engine.getCanvasSize();
+		this.particleRenderer = createParticleRenderer(engine.device, { format: 'rgba16float' });
+		this.particleRenderer.resize(devW, devH);
+
+		this.particlesCompositeTexture = new Texture(engine.curtains, {
+			label: 'logo-particles-composite',
+			name: 'particlesTexture',
+			format: 'rgba16float',
+			fixedSize: { width: devW, height: devH },
+			autoDestroy: false
+		});
+		// Drop the placeholder GPUTexture the constructor just allocated before
+		// aliasing onto particleRenderer's real (already-created) output target
+		// — same pattern as FluidScene's curtainsTexture bridge.
+		this.particlesCompositeTexture.texture?.destroy();
+		this.particlesCompositeTexture.copyGPUTexture(this.particleRenderer.outputTexture);
+
+		this.compositePlane = new FullscreenPlane(engine.curtains, {
+			label: 'logo-particles-composite',
+			shaders: { fragment: { code: PARTICLES_COMPOSITE_FRAG } },
+			transparent: true,
+			targets: [{ blend: PREMULTIPLIED_BLEND }],
+			textures: [this.particlesCompositeTexture],
+			renderOrder: 1 // load-bearing here — see note #13 (draws after the fluid's renderOrder-0 plane)
+		});
+
+		// Reused every frame to avoid a per-frame Float32Array allocation —
+		// see particlesRender.wgsl.js header for the 96 B / 24-float field
+		// layout (rect, canvas, size, opacity, time, shimmer*, glintGain, tilt,
+		// tiltDepth).
+		this._uniformArray = new Float32Array(PARTICLE_RENDER_UNIFORM_SIZE / 4);
+
 		this._lastFrameTime = performance.now();
 		this._simTime = 0;
 		// Tilt Step 1b: current eased tilt (radians), lerped toward a
-		// pointer-driven target each frame in update().
+		// pointer-driven target each frame in update(). Now baked into the
+		// render uniform's `tilt` field instead of a Plane's rotation — see
+		// note #11's Task 2 update / note #17.
 		this.tiltX = 0;
 		this.tiltY = 0;
 
-		// Re-bridge the fluid-velocity texture after every engine resize — see
-		// header note #9's resize caveat (fixedSize Texture#resize() is a
-		// no-op; FluidSimulation.resize() gives velocityShared a new GPUTexture
-		// identity every time). Only relevant when a real fluid is present.
-		this.unsubResize = this.hasFluid
-			? engine.onResize(() => {
-					if (this.destroyed) return;
-					const fresh = this.fluidScene?.sim?.velocitySharedTexture;
-					if (fresh) this.fluidVelocityTexture.copyGPUTexture(fresh.texture);
-				})
-			: null;
+		// Re-bridge BOTH the fluid-velocity texture (if any) and the particle
+		// composite texture after every engine resize — see header note #9's
+		// resize caveat (fixedSize Texture#resize() is a no-op) and note #13.
+		// Always subscribed now (previously conditional on hasFluid, since only
+		// the fluid-velocity rebridge used to live here) — the particle
+		// composite rebridge is unconditional.
+		this.unsubResize = engine.onResize(() => {
+			if (this.destroyed) return;
+			if (this.hasFluid) {
+				const fresh = this.fluidScene?.sim?.velocitySharedTexture;
+				if (fresh) this.fluidVelocityTexture.copyGPUTexture(fresh.texture);
+			}
+			const { width: w, height: h } = engine.getCanvasSize();
+			this.particleRenderer.resize(w, h);
+			this.particlesCompositeTexture.copyGPUTexture(this.particleRenderer.outputTexture);
+		});
 
 		this.unsubFrame = engine.onFrame(() => this.update());
 	}
@@ -629,64 +838,61 @@ export class LogoParticlesScene {
 		if (verdict === 'degrade' && !this.suspended) {
 			// Cheap immediate relief: stop the compute dispatch (the expensive
 			// per-frame N-particle spring/curl/fluid-coupling pass) — particles
-			// freeze in place but keep rendering, at half opacity as a visible
-			// "something's wrong" signal. `active` is a real, documented
-			// ComputePass flag (ComputePass.d.ts / .mjs: gates onBeforeRenderPass
-			// and render() both on `this.active`), not a guess — no need to
-			// remove the pass outright.
+			// freeze in place but keep rendering (and keep tracking scroll/
+			// resize), at half opacity as a visible "something's wrong" signal.
+			// See header note #17 for why the render side keeps running here
+			// unlike the pre-Task-2 scene.
 			this.suspended = true;
 			this.params.opacity *= 0.5;
-			// Push this one uniform write directly: the normal per-frame uniform
-			// sync below is short-circuited by `suspended` from this frame on, so
-			// without this the halved opacity would never actually reach the GPU.
-			this.plane.uniforms.render.opacity.value = this.params.opacity;
-			this.computePass.active = false;
 			console.warn('[particles] degraded: slow frames — compute paused, opacity halved');
 		}
-		if (this.suspended) return; // short-circuits uniform sync + pointer/tilt math below
 
-		const sim = this.computePass.uniforms.sim;
-		sim.dt.value = dt;
-		sim.time.value = this._simTime;
-		sim.spring.value = this.params.spring;
-		sim.damping.value = this.params.damping;
-		sim.curlStrength.value = this.params.curlStrength;
-		sim.curlScale.value = this.params.curlScale;
-		sim.curlSpeed.value = this.params.curlSpeed;
-		sim.pointerRadius.value = this.params.pointerRadius;
-		sim.pointerForce.value = this.params.pointerForce;
-		// Guard: no real fluid bound -> force coupling off regardless of the
-		// live param, so the compute shader's inert placeholder texture (see
-		// header note #10) is never meaningfully sampled.
-		sim.coupling.value = this.hasFluid ? this.params.coupling : 0;
+		// [VERIFY-API #15] Rect sanity guard: reuse logoLocalToNdc's own
+		// finite/positive validity check via a cheap probe point rather than
+		// re-deriving it. `element.getBoundingClientRect()` is the manual
+		// DOM-sync replacement for the old Plane's automatic boundingRect.
+		const rect = this.element.getBoundingClientRect();
+		const { width: cw, height: ch } = this.engine.input.getSize(); // CSS px — see note #16
+		const probe = logoLocalToNdc({
+			px: 0,
+			py: 0,
+			rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+			canvas: { width: cw, height: ch }
+		});
+		if (!probe.ok) return; // fluid keeps running via its own independent onFrame subscriber.
 
-		// Pointer -> logo-local uv. `plane.domElement.boundingRect` is CSS px
-		// ([VERIFY-API #4]); input texcoords are already canvas CSS uv (Phase 1
-		// fix, see input.js). `engine.input.getSize()` (Task 6 addition to
-		// input.js) reuses the exact same CSS-px canvas measurement the pointer
-		// texcoords were computed from, instead of duplicating the fallback.
-		const rect = this.plane.domElement.boundingRect;
-		const { width: cw, height: ch } = this.engine.input.getSize();
+		// Pointer -> logo-local uv. rect is CSS px (getBoundingClientRect);
+		// input texcoords are already canvas CSS uv (Phase 1 fix, see input.js).
 		const ptr = this.engine.input.pointers[0];
-		const hasRect = cw > 0 && rect.width > 0 && ch > 0 && rect.height > 0;
-		const localX = hasRect ? (ptr.texcoordX * cw - rect.left) / rect.width : 0;
-		const localY = hasRect ? (ptr.texcoordY * ch - rect.top) / rect.height : 0;
+		const localX = (ptr.texcoordX * cw - rect.left) / rect.width;
+		const localY = (ptr.texcoordY * ch - rect.top) / rect.height;
 		const speed = Math.hypot(ptr.deltaX, ptr.deltaY) * 60; // per-second-ish
-		// T6-review drive-by: without a valid rect/canvas size (pre-layout),
-		// localX/localY fall back to 0 which sits inside the -0.2..1.2 window
-		// below — force `inside` false in that case so pointerActive doesn't
-		// spuriously read 1 before the plane has ever measured its own rect.
-		const inside = hasRect && localX > -0.2 && localX < 1.2 && localY > -0.2 && localY < 1.2;
+		const inside = localX > -0.2 && localX < 1.2 && localY > -0.2 && localY < 1.2;
 
-		sim.pointer.value = [localX, localY];
-		sim.pointerVel.value = Math.min(speed, 8);
-		sim.pointerActive.value = inside ? 1 : 0;
-
-		sim.planeRect.value = [rect.left, rect.top, rect.width, rect.height];
-		sim.canvasSize.value = [cw, ch];
-		if (this.hasFluid) {
-			const v = this.fluidScene.sim.velocity;
-			sim.fluidTexel.value = [v.texelSizeX, v.texelSizeY];
+		if (!this.suspended) {
+			const sim = this.computePass.uniforms.sim;
+			sim.dt.value = dt;
+			sim.time.value = this._simTime;
+			sim.spring.value = this.params.spring;
+			sim.damping.value = this.params.damping;
+			sim.curlStrength.value = this.params.curlStrength;
+			sim.curlScale.value = this.params.curlScale;
+			sim.curlSpeed.value = this.params.curlSpeed;
+			sim.pointerRadius.value = this.params.pointerRadius;
+			sim.pointerForce.value = this.params.pointerForce;
+			// Guard: no real fluid bound -> force coupling off regardless of the
+			// live param, so the compute shader's inert placeholder texture (see
+			// header note #10) is never meaningfully sampled.
+			sim.coupling.value = this.hasFluid ? this.params.coupling : 0;
+			sim.pointer.value = [localX, localY];
+			sim.pointerVel.value = Math.min(speed, 8);
+			sim.pointerActive.value = inside ? 1 : 0;
+			sim.planeRect.value = [rect.left, rect.top, rect.width, rect.height];
+			sim.canvasSize.value = [cw, ch];
+			if (this.hasFluid) {
+				const v = this.fluidScene.sim.velocity;
+				sim.fluidTexel.value = [v.texelSizeX, v.texelSizeY];
+			}
 		}
 
 		// In-scene tilt (replaces the retired DOM use:tilt; same production
@@ -694,7 +900,8 @@ export class LogoParticlesScene {
 		// from localX/localY (already computed above), clamped to maxTilt and
 		// eased toward each frame by tiltEase. When the pointer is outside the
 		// box (!inside), the target relaxes back to 0 (matches tilt.js's
-		// mouseleave behavior).
+		// mouseleave behavior). Fed into the render uniform's `tilt` field
+		// below instead of a Plane's rotation — see note #11's Task 2 update.
 		const nx = Math.min(Math.max(localX * 2 - 1, -1), 1); // -1..1 across the box
 		const ny = Math.min(Math.max(localY * 2 - 1, -1), 1);
 		const maxRad = (this.params.maxTilt * Math.PI) / 180;
@@ -702,18 +909,52 @@ export class LogoParticlesScene {
 		const targetY = inside ? -nx * maxRad : 0;
 		this.tiltX += (targetX - this.tiltX) * this.params.tiltEase;
 		this.tiltY += (targetY - this.tiltY) * this.params.tiltEase;
-		this.plane.rotation.x = this.tiltX; // Vec3 setter marks the model matrix dirty (Object3D onChange)
-		this.plane.rotation.y = this.tiltY;
 
-		this.plane.uniforms.render.size.value = this.params.size;
-		this.plane.uniforms.render.opacity.value = this.params.opacity;
-		// Task 7: shimmer/glint uniforms, same _simTime clock as sim.time above.
-		this.plane.uniforms.render.time.value = this._simTime;
-		this.plane.uniforms.render.shimmerSpeed.value = this.params.shimmerSpeed;
-		this.plane.uniforms.render.shimmerIntensity.value = this.params.shimmerIntensity;
-		this.plane.uniforms.render.sizeVariation.value = this.params.sizeVariation;
-		this.plane.uniforms.render.glintGain.value = this.params.glintGain;
-		this.plane.uniforms.render.tiltDepth.value = this.params.tiltDepth;
+		// [VERIFY-API #12] Lazily compile/update the compute material (no
+		// dispatch, no draw) — safe to call every frame even while suspended.
+		this.computePass.onBeforeRenderPass();
+		if (!this.computePass.ready) return; // first async-compile frames: nothing to dispatch/draw yet.
+
+		const encoder = this.engine.device.createCommandEncoder({ label: 'logo-particles-frame' });
+
+		if (!this.suspended) {
+			const material = this.computePass.material;
+			const pass = encoder.beginComputePass({ label: 'logo-particles-sim' });
+			pass.setPipeline(material.pipelineEntry.pipeline);
+			for (const bindGroup of material.bindGroups) {
+				pass.setBindGroup(bindGroup.index, bindGroup.bindGroup);
+			}
+			pass.dispatchWorkgroups(...material.dispatchSize);
+			pass.end();
+		}
+
+		const u = this._uniformArray;
+		u[0] = rect.left;
+		u[1] = rect.top;
+		u[2] = rect.width;
+		u[3] = rect.height;
+		u[4] = cw;
+		u[5] = ch;
+		u[6] = this.params.size;
+		u[7] = this.params.opacity;
+		u[8] = this._simTime;
+		u[9] = this.params.shimmerSpeed;
+		u[10] = this.params.shimmerIntensity;
+		u[11] = this.params.sizeVariation;
+		u[12] = this.params.glintGain;
+		u[13] = 0; // _pad0
+		u[14] = this.tiltX;
+		u[15] = this.tiltY;
+		u[16] = this.params.tiltDepth;
+		u[17] = 0; // _pad1
+
+		this.particleRenderer.render(encoder, {
+			renderBinding: this.particlesComputeBinding,
+			uniformBytes: u,
+			count: this.params.count
+		});
+
+		this.engine.queue.submit([encoder.finish()]);
 	}
 
 	destroy() {
@@ -730,27 +971,35 @@ export class LogoParticlesScene {
 		// WRAPPER objects themselves are still registered on the renderer/device
 		// manager (`new Texture()`/`new Sampler()` call `renderer.addTexture(this)`
 		// / push onto `deviceManager.samplers` — Texture.mjs, Sampler.mjs) and are
-		// never auto-removed by `texture.destroy()`. Since this scene is destroyed
-		// and recreated on every homepage nav-away/return, leaving them registered
+		// never auto-removed by `texture.destroy()` when constructed with
+		// `autoDestroy: false` (`Material.destroyTexture()` early-returns on
+		// `!texture.options.autoDestroy` — confirmed against Material.mjs — so
+		// even `compositePlane.remove()`/`computePass.remove()` would NOT
+		// unregister these on their own). Since this scene is destroyed and
+		// recreated on every homepage nav-away/return, leaving them registered
 		// grows `renderer.textures`/`deviceManager.samplers` unboundedly (a slow
 		// leak — the stale wrappers do no per-frame GPU work, but the arrays never
-		// shrink). Unregister both explicitly:
+		// shrink). Unregister all of them explicitly:
 		// - `GPURenderer.removeTexture(texture)` (GPURenderer.mjs) just filters
 		//   `this.textures` by `uuid` — it does NOT touch `texture.texture` (the
 		//   underlying GPUTexture), so this is safe to call unconditionally,
-		//   including the aliased fluid-present case: we are unregistering our own
-		//   JS wrapper, not the GPUTexture it points at.
+		//   including the aliased fluid-present/particle-composite cases: we are
+		//   unregistering our own JS wrapper, not the GPUTexture it points at.
 		// - `GPURenderer.removeSampler(sampler)` delegates to
 		//   `GPUDeviceManager.removeSampler(sampler)` (GPUDeviceManager.mjs), which
 		//   likewise just filters `deviceManager.samplers` by `uuid` — no GPU
-		//   resource is touched. (Confirmed by reading both methods in
-		//   node_modules/gpu-curtains/dist/esm/core/renderers/GPURenderer.mjs and
-		//   .../GPUDeviceManager.mjs; no splice-the-array-manually fallback needed,
-		//   a real removal API exists for both.)
+		//   resource is touched.
 		if (!this.hasFluid) this.fluidVelocityTexture.texture?.destroy();
 		this.engine.curtains.renderer.removeTexture(this.fluidVelocityTexture);
 		this.engine.curtains.renderer.removeSampler(this.fluidVelocitySampler);
 		this.computePass.remove();
-		this.plane.remove();
+
+		// particlesCompositeTexture aliases particleRenderer.outputTexture (owned
+		// and destroyed by particleRenderer.destroy() below, or replaced on its
+		// own resize()) — never destroy the aliased native GPUTexture from this
+		// wrapper, only unregister the wrapper itself (same pattern as above).
+		this.compositePlane.remove();
+		this.engine.curtains.renderer.removeTexture(this.particlesCompositeTexture);
+		this.particleRenderer.destroy();
 	}
 }
