@@ -354,19 +354,28 @@
 //    (PipelineManager.mjs), which SKIPS the actual `pass.setPipeline(...)`
 //    WebGPU call whenever `pipelineEntry.index === currentPipelineIndex` — a
 //    single index tracked GLOBALLY on the shared `renderer.pipelineManager`,
-//    not per native pass object. `resetCurrentPipeline()` (which clears that
-//    cache) is only ever called by `GPURenderer.renderOnce()` and on device
-//    restoration (confirmed by grepping every call site in dist/esm/core/
-//    renderers/*.mjs) — the ordinary automatic per-frame `render()` path
-//    never resets it. T5's pane-verification hit this directly: driving the
-//    sim via nothing but repeated manual `material.render(pass)` calls (no
-//    interleaved curtains scene render in between) left `currentPipelineIndex`
-//    stuck on our own pipeline after the first call, silently dropping every
-//    subsequent frame's `pass.setPipeline()` (symptom: exactly one effective
-//    step). Even though in PRODUCTION something else (curtains' own scene
-//    render, with different pipelines) runs between our manual frames — which
-//    would likely keep re-differentiating the cached index — relying on that
-//    interleaving as an implicit invariant is fragile and unproven. We instead
+//    not per native pass object. [Task 3 correction] `resetCurrentPipeline()`
+//    (which clears that cache) is NOT only called by `GPURenderer.renderOnce()`
+//    and on device restoration — `core/scenes/Scene.mjs` also calls it every
+//    frame from its own ordinary `render()` path, once per `renderSinglePassEntry()`
+//    (after each render pass entry) and once per compute pass in the compute
+//    loop. The earlier grep behind this note was scoped only to
+//    `dist/esm/core/renderers/*.mjs` and missed these `core/scenes/Scene.mjs`
+//    call sites, which is why it wrongly concluded the ordinary per-frame path
+//    never resets the cache. T5's pane-verification pitfall is still real, just
+//    for a narrower reason: driving the sim via nothing but repeated manual
+//    `material.render(pass)` calls, with NO curtains scene `render()` interleaved
+//    at all (a standalone pane script, not the normal per-frame engine loop),
+//    left `currentPipelineIndex` stuck on our own pipeline after the first call,
+//    silently dropping every subsequent frame's `pass.setPipeline()` (symptom:
+//    exactly one effective step) — because with no `Scene.render()` call
+//    happening in between, nothing was resetting the cache in that repro. In
+//    normal production frames `Scene.render()` DOES run between our manual
+//    dispatches and would reset the cache anyway; we still bypass
+//    `PipelineManager` entirely (raw pass encoding, below) rather than depend on
+//    that ordering, since our own dispatch is issued outside gpu-curtains' own
+//    per-frame walk (`autoRender: false`, note above) and nothing guarantees its
+//    relative timing against `Scene.render()`. We instead
 //    replicate `ComputeMaterial.render()`'s own bind-group-set/dispatch body
 //    by hand with the RAW pass encoder, exactly T5's documented workaround:
 //      pass.setPipeline(material.pipelineEntry.pipeline);
@@ -909,6 +918,15 @@ export class LogoParticlesScene {
 		const targetY = inside ? -nx * maxRad : 0;
 		this.tiltX += (targetX - this.tiltX) * this.params.tiltEase;
 		this.tiltY += (targetY - this.tiltY) * this.params.tiltEase;
+		// Defensive finite clamp: this is an accumulator (not re-derived from
+		// scratch each frame), so a single non-finite input (e.g. a transient
+		// NaN localX/localY) would otherwise corrupt it FOREVER — easing toward
+		// a finite target never recovers a NaN accumulator. The WGSL side
+		// already degenerates any resulting non-finite NDC position (see
+		// particlesRender.wgsl.js's final range guard), but that only protects
+		// that one frame's draw, not this persistent JS-side state.
+		if (!Number.isFinite(this.tiltX)) this.tiltX = 0;
+		if (!Number.isFinite(this.tiltY)) this.tiltY = 0;
 
 		// [VERIFY-API #12] Lazily compile/update the compute material (no
 		// dispatch, no draw) — safe to call every frame even while suspended.
