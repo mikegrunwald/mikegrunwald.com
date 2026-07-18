@@ -314,12 +314,43 @@ import {
 import { bakeLogoImage } from '../particles/bakeLogo.js';
 import { sampleSpawnPoints } from '../particles/spawnSampler.js';
 import { mulberry32 } from '../utils/rng.js';
+import { createBudgetGuard } from '../particles/budgetGuard.js';
 import { PARTICLES_VERTEX, PARTICLES_FRAGMENT } from '../particles/shaders/particles.wgsl.js';
 import { PARTICLES_COMPUTE } from '../particles/shaders/particlesCompute.wgsl.js';
 
 // Bake box aspect (width/height), locked in Task 2/3 — reused here so
 // compute-side forces stay isotropic regardless of the plane's aspect ratio.
 const BAKE_ASPECT = 1.153594844873037;
+
+// --- Safety-valve additions (2026-07-17) ------------------------------
+// The homepage hero (150k desktop particles over the fluid) froze a real
+// M1/16GB machine hard enough to need a power-button restart (swap storm,
+// 2.1GB dirtied). Until the root cause is bisected, this scene must be
+// UNABLE to take a machine down again, and must double as the low-count
+// diagnostic instrument for that bisection session. Two independent
+// mechanisms:
+//
+// 1. `?pcount=N` URL override (read once, here, at scene construction —
+//    no runtime re-read/observer, so it's production-safe and can't be
+//    toggled mid-session by page content). Clamped to [1000, 150000] so a
+//    malformed/malicious query string can't request an unbounded count;
+//    150000 is deliberately still reachable so a capable machine can dial
+//    back up to the full production density once the freeze is
+//    understood — see webgpu-refactor-status memory / the safety-valve
+//    report for the bisection plan. `?noparticles` (skip scene creation
+//    entirely) is handled one level up, in +layout.svelte's
+//    syncParticlesScene — this module never sees that case.
+const MIN_PARTICLE_COUNT = 1000;
+const MAX_PARTICLE_COUNT = 150000;
+
+function resolveParticleCount(defaultCount) {
+	if (typeof location === 'undefined') return defaultCount; // SSR/prerender guard
+	const raw = new URLSearchParams(location.search).get('pcount');
+	if (raw === null) return defaultCount;
+	const n = Number.parseInt(raw, 10);
+	if (!Number.isFinite(n)) return defaultCount;
+	return Math.min(MAX_PARTICLE_COUNT, Math.max(MIN_PARTICLE_COUNT, n));
+}
 
 // Matches FluidScene's PREMULTIPLIED_BLEND pattern (canvas alphaMode is
 // 'premultiplied'; gpu-curtains' generic `transparent: true` default is
@@ -330,19 +361,32 @@ const PREMULTIPLIED_BLEND = {
 };
 
 export class LogoParticlesScene {
-	static async create({ engine, element, fluidScene = null, seed = Date.now() }) {
+	static async create({ engine, element, fluidScene = null, seed = Date.now(), onGuardKill }) {
 		const imageData = await bakeLogoImage();
-		return new LogoParticlesScene({ engine, element, fluidScene, seed, imageData });
+		return new LogoParticlesScene({ engine, element, fluidScene, seed, imageData, onGuardKill });
 	}
 
-	constructor({ engine, element, fluidScene, seed, imageData }) {
+	constructor({ engine, element, fluidScene, seed, imageData, onGuardKill }) {
 		this.engine = engine;
 		this.fluidScene = fluidScene;
 		this.destroyed = false;
+		// Layout-provided teardown hook — see the safety-valve header note above
+		// and the 'kill' branch of update() below. Not required (defaults to a
+		// no-op) so this scene stays constructible from tests/dev harnesses that
+		// don't wire a layout.
+		this.onGuardKill = onGuardKill;
+		// One-way for the session once 'degrade' fires — see update().
+		this.suspended = false;
+		this.guard = createBudgetGuard();
 
 		const isMobile = engine.quality.tier === 'mobile';
+		// Conservative default (spec amendment 2026-07-17, sanctioned by the
+		// freeze above): desktop drops 150000 -> 50000; mobile is unchanged at
+		// 40000 (already conservative). `?pcount=N` can still reach the full
+		// 150000 for capable machines — see resolveParticleCount above.
+		const defaultCount = isMobile ? 40000 : 50000;
 		this.params = {
-			count: isMobile ? 40000 : 150000,
+			count: resolveParticleCount(defaultCount),
 			size: 0.006, // sprite radius, plane-local units
 			opacity: 1.0,
 			spring: 6.0,
@@ -556,6 +600,50 @@ export class LogoParticlesScene {
 		const dt = Math.min((now - this._lastFrameTime) / 1000, 0.033);
 		this._lastFrameTime = now;
 		this._simTime += dt;
+
+		// Safety-valve watchdog (see budgetGuard.js + header note above). Sampled
+		// EVERY frame, even while already `suspended` — a 'degrade' already
+		// applied doesn't stop heap growth or continued bad frames from later
+		// escalating to 'kill' (that's the whole point of a second-strike
+		// watchdog). frameMs reuses the dt clock already computed above (×1000,
+		// same clock the rest of the sim uses — no second timer). heapMB is
+		// Chrome-only (`performance.memory` is a non-standard Chrome extension);
+		// on other browsers it's `undefined`, which the guard's heap check
+		// treats as "no reading" and simply never fires on (see
+		// budgetGuard.js's typeof check) — not a broken guard, just an inert
+		// one on non-Chrome.
+		const frameMs = dt * 1000;
+		const heapMB = performance.memory ? performance.memory.usedJSHeapSize / 1048576 : undefined;
+		const verdict = this.guard.sample({ frameMs, heapMB });
+
+		if (verdict === 'kill') {
+			// One-way: this scene does not resurrect itself. The layout owns
+			// actually tearing the instance down (destroy() + clearing its own
+			// `logoScene` ref + swapping the CSS logo back in) so a single
+			// source of truth decides "is there a live particle scene" — see
+			// +layout.svelte's onGuardKill wiring.
+			console.error('[particles] killed: budget guard exceeded (slow frames and/or heap growth)');
+			this.onGuardKill?.();
+			return;
+		}
+		if (verdict === 'degrade' && !this.suspended) {
+			// Cheap immediate relief: stop the compute dispatch (the expensive
+			// per-frame N-particle spring/curl/fluid-coupling pass) — particles
+			// freeze in place but keep rendering, at half opacity as a visible
+			// "something's wrong" signal. `active` is a real, documented
+			// ComputePass flag (ComputePass.d.ts / .mjs: gates onBeforeRenderPass
+			// and render() both on `this.active`), not a guess — no need to
+			// remove the pass outright.
+			this.suspended = true;
+			this.params.opacity *= 0.5;
+			// Push this one uniform write directly: the normal per-frame uniform
+			// sync below is short-circuited by `suspended` from this frame on, so
+			// without this the halved opacity would never actually reach the GPU.
+			this.plane.uniforms.render.opacity.value = this.params.opacity;
+			this.computePass.active = false;
+			console.warn('[particles] degraded: slow frames — compute paused, opacity halved');
+		}
+		if (this.suspended) return; // short-circuits uniform sync + pointer/tilt math below
 
 		const sim = this.computePass.uniforms.sim;
 		sim.dt.value = dt;

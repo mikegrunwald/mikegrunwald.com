@@ -95,6 +95,12 @@ export async function maybeCreatePanel({
 				}
 			}
 		);
+		// Safety-valve (2026-07-17): count is resolved once at scene creation
+		// (conservative default, or the `?pcount=N` URL override — see
+		// LogoParticlesScene.js) and rebuilding the particle buffers live isn't
+		// wired up, so this is display-only — readonly, not a live binding like
+		// the params below it.
+		particles.addBinding(proxy, 'count', { readonly: true });
 		particles.addBinding(proxy, 'size', { min: 0.001, max: 0.02 });
 		particles.addBinding(proxy, 'opacity', { min: 0, max: 1 });
 		particles.addBinding(proxy, 'spring', { min: 0, max: 20 });

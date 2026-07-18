@@ -87,13 +87,37 @@
 	// `el.isConnected` recheck after the await covers the case where the
 	// element that was present when the create started has since been
 	// unmounted by a navigation that completed before the create resolved.
+	// Safety-valve teardown hook passed into LogoParticlesScene — called from
+	// inside the scene's own update() when its budget guard (budgetGuard.js)
+	// decides the scene is unsafe to keep running (sustained slow frames
+	// and/or unbounded heap growth). This is the single place that actually
+	// destroys a killed scene and swaps the CSS logo back in, so `logoScene`
+	// has one source of truth regardless of whether the teardown was
+	// triggered by navigation (the `else if` branch below) or the guard.
+	function destroyParticlesScene() {
+		logoScene?.destroy();
+		logoScene = undefined;
+		document.documentElement.classList.remove('gpu-particles-live');
+	}
+
 	async function syncParticlesScene() {
 		if (!engine) return; // /dev/ routes (or no WebGPU) never boot the layout engine
+		// Safety-valve URL override (read once here, per nav — production-safe,
+		// no persistent state): `?noparticles` skips creating the scene
+		// entirely, the CSS logo fallback stays up. See LogoParticlesScene.js's
+		// header note for the sibling `?pcount=N` override (handled inside the
+		// scene itself, since it needs to affect the buffer size at construction).
+		if (new URLSearchParams(location.search).has('noparticles')) return;
 		const el = document.querySelector('[data-gpu-logo]');
 		if (el && !logoScene && !creatingParticles) {
 			creatingParticles = true;
 			try {
-				const created = await LogoParticlesScene.create({ engine, element: el, fluidScene });
+				const created = await LogoParticlesScene.create({
+					engine,
+					element: el,
+					fluidScene,
+					onGuardKill: destroyParticlesScene
+				});
 				if (!engine || !el.isConnected) {
 					created.destroy();
 					return;
@@ -104,9 +128,7 @@
 				creatingParticles = false;
 			}
 		} else if (!el && logoScene) {
-			logoScene.destroy();
-			logoScene = undefined;
-			document.documentElement.classList.remove('gpu-particles-live');
+			destroyParticlesScene();
 		}
 	}
 
