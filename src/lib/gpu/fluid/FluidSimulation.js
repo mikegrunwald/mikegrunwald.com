@@ -1,5 +1,11 @@
 import { FLUID_CONFIG, getResolution } from './fluidConfig.js';
-import { createDoubleTarget, createTarget, createPass, runPass } from './passes.js';
+import {
+	createDoubleTarget,
+	createTarget,
+	createPass,
+	runPass,
+	clearPassCaches
+} from './passes.js';
 import {
 	SPLAT_FRAG,
 	CURL_FRAG,
@@ -180,6 +186,11 @@ export class FluidSimulation {
 			{ bytesPerRow: 4 },
 			{ width: 1, height: 1 }
 		);
+		// Created once and reused in render()'s textureViews array below — calling
+		// .createView() inline per-frame would mint a new GPUTextureView identity
+		// every call, defeating the display pass's bind-group cache (permanent
+		// miss) and leaking one throwaway cache entry per frame forever.
+		this.ditheringTextureView = this.ditheringTexture.createView();
 
 		this.resize();
 	}
@@ -295,6 +306,14 @@ export class FluidSimulation {
 		// targets (resize-preserving copy is a follow-up, per the note above).
 		this.output?.destroy();
 		this.output = createTarget(this.device, width, height, 'rgba16float', 'fluid-output');
+
+		// All render targets above were just destroyed/recreated, so every
+		// GPUTextureView referenced by runPass()'s bind-group cache (passes.js)
+		// is now stale. Not required for correctness — new views get fresh cache
+		// keys by identity, and stale entries are never looked up again — but
+		// this keeps each pass's cache from accumulating one extra entry per
+		// past resize.
+		clearPassCaches(this.passes);
 	}
 
 	get dyeTexture() {
@@ -664,7 +683,7 @@ export class FluidSimulation {
 				this.dye.read.view,
 				this.bloom.view,
 				this.sunrays.view,
-				this.ditheringTexture.createView()
+				this.ditheringTextureView
 			],
 			loadOp: 'clear' // TRANSPARENT: composite starts from vec4(0)
 		});
