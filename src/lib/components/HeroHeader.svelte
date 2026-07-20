@@ -51,6 +51,12 @@
 		height: 100dvh;
 		pointer-events: auto;
 		transform-origin: center center;
+		/* Containing block for the two absolutely-positioned logo boxes below.
+		   It is exactly one viewport tall and starts at the top of the page, so
+		   centering within it == centering in the viewport on load. Previously
+		   they resolved against `.hero`, which is only `min-height: 100dvh` and
+		   so can grow taller than the viewport as content changes. */
+		position: relative;
 		@media (pointer: coarse) {
 			pointer-events: auto;
 		}
@@ -65,7 +71,6 @@
 		position: absolute;
 		inset: 0;
 		filter: drop-shadow(0 0 0 rgba(var(--color-primary-rgb), 1));
-		margin-bottom: 6.66vh;
 
 		&:before {
 			content: '';
@@ -117,7 +122,14 @@
 	.logo-box {
 		position: absolute;
 		inset: 0;
-		margin: auto auto 6.66vh;
+		/* All-auto margins + `inset: 0` = true centering in `.logo-wrapper`
+		   (i.e. in the viewport on load). This was `auto auto 6.66vh`, which
+		   does NOT nudge the box up by 6.66vh as it reads — with a fixed bottom
+		   margin the auto TOP margin absorbs all remaining free space, pinning
+		   the box to the bottom. That was invisible while the box was 88dvh
+		   tall (almost no free space to absorb) and became obvious once
+		   width-driven sizing made it short on narrow viewports. */
+		margin: auto;
 		/* Geometry mirrors `.display::before` exactly — see the custom
 		   properties on `.hero`. Width-driven; `aspect-ratio` derives the
 		   height, so the box can never be over-constrained into a
