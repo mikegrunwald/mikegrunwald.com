@@ -2,6 +2,7 @@
 showIn:
   featuredList: true
   workList: true
+order: 2
 title: patreon.com
 subtitle: Re-Design, Re-Platform, & Re-Develop
 agency: Buttermax

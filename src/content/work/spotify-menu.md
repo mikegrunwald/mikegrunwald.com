@@ -2,7 +2,7 @@
 showIn:
   featuredList: true
   workList: true
-order: 0
+order: 4
 title: Spotify Menu
 subtitle: Web components for artists FTW
 agency: Buttermax
