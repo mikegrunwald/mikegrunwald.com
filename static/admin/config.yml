@@ -88,6 +88,13 @@ collections:
           field: { label: "Media URL", name: "url", widget: "smart-media" },
         }
       - {
+          label: "Teaser Video",
+          name: "teaser",
+          widget: "smart-media",
+          required: false,
+          hint: "Optional short ~540p clip for the homepage carousel ring. Falls back to the first video in Media if left empty.",
+        }
+      - {
           label: "Description",
           name: "description",
           widget: "markdown",
