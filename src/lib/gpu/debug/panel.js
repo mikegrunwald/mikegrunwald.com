@@ -84,10 +84,17 @@ export async function maybeCreatePanel({
 		// traps are sufficient; no plain-object-with-refresh fallback needed.
 		// `count` is intentionally NOT a live binding — it requires buffer
 		// rebuilds; changing it stays a code-level decision.
+		// Panel construction can precede scene creation (see the identity watcher
+		// below), so the proxy has to answer with something of the RIGHT TYPE
+		// before the scene exists — Tweakpane infers the control type from the
+		// value present at addBinding() time, so handing a color binding the
+		// scalar `0` fallback would build the wrong control (or throw) and no
+		// later refresh would repair it. Numbers can keep the plain 0 fallback.
+		const PARAM_FALLBACKS = { color: { r: 1, g: 1, b: 1 } };
 		const proxy = new Proxy(
 			{},
 			{
-				get: (_, key) => getLogoScene()?.params?.[key] ?? 0,
+				get: (_, key) => getLogoScene()?.params?.[key] ?? PARAM_FALLBACKS[key] ?? 0,
 				set: (_, key, value) => {
 					const scene = getLogoScene();
 					if (scene) scene.params[key] = value;
@@ -103,6 +110,9 @@ export async function maybeCreatePanel({
 		particles.addBinding(proxy, 'count', { readonly: true });
 		particles.addBinding(proxy, 'size', { min: 0.001, max: 0.02 });
 		particles.addBinding(proxy, 'opacity', { min: 0, max: 1 });
+		// Flat particle tint, {r,g,b} floats 0..1 — same shape/convention as the
+		// fluid's PRIMARY_RGB binding above. Defaults to the logo.svg fill.
+		particles.addBinding(proxy, 'color', { color: { type: 'float' } });
 		particles.addBinding(proxy, 'spring', { min: 0, max: 20 });
 		particles.addBinding(proxy, 'damping', { min: 0, max: 10 });
 		particles.addBinding(proxy, 'curlStrength', { min: 0, max: 1 });

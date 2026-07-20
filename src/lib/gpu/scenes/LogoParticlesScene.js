@@ -516,6 +516,7 @@ import { bakeLogoImage } from '../particles/bakeLogo.js';
 import { sampleSpawnPoints } from '../particles/spawnSampler.js';
 import { mulberry32 } from '../utils/rng.js';
 import { createBudgetGuard } from '../particles/budgetGuard.js';
+import { tiltFalloff, TILT_MARGIN } from '../particles/tiltFalloff.js';
 import { PARTICLES_COMPUTE } from '../particles/shaders/particlesCompute.wgsl.js';
 import {
 	createParticleRenderer,
@@ -609,19 +610,23 @@ export class LogoParticlesScene {
 		const defaultCount = isMobile ? 40000 : 50000;
 		this.params = {
 			count: resolveParticleCount(defaultCount),
-			size: 0.006, // sprite radius, plane-local units
-			opacity: 1.0,
-			spring: 6.0,
-			damping: 3.5,
+			size: 0.00175, // sprite radius, plane-local units
+			opacity: 0.6,
+			// Flat tint matching the CSS logo's fill (static/images/logo.svg,
+			// fill="#33C5F3") — the smoke-mask density lives in per-particle
+			// brightness (seed.y), so a flat tint reproduces the original look.
+			color: { r: 51 / 255, g: 197 / 255, b: 243 / 255 },
+			spring: 2.0,
+			damping: 1.3,
 			curlStrength: 0.06,
-			curlScale: 3.0,
-			curlSpeed: 0.25,
-			pointerRadius: 0.16,
-			pointerForce: 1.4,
-			coupling: 0.35,
+			curlScale: 6.0,
+			curlSpeed: 1.0,
+			pointerRadius: 0.01,
+			pointerForce: 5.0,
+			coupling: 2.0,
 			shimmerSpeed: 1.6,
 			shimmerIntensity: 0.45,
-			sizeVariation: 0.6,
+			sizeVariation: 0.99,
 			glintGain: 2.0,
 			// Tilt (spec amendment 2026-07-14): production tilt.js tuning carried over.
 			maxTilt: 13, // degrees
@@ -784,6 +789,10 @@ export class LogoParticlesScene {
 
 		this._lastFrameTime = performance.now();
 		this._simTime = 0;
+		// Previous-frame pointer texcoords, for locally-derived pointer speed
+		// (see update() — input.js's own deltas go stale when the mouse stops).
+		this._prevPtrX = 0;
+		this._prevPtrY = 0;
 		// Tilt Step 1b: current eased tilt (radians), lerped toward a
 		// pointer-driven target each frame in update(). Now baked into the
 		// render uniform's `tilt` field instead of a Plane's rotation — see
@@ -878,8 +887,25 @@ export class LogoParticlesScene {
 		const ptr = this.engine.input.pointers[0];
 		const localX = (ptr.texcoordX * cw - rect.left) / rect.width;
 		const localY = (ptr.texcoordY * ch - rect.top) / rect.height;
-		const speed = Math.hypot(ptr.deltaX, ptr.deltaY) * 60; // per-second-ish
-		const inside = localX > -0.2 && localX < 1.2 && localY > -0.2 && localY < 1.2;
+		// Pointer speed must be derived from OUR OWN frame-to-frame delta, not
+		// from ptr.deltaX/deltaY: input.js only recomputes those inside its
+		// mousemove handler (and only zeroes them on mousedown), so once the
+		// pointer stops moving the last non-zero delta persists forever — glint
+		// and sim.pointerVel would stay pinned high indefinitely. input.js's
+		// delta semantics are parity-locked to the fluid's splat behavior and
+		// must not be changed, hence the local re-derivation here.
+		const dxT = ptr.texcoordX - this._prevPtrX;
+		const dyT = ptr.texcoordY - this._prevPtrY;
+		this._prevPtrX = ptr.texcoordX;
+		this._prevPtrY = ptr.texcoordY;
+		// dt is the clamped sim step (>0 after the first frame); guard anyway so
+		// a zero-length frame can't produce Infinity.
+		const speed = dt > 0 ? Math.hypot(dxT, dyT) / dt : 0;
+		const inside =
+			localX > -TILT_MARGIN &&
+			localX < 1 + TILT_MARGIN &&
+			localY > -TILT_MARGIN &&
+			localY < 1 + TILT_MARGIN;
 
 		if (!this.suspended) {
 			const sim = this.computePass.uniforms.sim;
@@ -910,15 +936,26 @@ export class LogoParticlesScene {
 		// In-scene tilt (replaces the retired DOM use:tilt; same production
 		// tuning — see src/lib/actions/tilt.js). Pointer-driven target rotation
 		// from localX/localY (already computed above), clamped to maxTilt and
-		// eased toward each frame by tiltEase. When the pointer is outside the
-		// box (!inside), the target relaxes back to 0 (matches tilt.js's
-		// mouseleave behavior). Fed into the render uniform's `tilt` field
-		// below instead of a Plane's rotation — see note #11's Task 2 update.
+		// eased toward each frame by tiltEase. Fed into the render uniform's
+		// `tilt` field below instead of a Plane's rotation — see note #11's
+		// Task 2 update.
+		//
+		// GLITCH FIX: the target used to be gated on the boolean `inside`
+		// (localX/localY within ±TILT_MARGIN of the box) while nx/ny were
+		// clamped to the box itself. Those two extents disagreed, so anywhere in
+		// the margin band the target sat at FULL tilt and then stepped straight
+		// to 0 the moment the pointer crossed the invisible ±0.2 line — a
+		// full-magnitude discontinuity that the 0.067 easing then dragged out
+		// over ~half a second, so sweeping the pointer past the logo made the
+		// whole field lurch. tiltRamp() replaces the step with a linear 1->0
+		// falloff across the same margin: the target is now continuous
+		// everywhere, and still exactly 0 outside the margin.
 		const nx = Math.min(Math.max(localX * 2 - 1, -1), 1); // -1..1 across the box
 		const ny = Math.min(Math.max(localY * 2 - 1, -1), 1);
+		const falloff = tiltFalloff(localX, localY);
 		const maxRad = (this.params.maxTilt * Math.PI) / 180;
-		const targetX = inside ? ny * maxRad : 0; // pointer below center tips the top toward viewer
-		const targetY = inside ? -nx * maxRad : 0;
+		const targetX = ny * maxRad * falloff; // pointer below center tips the top toward viewer
+		const targetY = -nx * maxRad * falloff;
 		this.tiltX += (targetX - this.tiltX) * this.params.tiltEase;
 		this.tiltY += (targetY - this.tiltY) * this.params.tiltEase;
 		// Defensive finite clamp: this is an accumulator (not re-derived from
@@ -968,6 +1005,15 @@ export class LogoParticlesScene {
 		u[15] = this.tiltY;
 		u[16] = this.params.tiltDepth;
 		u[17] = 0; // _pad1
+		// u[18]/u[19] are WGSL's implicit padding: `color: vec3f` has align 16,
+		// so after tiltDepth@64/_pad1@68 the next valid offset is 80 (float 20),
+		// NOT 72. Writing the tint at 18 would land it in the padding hole and
+		// render every particle black. Struct ends at 92, rounds to 96 = the
+		// buffer size.
+		const c = this.params.color;
+		u[20] = c.r;
+		u[21] = c.g;
+		u[22] = c.b;
 
 		this.particleRenderer.render(encoder, {
 			renderBinding: this.particlesComputeBinding,

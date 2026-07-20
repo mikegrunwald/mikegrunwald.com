@@ -4,7 +4,9 @@
 // Uniform layout (96 B): rect@0 vec4f(left,top,width,height, CSS px),
 //   canvas@16 vec2f(w,h CSS px), size@24 f32, opacity@28 f32, time@32 f32,
 //   shimmerSpeed@36 f32, shimmerIntensity@40 f32, sizeVariation@44 f32,
-//   glintGain@48 f32, tilt@56 vec2f(tiltX,tiltY rad), tiltDepth@64 f32.
+//   glintGain@48 f32, tilt@56 vec2f(tiltX,tiltY rad), tiltDepth@64 f32,
+//   color@80 vec3f (linear-as-sRGB tint, logo.svg fill #33C5F3 by default —
+//   vec3f aligns to 16, so it lands at 80 after tiltDepth@64/_pad1@68).
 //
 // NOTE: unlike gpu-curtains' vertex/fragment split (patched into separate
 // shader modules with the binding/struct WGSL auto-injected into each), this
@@ -33,6 +35,7 @@ struct U {
   tilt: vec2f,
   tiltDepth: f32,
   _pad1: f32,
+  color: vec3f,
 };
 @group(0) @binding(0) var<uniform> u: U;
 @group(0) @binding(1) var<storage, read> particles: array<Particle>;
@@ -124,7 +127,9 @@ fn fsMain(in: VSOut) -> @location(0) vec4f {
   let shimmer = 1.0 + u.shimmerIntensity * in.twinkle;
   let glint = 1.0 + min(u.glintGain * in.speed, 3.0);
   let intensity = in.brightness * disc * u.opacity * shimmer * glint;
-  let color = vec3f(1.0, 1.0, 1.0) * intensity;
+  // Premultiplied tint: matches the CSS logo's flat fill (logo.svg #33C5F3),
+  // whose smoke-mask density is already encoded in brightness (seed.y).
+  let color = u.color * intensity;
   return vec4f(color, intensity);
 }
 `;

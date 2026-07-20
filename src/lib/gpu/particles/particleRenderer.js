@@ -10,10 +10,9 @@ import {
 } from './shaders/particlesRender.wgsl.js';
 
 // See the field layout documented in shaders/particlesRender.wgsl.js's header
-// comment (rect/canvas/size/opacity/time/shimmer*/glintGain/tilt/tiltDepth).
-// 96 B comfortably covers the WGSL struct's own std140-style aligned size
-// (80 B, vec4f-aligned) — a uniform buffer only needs to be >= the struct
-// size, so the extra slack is harmless.
+// comment (rect/canvas/size/opacity/time/shimmer*/glintGain/tilt/tiltDepth/
+// color). 96 B is exactly the WGSL struct's aligned size now that `color:
+// vec3f` occupies @80 (struct rounds up to a 16 B multiple).
 export const PARTICLE_RENDER_UNIFORM_SIZE = 96;
 
 function finite(...vals) {

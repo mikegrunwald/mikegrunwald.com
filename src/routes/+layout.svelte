@@ -94,10 +94,24 @@
 	// destroys a killed scene and swaps the CSS logo back in, so `logoScene`
 	// has one source of truth regardless of whether the teardown was
 	// triggered by navigation (the `else if` branch below) or the guard.
+	// The hero's CSS logo (HeroHeader's `.display::before`) is hidden by default
+	// so the GPU handoff never flashes the original. That inverts the burden:
+	// EVERY path where particles won't run must reveal it explicitly, or the
+	// hero is simply empty. The paths are: no engine (no WebGPU / reduced
+	// motion), `?noparticles`, a failed scene create, and a budget-guard kill.
+	// `showCssLogo` is idempotent, so callers don't need to know the state.
+	function showCssLogo() {
+		document.documentElement.classList.add('gpu-logo-fallback');
+	}
+	function hideCssLogo() {
+		document.documentElement.classList.remove('gpu-logo-fallback');
+	}
+
 	function destroyParticlesScene() {
 		logoScene?.destroy();
 		logoScene = undefined;
 		document.documentElement.classList.remove('gpu-particles-live');
+		showCssLogo();
 	}
 
 	async function syncParticlesScene() {
@@ -107,7 +121,10 @@
 		// entirely, the CSS logo fallback stays up. See LogoParticlesScene.js's
 		// header note for the sibling `?pcount=N` override (handled inside the
 		// scene itself, since it needs to affect the buffer size at construction).
-		if (new URLSearchParams(location.search).has('noparticles')) return;
+		if (new URLSearchParams(location.search).has('noparticles')) {
+			showCssLogo();
+			return;
+		}
 		const el = document.querySelector('[data-gpu-logo]');
 		if (el && !logoScene && !creatingParticles) {
 			creatingParticles = true;
@@ -123,7 +140,20 @@
 					return;
 				}
 				logoScene = created;
+				// No CSS hangs off `gpu-particles-live` any more (hiding the CSS
+				// logo is now the default — see showCssLogo above). It is kept as
+				// a DOM-inspectable state marker: it is the only way to tell from
+				// outside the app whether the particle scene is actually live,
+				// which QA and automated checks rely on, since the WebGPU canvas
+				// itself cannot be read back from a page-level probe.
 				document.documentElement.classList.add('gpu-particles-live');
+				hideCssLogo();
+			} catch (err) {
+				// A create failure (e.g. the logo bake failing to load an image)
+				// used to escape as an unhandled rejection from afterNavigate and
+				// leave the hero blank now that the CSS logo starts hidden.
+				console.error('[particles] scene creation failed — falling back to the CSS logo', err);
+				showCssLogo();
 			} finally {
 				creatingParticles = false;
 			}
@@ -135,7 +165,10 @@
 	onMount(async () => {
 		if (page.url.pathname.startsWith('/dev/')) return; // dev routes boot their own engine
 		engine = await createEngine({ canvas });
-		if (!engine) return; // no WebGPU / reduced motion → DOM-only experience
+		if (!engine) {
+			showCssLogo(); // no WebGPU / reduced motion → DOM-only experience
+			return;
+		}
 
 		fluidScene = new FluidScene({ engine });
 		grainPass = createGrainPass({ engine });
