@@ -14,9 +14,13 @@ export function selectFeaturedTeasers(workItems) {
 			.sort((a, b) => (a.meta.order || 0) - (b.meta.order || 0))
 			.map((item) => {
 				const media = Array.isArray(item.meta.media) ? item.meta.media : [];
-				// teaser field wins; otherwise first VIDEO-typed url in media (not
-				// media[0], which is frequently an image for entries with photo-heavy
-				// case studies — see reliable-robotics.md/spotify-reniassance.md).
+				// teaser field wins; otherwise the first VIDEO-typed url in media —
+				// NOT media[0], which may be an image (media mixes videos and
+				// stills, e.g. patreon-com.md carries /uploads/single-product-ui.png
+				// mid-array). No featured entry currently leads with an image, so
+				// this guard is not exercised by today's content; it exists because
+				// media order is authored freely in the CMS and nothing enforces a
+				// video-first convention.
 				const teaserUrl = item.meta.teaser || media.find(isVideoPath) || null;
 				return {
 					slug: item.slug,
