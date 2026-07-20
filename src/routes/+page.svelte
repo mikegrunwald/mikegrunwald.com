@@ -2,7 +2,10 @@
 	import AboutIntro from '../lib/components/AboutIntro.svelte';
 	import HeroHeader from '../lib/components/HeroHeader.svelte';
 	import UserActions from '../lib/components/UserActions.svelte';
+	import WorkTeasers from '../lib/components/WorkTeasers.svelte';
 	import siteSettings from '$content/meta/site.json';
+
+	let { data } = $props();
 </script>
 
 <svelte:head>
@@ -14,7 +17,7 @@
 <section class="page">
 	<HeroHeader />
 	<AboutIntro />
-	<!-- TODO: ADD WORK TEASERS HERE -->
+	<WorkTeasers teasers={data.teasers} />
 	<UserActions />
 </section>
 
