@@ -48,8 +48,17 @@ collections:
           label: "Order",
           name: "order",
           widget: "number",
-          default: 0,
+          value_type: "int",
+          min: 1,
+          step: 1,
+          default: 99,
           required: false,
+          hint:
+            "Lowest number appears first. Drives BOTH the Work index page and
+            the order teasers orbit past you in the homepage carousel ring.
+            Featured work currently uses 1-5, everything else 6-8. New entries
+            default to 99 so they land at the end until you place them
+            deliberately.",
         }
       - { label: "Title", name: "title", widget: "string" }
       - {
