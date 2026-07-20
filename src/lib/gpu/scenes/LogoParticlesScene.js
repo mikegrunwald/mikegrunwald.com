@@ -815,7 +815,8 @@ export class LogoParticlesScene {
 		if (this.destroyed || this.engine.hidden) return;
 
 		const now = performance.now();
-		const dt = Math.min((now - this._lastFrameTime) / 1000, 0.033);
+		const rawFrameMs = now - this._lastFrameTime;
+		const dt = Math.min(rawFrameMs / 1000, 0.033);
 		this._lastFrameTime = now;
 		this._simTime += dt;
 
@@ -823,14 +824,16 @@ export class LogoParticlesScene {
 		// EVERY frame, even while already `suspended` — a 'degrade' already
 		// applied doesn't stop heap growth or continued bad frames from later
 		// escalating to 'kill' (that's the whole point of a second-strike
-		// watchdog). frameMs reuses the dt clock already computed above (×1000,
-		// same clock the rest of the sim uses — no second timer). heapMB is
-		// Chrome-only (`performance.memory` is a non-standard Chrome extension);
-		// on other browsers it's `undefined`, which the guard's heap check
-		// treats as "no reading" and simply never fires on (see
-		// budgetGuard.js's typeof check) — not a broken guard, just an inert
-		// one on non-Chrome.
-		const frameMs = dt * 1000;
+		// watchdog). frameMs MUST be the raw, unclamped elapsed time: the sim's
+		// `dt` above is capped at 33ms, and the guard's badFrameMs threshold is
+		// 80ms — feeding it the clamped value would make slow frames invisible
+		// to the watchdog (they'd all read as 33ms) and the entire degrade/
+		// frame-time-kill path unreachable. heapMB is Chrome-only
+		// (`performance.memory` is a non-standard Chrome extension); on other
+		// browsers it's `undefined`, which the guard's heap check treats as "no
+		// reading" and simply never fires on (see budgetGuard.js's typeof
+		// check) — not a broken guard, just an inert one on non-Chrome.
+		const frameMs = rawFrameMs;
 		const heapMB = performance.memory ? performance.memory.usedJSHeapSize / 1048576 : undefined;
 		const verdict = this.guard.sample({ frameMs, heapMB });
 

@@ -4,10 +4,16 @@
 // for the buffer-sharing mechanism (a `WritableBufferBinding` created here is
 // handed a `BufferBinding` counterpart via the `buffer:` param on the render
 // side, NOT the same binding instance reused verbatim).
+// [Phase 2b update: the render `Plane` and its `BufferBinding` counterpart
+// are REMOVED — the reader is now particleRenderer.js, which binds this
+// WritableBufferBinding's raw GPUBuffer directly as read-only storage. The
+// interleaved 32 B/particle layout described below is unchanged and still
+// load-bearing for both sides.]
 //
 // [VERIFY-API] Storage struct/binding declaration — SAME auto-interleave
-// mechanism as the render side (see particles.wgsl.js / LogoParticlesScene.js
-// [VERIFY-API #2]): the four `array<vec2f>` struct fields (pos, vel, home,
+// mechanism as the removed render side used (particles.wgsl.js, deleted in
+// Phase 2b / LogoParticlesScene.js [VERIFY-API #2], now historical): the
+// four `array<vec2f>` struct fields (pos, vel, home,
 // seed) passed to the `WritableBufferBinding` constructed in
 // LogoParticlesScene.js are auto-interleaved by gpu-curtains into
 //   struct Particles { pos: vec2f, vel: vec2f, home: vec2f, seed: vec2f };
@@ -29,7 +35,8 @@
 // [VERIFY-API] Compute entry-point builtins — unlike a render `Plane`'s
 // `Geometry`, which auto-injects an `Attributes` struct carrying
 // `@builtin(vertex_index)`/`@builtin(instance_index)` (see particles.wgsl.js
-// [VERIFY-API]), `ComputePipelineEntry.mjs#patchShaders` (dist/esm/core/
+// [VERIFY-API]) [Phase 2b update: that Plane and particles.wgsl.js are
+// REMOVED; kept as historical contrast only], `ComputePipelineEntry.mjs#patchShaders` (dist/esm/core/
 // pipelines/ComputePipelineEntry.mjs) ONLY prepends binding struct/variable
 // WGSL fragments to the shader head — it injects no entry-function signature
 // or builtin-param struct of its own. So declaring
