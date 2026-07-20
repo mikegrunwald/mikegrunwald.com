@@ -22,6 +22,28 @@
 		width: 100%;
 		overflow: hidden;
 		position: relative;
+
+		/* Single source of truth for the logo box's geometry, shared by the CSS
+		   logo (`.display::before`) and the GPU particle scene's DOM-sync target
+		   (`.logo-box`). These two MUST stay identical: LogoParticlesScene
+		   measures `.logo-box` every frame and maps logo-local particle
+		   positions (0..1 on each axis) across its rect, so any difference — or
+		   any deviation from the baked logo's aspect ratio — distorts the
+		   particle logo directly.
+
+		   Sizing is WIDTH-driven so the aspect ratio can never break. The
+		   previous version set `height: 88dvh` with `max-width: 96vw`, which is
+		   over-constrained: on a narrow viewport the max-width clamped the width
+		   while the height stayed pinned at 88dvh, producing a 96vw x 88dvh box
+		   that violated `aspect-ratio` outright and stretched the logo tall.
+		   Taking the min of "as wide as the viewport allows" and "as wide as an
+		   88dvh-tall logo would be" keeps the box inside both limits while
+		   `aspect-ratio` derives the height, so it fills whichever axis runs out
+		   first and never distorts. */
+		--logo-aspect: 1.153594844873037;
+		--logo-max-height: 88dvh;
+		--logo-max-width: 96vw;
+		--logo-width: min(var(--logo-max-width), var(--logo-max-height) * var(--logo-aspect));
 	}
 
 	.logo-wrapper {
@@ -48,10 +70,10 @@
 		&:before {
 			content: '';
 			display: block;
-			max-width: 96vw;
-			height: 88vh;
-			height: 88dvh;
-			aspect-ratio: 1.153594844873037 / 1;
+			/* Geometry mirrors `.logo-box` exactly — see the custom properties
+			   on `.hero`. Width-driven; `aspect-ratio` derives the height. */
+			width: var(--logo-width);
+			aspect-ratio: var(--logo-aspect);
 			background-image: url('/images/logo.svg');
 			background-position: center;
 			background-size: 80%;
@@ -96,10 +118,12 @@
 		position: absolute;
 		inset: 0;
 		margin: auto auto 6.66vh;
-		max-width: 96vw;
-		height: 88vh;
-		height: 88dvh;
-		aspect-ratio: 1.153594844873037 / 1;
+		/* Geometry mirrors `.display::before` exactly — see the custom
+		   properties on `.hero`. Width-driven; `aspect-ratio` derives the
+		   height, so the box can never be over-constrained into a
+		   non-1.1536 shape and distort the particle logo. */
+		width: var(--logo-width);
+		aspect-ratio: var(--logo-aspect);
 		pointer-events: none;
 	}
 </style>
