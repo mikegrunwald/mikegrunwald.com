@@ -291,9 +291,21 @@ export class CarouselScene {
 		this.destroyed = true;
 		this.unsubFrame();
 		for (const item of this.items) {
+			// Pause the <video> BEFORE tearing down the texture: once the mesh
+			// is gone, nothing samples the element, but an un-paused video keeps
+			// decoding frames in the background.
 			item.texture.sources[0]?.source?.pause?.();
+			// `remove()` releases the texture too — it runs removeFromScene(true)
+			// (unregistering the mesh from renderer.meshes) and then the mesh's
+			// own destroy chain, whose material.destroy() -> destroyTextures()
+			// destroys any texture the renderer no longer holds a reference to
+			// (Material.mjs:396-400, GPURenderer.mjs:725-728). An explicit
+			// item.texture.destroy() after this is therefore redundant; it used
+			// to be here and was a no-op only by luck, because Texture.destroy()
+			// nulls its own GPUTexture and tolerates a second call
+			// (Texture.mjs:258-262). Left in, it implies these textures need
+			// manual release — the mistaken model behind a real leak in Phase 2.
 			item.mesh.remove();
-			item.texture.destroy();
 		}
 	}
 }
