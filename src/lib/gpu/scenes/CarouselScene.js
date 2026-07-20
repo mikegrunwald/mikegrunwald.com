@@ -175,12 +175,15 @@ export class CarouselScene {
 		texture.onSourceLoaded((source) => {
 			if (this.destroyed) return;
 			item.playing = true;
-			// Autoplay can reject before a user gesture on some browsers even
-			// though these videos are muted+loop (MediaTexture.mjs sets
-			// muted=true); swallow the rejection rather than throwing — Task 4
-			// owns real play/pause gating, this is just initial dev-route
-			// visibility.
-			source.play?.().catch(() => {});
+			// Late-ready race (brief's Step 2): a video can finish loading
+			// AFTER setActive(true) has already run once (slow network, section
+			// already pinned on load). Gate on `this.active` so a video that
+			// becomes ready while the carousel is NOT pinned doesn't start
+			// playing off-screen — the next real setActive(true) picks it up.
+			// Autoplay can still reject before a user gesture on some browsers
+			// even though these videos are muted+loop (MediaTexture.mjs sets
+			// muted=true); swallow the rejection rather than throwing.
+			if (this.active) source.play?.().catch(() => {});
 		});
 		texture.loadVideo(teaser.teaserUrl);
 
@@ -227,7 +230,12 @@ export class CarouselScene {
 				item.mesh.visible = false;
 				continue;
 			}
-			item.mesh.visible = true;
+			// Visibility is gated by `this.active` (set by setActive, driven by
+			// ScrollTrigger's onEnter/onLeave — Task 4), not hardcoded true:
+			// this runs every frame via update(), so a hardcoded true here would
+			// fight setActive(false)'s own `mesh.visible = false` on the very
+			// next frame.
+			item.mesh.visible = this.active;
 			item.mesh.position.set(x, y, z);
 			// [VERIFY-API #3] orients the plane's video-facing (+Z-normal) side
 			// toward the camera — see header note #3.
@@ -236,7 +244,19 @@ export class CarouselScene {
 	}
 
 	setProgress(p) {
-		this.progress = p; // Task 4 turns this into `this.rotation`
+		// Defensive finite guard (Global Constraints): `p` is ScrollTrigger's
+		// own `self.progress`, always finite in practice, but a NaN here would
+		// otherwise flow straight into `rotation` and then into every mesh's
+		// GPU transform via layout() — same discipline as LogoParticlesScene's
+		// tilt accumulator guard and layout()'s own NaN clamp above. Skipping
+		// the update on bad input (rather than coercing to 0) keeps the last
+		// good rotation instead of snapping the ring.
+		if (!Number.isFinite(p)) return;
+		this.progress = p;
+		// `p`'s sign/direction already encodes scroll direction via
+		// ScrollTrigger's monotonic-with-scroll-direction `progress` — no extra
+		// sign logic needed here (see brief's Interfaces note).
+		this.rotation = p * this.params.rotationsPerScroll * Math.PI * 2;
 	}
 
 	setVelocity(v) {
@@ -244,11 +264,22 @@ export class CarouselScene {
 	}
 
 	setActive(isActive) {
-		// Task 4 wires visibility + play/pause gating off this. This task's own
-		// dev-route verification keeps every mesh `visible: true` regardless
-		// (see layout()) — `active` is stored for Task 4 to read, nothing else
-		// consults it yet.
+		if (this.active === isActive) return;
 		this.active = isActive;
+		for (const item of this.items) {
+			// [VERIFY-API #4] `visible` fully skips per-frame work when false —
+			// see header note #4. layout() also re-applies this every frame off
+			// `this.active` so a mid-transition frame can't desync mesh
+			// visibility from the active flag.
+			item.mesh.visible = isActive;
+			const video = item.texture.sources[0]?.source;
+			if (!video) continue; // not loaded yet — onSourceLoaded's `this.active` check covers this race
+			if (isActive) {
+				video.play?.().catch(() => {}); // autoplay rejection is not fatal
+			} else {
+				video.pause?.();
+			}
+		}
 	}
 
 	update() {

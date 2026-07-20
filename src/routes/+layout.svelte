@@ -14,6 +14,7 @@
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
 	import { scrollProgress } from '$lib/gpu/fluid/grading.js';
 	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
+	import { CarouselScene } from '$lib/gpu/scenes/CarouselScene.js';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -21,6 +22,7 @@
 	afterNavigate(() => {
 		if (lenis.current) lenis.current.scrollTo(0, { immediate: true });
 		syncParticlesScene();
+		syncCarouselScene();
 	});
 
 	let { children } = $props();
@@ -38,6 +40,9 @@
 	let unsubGrainResize;
 	let logoScene;
 	let creatingParticles = false;
+	let carouselScene;
+	let carouselTrigger;
+	let creatingCarousel = false;
 
 	// /dev/ routes (e.g. /dev/fluid-parity) boot their own engine + debug panel
 	// directly in their +page.svelte. Booting the layout's engine there too
@@ -53,6 +58,16 @@
 		if (forcedProgress === null) {
 			fluidScene.setProgress(scrollProgress(lenis.scroll, window.innerHeight));
 		}
+		// SvelteLenis runs with root: true, so Lenis's wrapper IS window/
+		// documentElement — window.scrollY genuinely advances as Lenis
+		// animates, and ScrollTrigger's default scroller (window) already
+		// agrees with it. No scrollerProxy needed; this one line is the whole
+		// bridge, re-evaluating pins on Lenis's smoothed ticks rather than only
+		// on native scroll events (which Lenis's own smoothing can decouple
+		// from). Safe to call even before any ScrollTrigger instances exist —
+		// it's a no-op walk over an empty list.
+		ScrollTrigger.update();
+		carouselScene?.setVelocity(lenis.velocity); // Task 5 consumes this
 	});
 
 	// The canvas is `position: fixed; width: 100vw; height: 100dvh` — its box is
@@ -162,6 +177,50 @@
 		}
 	}
 
+	// Keys the carousel ring's lifecycle off the presence of WorkTeasers'
+	// `[data-gpu-carousel]` section — present only on the homepage, same
+	// pattern as syncParticlesScene above (Phase 2 Task 8). `creatingCarousel`
+	// guards the same double-create race: CarouselScene's constructor kicks
+	// off async video loads (loadVideo) but returns synchronously, so there's
+	// no `el.isConnected` recheck needed here the way LogoParticlesScene.create
+	// needs one — construction itself can't straddle a navigation the way an
+	// awaited create() can. The guard is still here for symmetry and because a
+	// future async CarouselScene.create() shouldn't have to rediscover this.
+	function syncCarouselScene() {
+		if (!engine || creatingCarousel) return;
+		const el = document.querySelector('[data-gpu-carousel]');
+		if (el && !carouselScene) {
+			creatingCarousel = true;
+			try {
+				carouselScene = new CarouselScene({ engine, teasers: page.data.teasers ?? [] });
+				// `trigger: el` pins WorkTeasers' 300vh runway; `onUpdate` feeds
+				// ScrollTrigger's own monotonic-with-scroll-direction `progress`
+				// straight into setProgress (which turns it into rotation — see
+				// CarouselScene.js), and the active section drives play/pause +
+				// visibility via onEnter/onEnterBack/onLeave/onLeaveBack so videos
+				// only decode while the ring is actually on screen.
+				carouselTrigger = ScrollTrigger.create({
+					trigger: el,
+					start: 'top top',
+					end: 'bottom bottom',
+					pin: true,
+					onUpdate: (self) => carouselScene?.setProgress(self.progress),
+					onEnter: () => carouselScene?.setActive(true),
+					onEnterBack: () => carouselScene?.setActive(true),
+					onLeave: () => carouselScene?.setActive(false),
+					onLeaveBack: () => carouselScene?.setActive(false)
+				});
+			} finally {
+				creatingCarousel = false;
+			}
+		} else if (!el && carouselScene) {
+			carouselTrigger?.kill();
+			carouselTrigger = undefined;
+			carouselScene.destroy();
+			carouselScene = undefined;
+		}
+	}
+
 	onMount(async () => {
 		if (page.url.pathname.startsWith('/dev/')) return; // dev routes boot their own engine
 		engine = await createEngine({ canvas });
@@ -195,6 +254,7 @@
 		}
 
 		await syncParticlesScene();
+		syncCarouselScene();
 	});
 
 	onDestroy(() => {
@@ -213,6 +273,8 @@
 		logoScene?.destroy();
 		if (typeof document !== 'undefined')
 			document.documentElement.classList.remove('gpu-particles-live');
+		carouselTrigger?.kill();
+		carouselScene?.destroy();
 		fluidScene?.destroy();
 		engine?.destroy();
 	});
