@@ -13,6 +13,17 @@
 
 	%sveltekit.head%
 
+	<!-- The hero logo (HeroHeader's .display::before) starts hidden so the GPU
+	     particle handoff never flashes the CSS original; +layout.svelte reveals
+	     it on every no-particles path. With JS disabled none of that runs, so
+	     reveal it here. Unscoped .display still matches the Svelte-scoped
+	     element; !important beats both the base rule and the fallback rule. -->
+	<noscript>
+		<style>
+			.display::before { opacity: 1 !important; }
+		</style>
+	</noscript>
+
 	<!-- Google tag (gtag.js) -->
 	<script async src="https://www.googletagmanager.com/gtag/js?id=G-MCCZ67G8YT"></script>
 	<script>

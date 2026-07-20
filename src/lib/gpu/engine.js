@@ -66,9 +66,50 @@
 // GPURenderer.mjs:73-83) before `createEngine` returns. So `getCanvasSize()` reading
 // `canvas.width`/`canvas.height` directly (as the brief does) returns the correct, current
 // drawing-buffer pixel size with no adaptation needed.
+//
+// 6. [VERIFY-API] Task 4b — stopping gpu-curtains' render loop entirely while hidden.
+//    There is NO public pause()/resume() and no live-togglable `autoRender`: `autoRender`
+//    (GPUDeviceManagerBaseParams, GPUDeviceManager.d.ts:22) is read exactly ONCE in the
+//    GPUDeviceManager constructor — `if (this.options.autoRender) this.animate()`
+//    (GPUDeviceManager.mjs:18-42) — there is no setter that re-checks it afterwards.
+//    `renderer.shouldRender` (GPURenderer.mjs:35, gated at GPURenderer.mjs:850
+//    `if (!this.ready || !this.shouldRender) return;`) only skips that ONE renderer's scene
+//    draw inside `renderer.render(commandEncoder)`. The GPUDeviceManager's own rAF loop
+//    (`animate()`, GPUDeviceManager.mjs:454-457: `this.render(); this.animationFrameID =
+//    requestAnimationFrame(this.animate.bind(this))`) keeps firing every frame regardless,
+//    and `GPUDeviceManager.render()` (GPUDeviceManager.mjs:488-502) still creates a
+//    GPUCommandEncoder and submits a command buffer every frame even when every renderer's
+//    `shouldRender` is false — i.e. `shouldRender` alone leaves residual per-frame GPU
+//    submission running, which is exactly the kind of hidden-tab GPU activity this task
+//    needs to eliminate around display-sleep.
+//    The actual rAF driver IS public: `animationFrameID: null | number`
+//    (GPUDeviceManager.d.ts:91) plus the public `animate()` method that (re)arms it. This is
+//    not a private implementation detail we're reaching past — it's the exact mechanism
+//    `GPUDeviceManager.destroy()` itself uses to stop rendering permanently
+//    (`if (this.animationFrameID) cancelAnimationFrame(this.animationFrameID); this
+//    .animationFrameID = null;`, GPUDeviceManager.mjs:506-508). We reuse the same two lines
+//    to pause/resume instead of destroying: `cancelAnimationFrame(dm.animationFrameID)` +
+//    `dm.animationFrameID = null` stops ALL GPU submission outright; calling `dm.animate()`
+//    again resumes the loop from scratch (it immediately renders once, then re-arms rAF).
+//    `curtains.deviceManager` is the same public accessor already used above for `.device`.
+//
+// 7. Device-lost — `device.lost` (GPUDevice.lost, native WebGPU promise, not a gpu-curtains
+//    API) resolves once, either on an actual device loss or an intentional `device.destroy()`
+//    call, with a `GPUDeviceLostInfo` (`{ reason, message }`). gpu-curtains has its own split
+//    (`GPUDeviceManager`'s internal `device.lost.then(...)`, GPUDeviceManager.mjs:110-115,
+//    which branches into separate `onDeviceLost`/`onDeviceDestroyed` constructor callbacks —
+//    but those are only wired through `GPUCurtains`'s constructor, not exposed as public
+//    add-a-listener methods on the already-constructed `curtains` instance). We don't need
+//    that split: from this engine's consumers' side both cases mean the same thing (this
+//    device is unusable, stop touching it), so we register our own `device.lost.then(...)`
+//    directly on the raw `GPUDevice` we already hold, independent of gpu-curtains' internal
+//    handling. `curtains.onError(cb)` (GPUCurtains.d.ts:207, GPUCurtains.mjs:328-331) is a
+//    single-callback setter (`if (callback) this._onErrorCallback = callback`), not a Set —
+//    fine here since the engine is its only registrant, used purely for logging.
 
 import { GPUCurtains } from 'gpu-curtains';
 import { createPointerInput } from './input.js';
+import { createResizeHub } from './utils/resizeHub.js';
 
 export function pickQuality({ userAgent, devicePixelRatio }) {
 	const isMobile = /Mobi|Android/i.test(userAgent);
@@ -118,6 +159,12 @@ export async function createEngine({ canvas }) {
 	}
 	const queue = device.queue;
 
+	const resizeHub = createResizeHub();
+	// gpu-curtains' renderer.onAfterResize is a SINGLE-callback slot (last
+	// registration wins, not a Set — see GPURenderer.mjs). The engine owns it
+	// exclusively from now on; everything else subscribes via onResize().
+	curtains.renderer.onAfterResize(() => resizeHub.dispatch());
+
 	// CSS-pixel size for pointer input, NOT device-pixel canvas.width/height
 	// (that's engine.getCanvasSize() below, kept separate for FluidSimulation/
 	// GrainPass texel-size math). clientWidth/Height falls back to
@@ -138,18 +185,75 @@ export async function createEngine({ canvas }) {
 
 	const scroll = { y: 0, velocity: 0 };
 	const frameCallbacks = new Set();
+	// Set-based fan-out, same shape as resizeHub (see notes above, section 7).
+	const deviceLostHub = createResizeHub();
 
 	// Runs before gpu-curtains renders its scene each frame.
 	curtains.onBeforeRender(() => {
 		for (const cb of frameCallbacks) cb();
 	});
 
-	// Pause when tab hidden (gpu-curtains keeps its own rAF loop via autoRender; skip our sim work).
 	let hidden = document.visibilityState === 'hidden';
+	let dead = false;
+
+	// See resolution notes section 6 above: cancel/re-arm the GPUDeviceManager's own
+	// rAF id directly — the only way to stop ALL GPU submission, not just our onFrame
+	// callbacks or one renderer's scene draw.
+	function stopRenderLoop() {
+		const dm = curtains.deviceManager;
+		if (dm.animationFrameID != null) {
+			cancelAnimationFrame(dm.animationFrameID);
+			dm.animationFrameID = null;
+		}
+	}
+
+	function resumeRenderLoop() {
+		if (dead) return;
+		const dm = curtains.deviceManager;
+		if (dm.animationFrameID == null) {
+			dm.animate();
+		}
+	}
+
 	const onVisibility = () => {
 		hidden = document.visibilityState === 'hidden';
+		if (dead) return;
+		if (hidden) {
+			stopRenderLoop();
+		} else {
+			resumeRenderLoop();
+			// Forced resync: display-sleep/wake can change DPI or monitor, and any
+			// resize observers may themselves have been suspended while hidden.
+			curtains.renderer.resize();
+		}
 	};
 	document.addEventListener('visibilitychange', onVisibility);
+	// Already hidden at construction time (e.g. engine created in a background tab) —
+	// stop before the loop that's been running since GPUDeviceManager's constructor
+	// (autoRender defaults true, see resolution notes section 1) submits a single frame.
+	if (hidden) stopRenderLoop();
+
+	// bfcache navigation / OS-level sleep can skip visibilitychange entirely; `pagehide`
+	// (window) and `freeze` (document, Page Lifecycle API) are the documented fallbacks.
+	// We only need to STOP here — the corresponding resume always arrives via a later
+	// `visibilitychange` (pageshow/unfreeze flips document.visibilityState back to
+	// 'visible' before scripts resume running).
+	const onPause = () => stopRenderLoop();
+	window.addEventListener('pagehide', onPause);
+	document.addEventListener('freeze', onPause);
+
+	// Device-lost teardown (resolution notes section 7). Our own handling runs first
+	// (stop the loop, mark dead), THEN subscribers are notified.
+	device.lost.then((info) => {
+		stopRenderLoop();
+		dead = true;
+		deviceLostHub.dispatch(info);
+	});
+
+	// Logging only (resolution notes section 7).
+	curtains.onError((message) => {
+		console.error('[gpu-curtains] device/adapter error', message);
+	});
 
 	return {
 		curtains,
@@ -161,9 +265,18 @@ export async function createEngine({ canvas }) {
 		get hidden() {
 			return hidden;
 		},
+		get dead() {
+			return dead;
+		},
 		onFrame(cb) {
 			frameCallbacks.add(cb);
 			return () => frameCallbacks.delete(cb);
+		},
+		onResize(cb) {
+			return resizeHub.add(cb);
+		},
+		onDeviceLost(cb) {
+			return deviceLostHub.add(cb);
 		},
 		setScroll({ y, velocity }) {
 			scroll.y = y;
@@ -175,7 +288,11 @@ export async function createEngine({ canvas }) {
 		},
 		destroy() {
 			document.removeEventListener('visibilitychange', onVisibility);
+			window.removeEventListener('pagehide', onPause);
+			document.removeEventListener('freeze', onPause);
 			input.stop();
+			resizeHub.clear();
+			deviceLostHub.clear();
 			curtains.destroy();
 		}
 	};

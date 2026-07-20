@@ -13,12 +13,14 @@
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
 	import { scrollProgress } from '$lib/gpu/fluid/grading.js';
+	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
 	beforeNavigate(() => {});
 	afterNavigate(() => {
 		if (lenis.current) lenis.current.scrollTo(0, { immediate: true });
+		syncParticlesScene();
 	});
 
 	let { children } = $props();
@@ -33,6 +35,9 @@
 	let grainPass;
 	let debugPanel;
 	let forcedProgress = null;
+	let unsubGrainResize;
+	let logoScene;
+	let creatingParticles = false;
 
 	// /dev/ routes (e.g. /dev/fluid-parity) boot their own engine + debug panel
 	// directly in their +page.svelte. Booting the layout's engine there too
@@ -59,34 +64,118 @@
 	// `renderer.resize()` already invokes gpu-curtains' single-slot
 	// `onAfterResize` callback synchronously before returning (confirmed in
 	// node_modules/gpu-curtains/dist/esm/core/renderers/GPURenderer.mjs:193-197),
-	// and FluidScene's constructor registers `() => this.resizeSim()` on that
-	// exact slot. So `fluidScene.resizeSim()` runs automatically as part of
-	// `renderer.resize()` — calling it again here would double-resize the sim
-	// (destroy-and-recreate its output texture twice) and fight the single
-	// callback slot, exactly what FluidScene's own doc comment and the
-	// fluid-parity route's resize comment warn against. Only `grainPass.resize()`
-	// needs an explicit call, since GrainPass intentionally does not hook
-	// `onAfterResize` (see GrainPass.js doc comment) to avoid stomping
-	// FluidScene's registration.
+	// which the engine owns exclusively and fans out via `engine.onResize()`
+	// (Task 1 of Phase 2). FluidScene and the grain wiring below both subscribe
+	// there instead of touching `renderer.onAfterResize` directly, so
+	// `syncCanvasSize` only needs to trigger the resize itself — every consumer
+	// reacts via the fan-out.
 	function syncCanvasSize() {
 		if (!engine) return;
 		const width = window.innerWidth;
 		const height = window.innerHeight;
 		if (!width || !height) return;
 		engine.curtains.renderer.resize({ width, height, top: 0, left: 0 });
-		if (grainPass) {
-			const size = engine.getCanvasSize();
-			grainPass.resize(size.width, size.height);
+	}
+
+	// Keys the hero particle scene's lifecycle off the presence of
+	// HeroHeader's `[data-gpu-logo]` box in the current page — present only
+	// on the homepage, so this creates the scene on `/` and destroys it on
+	// navigation away, recreating it on return. `creatingParticles` guards
+	// against a double-create race: `LogoParticlesScene.create()` awaits an
+	// async bake (bakeLogoImage), and `afterNavigate` can fire again (e.g. a
+	// fast nav away and back) while that create is still in flight. The
+	// `el.isConnected` recheck after the await covers the case where the
+	// element that was present when the create started has since been
+	// unmounted by a navigation that completed before the create resolved.
+	// Safety-valve teardown hook passed into LogoParticlesScene — called from
+	// inside the scene's own update() when its budget guard (budgetGuard.js)
+	// decides the scene is unsafe to keep running (sustained slow frames
+	// and/or unbounded heap growth). This is the single place that actually
+	// destroys a killed scene and swaps the CSS logo back in, so `logoScene`
+	// has one source of truth regardless of whether the teardown was
+	// triggered by navigation (the `else if` branch below) or the guard.
+	// The hero's CSS logo (HeroHeader's `.display::before`) is hidden by default
+	// so the GPU handoff never flashes the original. That inverts the burden:
+	// EVERY path where particles won't run must reveal it explicitly, or the
+	// hero is simply empty. The paths are: no engine (no WebGPU / reduced
+	// motion), `?noparticles`, a failed scene create, and a budget-guard kill.
+	// `showCssLogo` is idempotent, so callers don't need to know the state.
+	function showCssLogo() {
+		document.documentElement.classList.add('gpu-logo-fallback');
+	}
+	function hideCssLogo() {
+		document.documentElement.classList.remove('gpu-logo-fallback');
+	}
+
+	function destroyParticlesScene() {
+		logoScene?.destroy();
+		logoScene = undefined;
+		document.documentElement.classList.remove('gpu-particles-live');
+		showCssLogo();
+	}
+
+	async function syncParticlesScene() {
+		if (!engine) return; // /dev/ routes (or no WebGPU) never boot the layout engine
+		// Safety-valve URL override (read once here, per nav — production-safe,
+		// no persistent state): `?noparticles` skips creating the scene
+		// entirely, the CSS logo fallback stays up. See LogoParticlesScene.js's
+		// header note for the sibling `?pcount=N` override (handled inside the
+		// scene itself, since it needs to affect the buffer size at construction).
+		if (new URLSearchParams(location.search).has('noparticles')) {
+			showCssLogo();
+			return;
+		}
+		const el = document.querySelector('[data-gpu-logo]');
+		if (el && !logoScene && !creatingParticles) {
+			creatingParticles = true;
+			try {
+				const created = await LogoParticlesScene.create({
+					engine,
+					element: el,
+					fluidScene,
+					onGuardKill: destroyParticlesScene
+				});
+				if (!engine || !el.isConnected) {
+					created.destroy();
+					return;
+				}
+				logoScene = created;
+				// No CSS hangs off `gpu-particles-live` any more (hiding the CSS
+				// logo is now the default — see showCssLogo above). It is kept as
+				// a DOM-inspectable state marker: it is the only way to tell from
+				// outside the app whether the particle scene is actually live,
+				// which QA and automated checks rely on, since the WebGPU canvas
+				// itself cannot be read back from a page-level probe.
+				document.documentElement.classList.add('gpu-particles-live');
+				hideCssLogo();
+			} catch (err) {
+				// A create failure (e.g. the logo bake failing to load an image)
+				// used to escape as an unhandled rejection from afterNavigate and
+				// leave the hero blank now that the CSS logo starts hidden.
+				console.error('[particles] scene creation failed — falling back to the CSS logo', err);
+				showCssLogo();
+			} finally {
+				creatingParticles = false;
+			}
+		} else if (!el && logoScene) {
+			destroyParticlesScene();
 		}
 	}
 
 	onMount(async () => {
 		if (page.url.pathname.startsWith('/dev/')) return; // dev routes boot their own engine
 		engine = await createEngine({ canvas });
-		if (!engine) return; // no WebGPU / reduced motion → DOM-only experience
+		if (!engine) {
+			showCssLogo(); // no WebGPU / reduced motion → DOM-only experience
+			return;
+		}
 
 		fluidScene = new FluidScene({ engine });
 		grainPass = createGrainPass({ engine });
+		unsubGrainResize = engine.onResize(() => {
+			const size = engine.getCanvasSize();
+			grainPass.resize(size.width, size.height);
+		});
 
 		window.addEventListener('resize', syncCanvasSize);
 		syncCanvasSize();
@@ -100,9 +189,12 @@
 				forceProgress: (p) => {
 					forcedProgress = p;
 					if (p !== null) fluidScene.setProgress(p);
-				}
+				},
+				getLogoScene: () => logoScene
 			});
 		}
+
+		await syncParticlesScene();
 	});
 
 	onDestroy(() => {
@@ -110,13 +202,17 @@
 		// after rendering each component (svelte/src/internal/server/index.js),
 		// unlike the browser where onDestroy only fires on real unmount — so this
 		// callback also executes during the build's prerender pass, where
-		// `window` does not exist. `engine`/`fluidScene`/etc. are always
-		// undefined there too (onMount never runs server-side), so their `?.`
-		// calls are already safe; only the unconditional `window` reference
-		// needs the explicit guard.
+		// `window`/`document` do not exist. `engine`/`fluidScene`/`logoScene`/etc.
+		// are always undefined there too (onMount never runs server-side), so
+		// their `?.` calls are already safe; only the unconditional `window`/
+		// `document` references need the explicit guards.
 		if (typeof window !== 'undefined') window.removeEventListener('resize', syncCanvasSize);
+		unsubGrainResize?.();
 		debugPanel?.destroy();
 		grainPass?.destroy();
+		logoScene?.destroy();
+		if (typeof document !== 'undefined')
+			document.documentElement.classList.remove('gpu-particles-live');
 		fluidScene?.destroy();
 		engine?.destroy();
 	});

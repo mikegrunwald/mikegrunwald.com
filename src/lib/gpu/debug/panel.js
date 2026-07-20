@@ -3,7 +3,13 @@ export function shouldShowPanel() {
 	return import.meta.env.DEV || new URLSearchParams(location.search).has('debug');
 }
 
-export async function maybeCreatePanel({ fluidScene, grainPass, engine, forceProgress }) {
+export async function maybeCreatePanel({
+	fluidScene,
+	grainPass,
+	engine,
+	forceProgress,
+	getLogoScene
+}) {
 	if (!shouldShowPanel()) return null;
 	const { Pane } = await import('tweakpane');
 	const pane = new Pane({ title: 'GPU debug' });
@@ -64,6 +70,91 @@ export async function maybeCreatePanel({ fluidScene, grainPass, engine, forcePro
 		grain.addBinding(grainPass.params, 'scale', { min: 0.25, max: 4 });
 	}
 
+	let disposed = false;
+	let sceneWatchRafId = null;
+
+	if (getLogoScene) {
+		const particles = pane.addFolder({ title: 'Particles' });
+		// The scene may not exist yet (not-yet-created on `/`, or non-home route)
+		// — bind through a proxy object that reads/writes the live scene's
+		// params when present. Verified against Tweakpane v4's BindingTarget
+		// (node_modules/tweakpane/dist/tweakpane.js): simple number bindings
+		// call `read()`/`write()`, which are plain `obj[key]` / `obj[key] = v`
+		// property accesses — no `in`/`ownKeys` checks — so the Proxy's get/set
+		// traps are sufficient; no plain-object-with-refresh fallback needed.
+		// `count` is intentionally NOT a live binding — it requires buffer
+		// rebuilds; changing it stays a code-level decision.
+		// Panel construction can precede scene creation (see the identity watcher
+		// below), so the proxy has to answer with something of the RIGHT TYPE
+		// before the scene exists — Tweakpane infers the control type from the
+		// value present at addBinding() time, so handing a color binding the
+		// scalar `0` fallback would build the wrong control (or throw) and no
+		// later refresh would repair it. Numbers can keep the plain 0 fallback.
+		const PARAM_FALLBACKS = { color: { r: 1, g: 1, b: 1 } };
+		const proxy = new Proxy(
+			{},
+			{
+				get: (_, key) => getLogoScene()?.params?.[key] ?? PARAM_FALLBACKS[key] ?? 0,
+				set: (_, key, value) => {
+					const scene = getLogoScene();
+					if (scene) scene.params[key] = value;
+					return true;
+				}
+			}
+		);
+		// Safety-valve (2026-07-17): count is resolved once at scene creation
+		// (conservative default, or the `?pcount=N` URL override — see
+		// LogoParticlesScene.js) and rebuilding the particle buffers live isn't
+		// wired up, so this is display-only — readonly, not a live binding like
+		// the params below it.
+		particles.addBinding(proxy, 'count', { readonly: true });
+		particles.addBinding(proxy, 'size', { min: 0.001, max: 0.02 });
+		particles.addBinding(proxy, 'opacity', { min: 0, max: 1 });
+		// Flat particle tint, {r,g,b} floats 0..1 — same shape/convention as the
+		// fluid's PRIMARY_RGB binding above. Defaults to the logo.svg fill.
+		particles.addBinding(proxy, 'color', { color: { type: 'float' } });
+		particles.addBinding(proxy, 'spring', { min: 0, max: 20 });
+		particles.addBinding(proxy, 'damping', { min: 0, max: 10 });
+		particles.addBinding(proxy, 'curlStrength', { min: 0, max: 1 });
+		particles.addBinding(proxy, 'curlScale', { min: 0.5, max: 10 });
+		particles.addBinding(proxy, 'curlSpeed', { min: 0, max: 2 });
+		particles.addBinding(proxy, 'pointerRadius', { min: 0.02, max: 0.5 });
+		particles.addBinding(proxy, 'pointerForce', { min: 0, max: 5 });
+		particles.addBinding(proxy, 'coupling', { min: 0, max: 2 });
+		particles.addBinding(proxy, 'shimmerSpeed', { min: 0, max: 5 });
+		particles.addBinding(proxy, 'shimmerIntensity', { min: 0, max: 1 });
+		// Capped at 1 (not the earlier-drafted 2): T7 review found sizeVariation
+		// > 2.86 flips sprite corners in the shader's per-particle size formula.
+		particles.addBinding(proxy, 'sizeVariation', { min: 0, max: 1 });
+		particles.addBinding(proxy, 'glintGain', { min: 0, max: 5 });
+		particles.addBinding(proxy, 'maxTilt', { min: 0, max: 30 });
+		particles.addBinding(proxy, 'tiltEase', { min: 0.01, max: 0.3 });
+		particles.addBinding(proxy, 'tiltDepth', { min: 0, max: 0.5 });
+
+		// The scene mounts asynchronously after the panel is created (bake +
+		// buffer setup race — see +layout.svelte's syncParticlesScene), so the
+		// proxy's initial `read()` at bind time can land before `getLogoScene()`
+		// resolves to a real scene, seeding every slider's displayed value at
+		// the proxy's `?? 0` fallback instead of the scene's real defaults.
+		// Identity-watch the scene across its lifetime: refresh the pane whenever
+		// getLogoScene() returns a different instance (covers both first-load and
+		// navigation-recreate). Non-home routes never create a logo scene at all,
+		// so this must stop polling once the panel is destroyed (see `destroy()`
+		// below) — otherwise it rAF-loops forever on e.g. /work?debug. Home-route
+		// layout creates the panel BEFORE the scene, making this watcher load-bearing.
+		let lastLogoScene = null;
+		const watchSceneIdentity = () => {
+			if (disposed) return;
+			const scene = getLogoScene();
+			if (scene !== lastLogoScene) {
+				lastLogoScene = scene;
+				if (scene) pane.refresh();
+			}
+			sceneWatchRafId = requestAnimationFrame(watchSceneIdentity);
+		};
+		watchSceneIdentity();
+	}
+
 	const eng = pane.addFolder({ title: 'Engine' });
 	eng.addBinding(engine.quality, 'tier', { readonly: true });
 	eng.addBinding(engine.quality, 'dpr', { readonly: true });
@@ -88,6 +179,10 @@ export async function maybeCreatePanel({ fluidScene, grainPass, engine, forcePro
 	return {
 		pane,
 		destroy() {
+			disposed = true;
+			if (sceneWatchRafId !== null) {
+				cancelAnimationFrame(sceneWatchRafId);
+			}
 			unsub();
 			pane.dispose();
 		}

@@ -45,9 +45,63 @@ export function createDoubleTarget(device, w, h, format, label) {
 	};
 }
 
+// --- Bind group caching ---------------------------------------------------
+// runPass() used to call device.createBindGroup() on every invocation (~67
+// per frame at steady state, 4000+/sec) — a named WebGPU/Dawn anti-pattern
+// implicated in GPU-process memory growth under sustained per-frame churn
+// (see .superpowers/sdd/particle-optimization-research.md hypothesis #1).
+// Bind groups are now cached per pass, keyed on the identity of the
+// resources that determine their contents. The uniform buffer and sampler
+// set are constant per pass (only their *contents*/config change), so the
+// only thing that varies call-to-call is which texture views are bound —
+// ping-pong passes alternate between two stable textures, so caching on
+// view identity naturally settles at ~2 entries per ping-pong pass and 1
+// per static pass.
+const viewIds = new WeakMap();
+let nextViewId = 1;
+
+function getViewId(view) {
+	let id = viewIds.get(view);
+	if (id === undefined) {
+		id = nextViewId++;
+		viewIds.set(view, id);
+	}
+	return id;
+}
+
+// Pure key derivation, split out so the cache decision is unit-testable
+// without a real GPUDevice/GPUTextureView: same views (by identity) => same
+// key; any view swapped for a different object => different key.
+export function getBindGroupCacheKey(textureViews) {
+	if (!textureViews || textureViews.length === 0) return '';
+	let key = '';
+	for (const view of textureViews) key += getViewId(view) + ',';
+	return key;
+}
+
+const stats = { created: 0, reused: 0 };
+
+// Dev-only visibility into cache effectiveness — read from a debug panel or
+// console to confirm `created` stabilizes (steady-state cache population)
+// while `reused` climbs (per-frame calls now hitting the cache).
+export function getBindGroupStats() {
+	return { ...stats };
+}
+
+// resize() destroys and recreates render targets, which produces brand-new
+// GPUTextureView objects (new identities) — those naturally get fresh cache
+// keys on next use, and stale entries referencing destroyed views are never
+// looked up again, so this isn't required for correctness. It's called
+// anyway to keep each pass's cache bounded to the current resize's targets
+// instead of accumulating an entry per prior resize.
+export function clearPassCaches(passes) {
+	for (const pass of Object.values(passes)) pass.bindGroupCache?.clear();
+}
+
 // A pass = one pipeline (shared fullscreen-triangle vertex + given fragment),
-// one uniform buffer, N sampled textures. Bind group built per run because
-// ping-pong textures change between runs.
+// one uniform buffer, N sampled textures. Bind groups are cached per unique
+// textureViews combination (see above) — ping-pong textures change between
+// runs, but only ever alternate between two stable identities.
 export function createPass(
 	device,
 	{ label, fragment, uniformSize, textureCount, samplerTypes, blend, targetFormat }
@@ -91,26 +145,34 @@ export function createPass(
 		});
 	});
 
-	return { pipeline, uniformBuffer, samplers, textureCount, label };
+	return { pipeline, uniformBuffer, samplers, textureCount, label, bindGroupCache: new Map() };
 }
 
 export function runPass(device, encoder, pass, { target, uniforms, textureViews, loadOp }) {
 	if (uniforms) device.queue.writeBuffer(pass.uniformBuffer, 0, uniforms);
 
-	const entries = [{ binding: 0, resource: { buffer: pass.uniformBuffer } }];
-	let binding = 1;
-	for (const view of textureViews ?? []) entries.push({ binding: binding++, resource: view });
-	for (const sampler of pass.samplers) entries.push({ binding: binding++, resource: sampler });
+	const cacheKey = getBindGroupCacheKey(textureViews);
+	let bindGroup = pass.bindGroupCache.get(cacheKey);
+	if (bindGroup) {
+		stats.reused++;
+	} else {
+		const entries = [{ binding: 0, resource: { buffer: pass.uniformBuffer } }];
+		let binding = 1;
+		for (const view of textureViews ?? []) entries.push({ binding: binding++, resource: view });
+		for (const sampler of pass.samplers) entries.push({ binding: binding++, resource: sampler });
 
-	// WGSL bindings not statically reachable from the entry points are stripped
-	// by layout: 'auto', which makes createBindGroup throw an entry-count
-	// mismatch. Every declared texture/sampler in a pass's shader must be
-	// referenced in code (runtime-false branches are fine — reachability is
-	// static, not dynamic).
-	const bindGroup = device.createBindGroup({
-		layout: pass.pipeline.getBindGroupLayout(0),
-		entries
-	});
+		// WGSL bindings not statically reachable from the entry points are stripped
+		// by layout: 'auto', which makes createBindGroup throw an entry-count
+		// mismatch. Every declared texture/sampler in a pass's shader must be
+		// referenced in code (runtime-false branches are fine — reachability is
+		// static, not dynamic).
+		bindGroup = device.createBindGroup({
+			layout: pass.pipeline.getBindGroupLayout(0),
+			entries
+		});
+		pass.bindGroupCache.set(cacheKey, bindGroup);
+		stats.created++;
+	}
 
 	const renderPass = encoder.beginRenderPass({
 		label: pass.label,

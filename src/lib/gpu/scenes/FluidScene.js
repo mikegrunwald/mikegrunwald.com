@@ -106,16 +106,15 @@ export class FluidScene {
 			textures: [this.curtainsTexture]
 		});
 
-		// gpu-curtains' renderer.onAfterResize is a SINGLE-callback slot (last
-		// registration wins, not a Set — see GPURenderer.mjs), so FluidScene owns
-		// it exclusively; callers must not also register their own onAfterResize
-		// on the same renderer. Re-bridging happens in the SAME synchronous tick
-		// as sim.resize() (which itself destroys the old output texture and
-		// creates a new one) so there is never a frame where curtainsTexture
-		// aliases an already-destroyed GPUTexture.
-		renderer.onAfterResize(() => {
-			this.resizeSim();
-		});
+		// Subscribe to the engine's resize fan-out (Task 1 of Phase 2 converted
+		// gpu-curtains' single-slot onAfterResize into engine.onResize) instead of
+		// registering directly on renderer.onAfterResize, which is a single-
+		// callback slot (last registration wins, not a Set — see GPURenderer.mjs)
+		// that only the engine may own. Re-bridging happens in the SAME
+		// synchronous tick as sim.resize() (which itself destroys the old output
+		// texture and creates a new one) so there is never a frame where
+		// curtainsTexture aliases an already-destroyed GPUTexture.
+		this.unsubscribeResize = engine.onResize(() => this.resizeSim());
 
 		this.lastTime = performance.now();
 		this.unsubscribe = engine.onFrame(() => this.update());
@@ -160,9 +159,8 @@ export class FluidScene {
 
 	destroy() {
 		this.destroyed = true;
-		// Clear the renderer.onAfterResize registration slot (single-owner pattern).
-		// Overwrite with a no-op so even a stale callback invocation is inert.
-		this.engine.curtains.renderer.onAfterResize(() => {});
+		// Unsubscribe from the engine's resize fan-out (see constructor comment).
+		this.unsubscribeResize();
 		this.unsubscribe();
 		this.plane.remove();
 		this.sim.destroy();

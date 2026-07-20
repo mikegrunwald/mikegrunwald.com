@@ -4,12 +4,16 @@
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
 	import { maybeCreatePanel } from '$lib/gpu/debug/panel.js';
+	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
 
 	let newCanvas;
+	let logoHost;
 	let engine;
 	let scene;
 	let grain;
+	let logoScene;
 	let wrapObserver;
+	let unsubGrainResize;
 	let panel;
 	let status = $state('booting…');
 	let progress = $state(0);
@@ -41,18 +45,12 @@
 		// layout has settled to its final size, it never self-corrects. Observing
 		// the wrapper directly sidesteps that feedback loop.
 		//
-		// NOTE: this only calls `renderer.resize()`. FluidScene registers its own
-		// `renderer.onAfterResize` callback (a single-callback slot in
-		// gpu-curtains) to run `sim.resize()` and re-bridge the gpu-curtains
-		// texture in the same tick — do not also call `scene.sim.resize()` here,
-		// it would double-resize and/or fight that single callback slot.
-		//
-		// GrainPass composes around that same single-slot constraint instead of
-		// fighting it: it doesn't touch `onAfterResize` at all (see GrainPass.js
-		// doc comment), so its `resize()` is driven from this route's own
-		// ResizeObserver signal, right after the renderer itself has resized (so
-		// `engine.getCanvasSize()` below already reflects the new drawing-buffer
-		// pixel size).
+		// NOTE: this only calls `renderer.resize()`. gpu-curtains' single-callback
+		// `renderer.onAfterResize` slot is owned exclusively by the engine, which
+		// fans it out via `engine.onResize()` (Task 1 of Phase 2). FluidScene and
+		// the grain wiring below both subscribe there — do not also call
+		// `scene.sim.resize()` or `grain.resize()` directly from here, it would
+		// double-resize and/or fight the fan-out.
 		const syncCanvasSize = () => {
 			const rect = newCanvas.parentElement.getBoundingClientRect();
 			if (!rect.width || !rect.height) return;
@@ -62,7 +60,6 @@
 				top: rect.top,
 				left: rect.left
 			});
-			if (grain) grain.resize(engine.getCanvasSize().width, engine.getCanvasSize().height);
 		};
 		wrapObserver = new ResizeObserver(syncCanvasSize);
 		wrapObserver.observe(newCanvas.parentElement);
@@ -75,15 +72,34 @@
 		// see src/lib/gpu/scenes/FluidScene.js) instead of pinning to seed 1234.
 		scene = new FluidScene({ engine });
 		grain = createGrainPass({ engine });
+		unsubGrainResize = engine.onResize(() => {
+			const size = engine.getCanvasSize();
+			grain.resize(size.width, size.height);
+		});
 
 		scene.sim.multipleSplats(10);
 
-		panel = await maybeCreatePanel({ fluidScene: scene, grainPass: grain, engine, forceProgress });
+		logoScene = await LogoParticlesScene.create({
+			engine,
+			element: logoHost,
+			fluidScene: scene,
+			seed: 1234
+		});
+
+		panel = await maybeCreatePanel({
+			fluidScene: scene,
+			grainPass: grain,
+			engine,
+			forceProgress,
+			getLogoScene: () => logoScene
+		});
 	});
 
 	onDestroy(() => {
 		wrapObserver?.disconnect();
+		unsubGrainResize?.();
 		panel?.destroy();
+		logoScene?.destroy();
 		grain?.destroy();
 		scene?.destroy();
 		engine?.destroy();
@@ -100,8 +116,11 @@
 
 <div class="parity">
 	<div class="pane">
-		<h2>WebGPU fluid</h2>
-		<div class="sim sim-wrap"><canvas bind:this={newCanvas}></canvas></div>
+		<h2>WebGPU fluid + logo particles</h2>
+		<div class="sim sim-wrap">
+			<canvas bind:this={newCanvas}></canvas>
+			<div class="logo-host" data-gpu-logo bind:this={logoHost}></div>
+		</div>
 	</div>
 	<div class="controls">
 		<label for="grading-progress">Grading progress: {progress.toFixed(2)}</label>
@@ -145,6 +164,23 @@
 		display: block;
 		width: 100%;
 		height: 100%;
+	}
+	/* DOM-sync target for LogoParticlesScene's Plane. Must overlap the WebGPU
+	   canvas on screen — gpu-curtains positions the synced mesh in NDC space
+	   relative to the RENDERER's (canvas's) own bounding rect
+	   (DOMObject3D.mjs#documentToWorldSpace), so a box outside the canvas's
+	   screen area would project outside the visible frustum. `position:
+	   absolute` + `inset: 0` + `margin: 2rem auto` centers it within
+	   `.sim-wrap` (classic absolute-positioning centering trick) while keeping
+	   the brief's literal width/aspect-ratio/margin/outline values. */
+	.logo-host {
+		position: absolute;
+		inset: 0;
+		width: 60%;
+		aspect-ratio: 1.153594844873037 / 1;
+		margin: 2rem auto;
+		outline: 1px dashed #333;
+		pointer-events: none;
 	}
 	.controls {
 		grid-column: 1 / -1;
