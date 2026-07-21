@@ -116,20 +116,9 @@
 //      ray.origin.distance(point) (Raycaster.mjs) — so hits[0] is the closest
 //      plane, no manual sort needed. Each Intersection carries `.object`
 //      (the ProjectedMesh) and `.distance`.
-//    - World → screen: `Vec3.project(camera)` mutates in place to NDC [-1,1] by
-//      applying viewMatrix then projectionMatrix, and Vec3.applyMat4 performs
-//      the perspective /w divide (Vec3.mjs) — so projecting the plane's four
-//      local (±1,±1,0) corners through `mesh.worldMatrix` then `.project(camera)`
-//      yields a correct NDC bounding box under rotation/scale/perspective.
-//      NDC→CSS px uses `renderer.boundingRect` (CSS px — the SAME rect
-//      setFromMouse reads, keeping ray and projected rect in one space; NOT
-//      getCanvasSize()/device px — Phase 2 note #16). Non-finite guard mirrors
-//      the layout() clamp: any NaN component → null target, never a NaN CSS
-//      transform on the DOM cursor.
 
-import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster, Vec3 } from 'gpu-curtains';
+import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster } from 'gpu-curtains';
 import { CAROUSEL_VERTEX, CAROUSEL_FRAGMENT } from '../carousel/shaders/carousel.wgsl.js';
-import { setExternalMagneticTarget } from '$lib/components/CursorDot.svelte';
 
 // Hover growth factor, applied on top of the params-derived base scale in
 // layout(). Kept here rather than inline so the hover and base scale can never
@@ -163,9 +152,6 @@ export class CarouselScene {
 		// returns nearest-first (sorted by ray.origin.distance(point) in
 		// Raycaster.mjs) so hits[0] is the closest plane.
 		this.raycaster = new Raycaster(engine.curtains);
-		// Reusable Vec3 scratch for per-frame corner projection (avoid per-frame
-		// allocation in the hovered-plane screen-rect computation).
-		this._projScratch = new Vec3();
 
 		const isMobile = engine.quality.tier === 'mobile';
 		this.params = {
@@ -368,8 +354,6 @@ export class CarouselScene {
 		const index = this.hitTest(e);
 		if (index === this.hoveredIndex) return;
 		this.hoveredIndex = index;
-		// hover-out: release the cursor now (scale is applied in layout()).
-		if (index == null) setExternalMagneticTarget(null);
 		// Plain CSS hook + DOM-inspectable QA signal (the WebGPU canvas can't be
 		// read back from a page-level probe).
 		document.documentElement.classList.toggle('carousel-hovering', index != null);
@@ -405,7 +389,6 @@ export class CarouselScene {
 			// Clearing hoveredIndex is enough to drop the hover scale — layout()
 			// derives it from this field every frame.
 			this.hoveredIndex = null;
-			setExternalMagneticTarget(null);
 			document.documentElement.classList.remove('carousel-hovering');
 			this.onHover?.(null);
 		}
@@ -451,62 +434,6 @@ export class CarouselScene {
 		this.velocitySmoothed += (target - this.velocitySmoothed) * rate;
 
 		this.layout();
-
-		// Track the hovered plane's projected screen rect every frame so the DOM
-		// cursor (CursorDot's magnetic mode) morphs to it and follows as the ring
-		// rotates. Only while hovered — hover-out / setActive(false) / destroy all
-		// clear the target explicitly, so we never write it when nothing's hovered
-		// (which would fight DOM magnetic elements elsewhere on the page).
-		if (this.hoveredIndex != null) {
-			const rect = this.projectMeshRect(this.items[this.hoveredIndex]?.mesh);
-			// projectMeshRect returns null on any non-finite component — a
-			// degenerate matrix must never reach the dot's CSS transform (the exact
-			// failure class behind Phase 2's hangs). Clear rather than write NaN.
-			setExternalMagneticTarget(rect);
-		}
-	}
-
-	// World → screen (CSS px) bounding rect of a plane, by projecting its four
-	// local corners through the world matrix + camera. Returns
-	// { x, y, width, height, radius } with x/y the CENTER in CSS px, or null if
-	// any projected component is non-finite or the plane is entirely behind the
-	// camera. Uses renderer.boundingRect (CSS px — the same rect setFromMouse
-	// uses, so hover ray and projected rect stay in one coordinate space; NOT
-	// getCanvasSize(), which is device px — Phase 2 note #16).
-	projectMeshRect(mesh) {
-		if (!mesh) return null;
-		const camera = this.engine.curtains.renderer.camera;
-		const bounds = this.engine.curtains.renderer.boundingRect;
-		let minX = Infinity;
-		let minY = Infinity;
-		let maxX = -Infinity;
-		let maxY = -Infinity;
-		for (let cx = -1; cx <= 1; cx += 2) {
-			for (let cy = -1; cy <= 1; cy += 2) {
-				// PlaneGeometry corners are at (±1, ±1, 0) (native 2x2 quad — see
-				// header note #1); worldMatrix carries position/lookAt/scale.
-				this._projScratch.set(cx, cy, 0);
-				this._projScratch.applyMat4(mesh.worldMatrix).project(camera);
-				const ndc = this._projScratch;
-				if (!Number.isFinite(ndc.x) || !Number.isFinite(ndc.y)) return null;
-				const sx = bounds.left + (ndc.x * 0.5 + 0.5) * bounds.width;
-				const sy = bounds.top + (0.5 - ndc.y * 0.5) * bounds.height;
-				if (sx < minX) minX = sx;
-				if (sx > maxX) maxX = sx;
-				if (sy < minY) minY = sy;
-				if (sy > maxY) maxY = sy;
-			}
-		}
-		const width = maxX - minX;
-		const height = maxY - minY;
-		if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
-		return {
-			x: (minX + maxX) / 2,
-			y: (minY + maxY) / 2,
-			width,
-			height,
-			radius: 12
-		};
 	}
 
 	destroy() {
@@ -514,9 +441,6 @@ export class CarouselScene {
 		this.unsubFrame();
 		window.removeEventListener('pointermove', this._onPointerMove);
 		window.removeEventListener('click', this._onClick);
-		// Never leave the DOM cursor stranded morphed around a mesh that's about
-		// to be torn down, nor the CSS hook set.
-		setExternalMagneticTarget(null);
 		document.documentElement.classList.remove('carousel-hovering');
 		// Mirror setActive(false)'s hover reset. Without this the consumer's
 		// hovered-index state survives the scene: on the device-lost path
