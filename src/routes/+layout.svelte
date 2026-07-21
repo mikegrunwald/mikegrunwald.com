@@ -99,7 +99,11 @@
 	// which happens if the plane projected to something degenerate, e.g. a
 	// zero-sized canvas. A missing transition is fine; a NaN one is not.
 	function startTransition(payload) {
-		if (!payload?.rect) {
+		// Without a rect there is nowhere to start from, and without the carousel's
+		// live video element there is nothing to paint — a fresh <video> cannot
+		// decode a frame inside the 450ms zoom. Either way a plain navigation is
+		// better than an empty box expanding across the screen.
+		if (!payload?.rect || !payload?.video) {
 			goto(payload.href);
 			return;
 		}
@@ -569,8 +573,7 @@
 	<CursorDot class="dot" />
 	{#if transition}
 		<TransitionVideo
-			src={transition.srcUrl}
-			currentTime={transition.currentTime}
+			sourceVideo={transition.video}
 			rect={transition.rect}
 			radiusPx={transition.rect.radiusPx}
 			onArrived={onTransitionArrived}

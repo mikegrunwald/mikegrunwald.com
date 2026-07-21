@@ -1,28 +1,47 @@
 <script>
 	import { onMount } from 'svelte';
+	import { coverRect } from '$lib/gpu/carousel/coverFit.js';
 
-	let { src, currentTime = 0, rect, radiusPx = 0, durationMs = 450, onArrived } = $props();
+	// `sourceVideo` is the carousel's OWN <video> element — already decoded and
+	// playing. We paint it into a canvas rather than mounting a second <video>
+	// with the same src: a fresh element takes ~460ms just to reach metadata,
+	// which is longer than this entire animation, so it renders transparent for
+	// the whole zoom. Measured, not assumed.
+	let { sourceVideo, rect, radiusPx = 0, durationMs = 450, onArrived } = $props();
 
 	let el;
-	let video;
+	let canvas;
 
 	onMount(() => {
-		// Seed before play so the first painted frame is already the handed-over
-		// moment rather than frame 0.
-		if (video && Number.isFinite(currentTime) && currentTime > 0) {
-			try {
-				video.currentTime = currentTime;
-			} catch {
-				// Seeking can throw if metadata is not loaded yet; starting at 0 is
-				// an acceptable outcome and better than failing the transition.
-			}
-		}
-		video?.play?.().catch(() => {}); // autoplay rejection is not fatal
+		const ctx = canvas.getContext('2d');
+		let rafId;
 
-		// Animates left/top/width/height rather than a transform. A transform
-		// would be compositor-friendly, but scaling a fullscreen box down to the
-		// plane's rect distorts border-radius non-uniformly — and the radius is
-		// exactly the detail that has to match the shader at t=0.
+		const paint = () => {
+			const srcW = sourceVideo?.videoWidth ?? 0;
+			const srcH = sourceVideo?.videoHeight ?? 0;
+			const box = el.getBoundingClientRect();
+			const dstW = Math.max(1, Math.round(box.width));
+			const dstH = Math.max(1, Math.round(box.height));
+
+			// Match the backing store to the element so the frame is not resampled
+			// twice. Reassigning width/height clears the canvas, so only do it on
+			// an actual change — the box changes every frame during the zoom.
+			if (canvas.width !== dstW || canvas.height !== dstH) {
+				canvas.width = dstW;
+				canvas.height = dstH;
+			}
+
+			if (srcW > 0 && srcH > 0) {
+				const c = coverRect({ srcW, srcH, dstW, dstH });
+				ctx.drawImage(sourceVideo, c.sx, c.sy, c.sw, c.sh, 0, 0, dstW, dstH);
+			}
+			rafId = requestAnimationFrame(paint);
+		};
+		paint();
+
+		// Eased so the travel is visible across the whole duration. The previous
+		// curve reached ~70% of final size by 18ms — 4% of the duration — which
+		// reads as a pop rather than a zoom even when the image is visible.
 		const animation = el.animate(
 			[
 				{
@@ -42,38 +61,31 @@
 					boxShadow: '0 0 0 0 rgba(51, 197, 243, 0)'
 				}
 			],
-			{ duration: durationMs, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
+			{ duration: durationMs, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)', fill: 'forwards' }
 		);
 
 		// Resolve on cancel too: the caller gates overlay dismissal on this, so a
 		// rejected promise would strand the overlay until the timeout.
 		animation.finished.then(() => onArrived?.()).catch(() => onArrived?.());
 
-		// Dev-only trace. Whether the overlay is on screen, growing, and actually
-		// showing video frames is not answerable from a screenshot — a video with
-		// no decoded frame renders TRANSPARENT, and this element sits under a 95%
-		// black gradient, so "invisible" and "absent" look identical.
+		// Dev-only trace. The overlay's visibility depends entirely on the SOURCE
+		// video having decoded frames — an undecoded one paints nothing and the
+		// result is indistinguishable from the overlay being absent, which is
+		// exactly the failure this component was rewritten to fix.
 		let traceId;
 		if (import.meta.env.DEV) {
 			const samples = [];
 			const started = performance.now();
 			const sample = () => {
 				const r = el.getBoundingClientRect();
-				const cs = getComputedStyle(el);
 				samples.push({
 					ms: Math.round(performance.now() - started),
 					w: Math.round(r.width),
 					h: Math.round(r.height),
-					top: Math.round(r.top),
-					left: Math.round(r.left),
-					z: cs.zIndex,
-					opacity: cs.opacity,
-					visibility: cs.visibility,
-					// 0 until the browser has decoded a frame — the difference
-					// between "not zooming" and "zooming but showing nothing".
-					videoW: video?.videoWidth ?? 0,
-					readyState: video?.readyState ?? 0,
-					paused: video?.paused ?? null
+					srcW: sourceVideo?.videoWidth ?? 0,
+					srcReadyState: sourceVideo?.readyState ?? 0,
+					srcPaused: sourceVideo?.paused ?? null,
+					srcTime: +(sourceVideo?.currentTime ?? 0).toFixed(2)
 				});
 				if (performance.now() - started < durationMs + 200) {
 					traceId = requestAnimationFrame(sample);
@@ -85,6 +97,7 @@
 
 		return () => {
 			animation.cancel();
+			cancelAnimationFrame(rafId);
 			if (traceId) cancelAnimationFrame(traceId);
 		};
 	});
@@ -100,7 +113,7 @@
 	style:border-radius="{radiusPx}px"
 	aria-hidden="true"
 >
-	<video bind:this={video} {src} muted loop playsinline></video>
+	<canvas bind:this={canvas}></canvas>
 </div>
 
 <style>
@@ -114,10 +127,9 @@
 			inset 0 0 12px #33c5f3;
 	}
 
-	video {
+	canvas {
 		width: 100%;
 		height: 100%;
-		object-fit: cover;
 		display: block;
 	}
 

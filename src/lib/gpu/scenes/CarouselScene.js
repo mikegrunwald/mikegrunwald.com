@@ -753,7 +753,11 @@ export class CarouselScene {
 			slug: source.teaser.slug,
 			srcUrl: source.teaser.teaserUrl,
 			currentTime: Number.isFinite(video?.currentTime) ? video.currentTime : 0,
-			rect: this.projectVideoRect(item.mesh)
+			rect: this.projectVideoRect(item.mesh),
+			// The live element, handed over so the transition can paint the frames
+			// already decoded here instead of starting a second decoder that will
+			// not have a frame until after the zoom has finished.
+			video: video ?? null
 		});
 	}
 
