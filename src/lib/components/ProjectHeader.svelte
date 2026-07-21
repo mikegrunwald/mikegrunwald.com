@@ -87,7 +87,6 @@
 		const subtitleEffect = new BlurScrollEffect(subtitleEl, {
 			mode: 'enter',
 			from: 'start',
-			delay: 0.15,
 			paused: true
 		});
 		headingEffects = [titleEffect, subtitleEffect];
