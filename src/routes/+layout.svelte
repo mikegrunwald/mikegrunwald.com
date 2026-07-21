@@ -153,6 +153,12 @@
 		transitionArrived = false;
 		headerReady = false;
 		carouselScene?.clearSuppressed();
+		// The mirror of `project-header-ready`, which ProjectHeader dispatches up
+		// to us. The detail page's heading entrance has to start HERE rather than
+		// on its own mount: on a carousel arrival the overlay covers the page
+		// while it mounts, so a mount-triggered animation would play out of sight
+		// and be over by the time the overlay lifts.
+		window.dispatchEvent(new CustomEvent('project-transition-dismissed'));
 	}
 
 	// Teleports scroll back to the start of the pinned runway, making downward
