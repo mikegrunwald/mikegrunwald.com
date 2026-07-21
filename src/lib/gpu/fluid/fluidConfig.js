@@ -32,7 +32,7 @@ export const FLUID_CONFIG = {
 	SUNRAYS: true,
 	SUNRAYS_RESOLUTION: 256,
 	SUNRAYS_WEIGHT: 1,
-	PRIMARY_RGB: { r: 0.051, g: 0.197, b: 0.243 }
+	PRIMARY_RGB: { r: 0.0, g: 0.05, b: 0.07 }
 };
 
 // Pure port of WebGLFluid.js:1654-1670.

@@ -12,7 +12,10 @@ describe('FLUID_CONFIG parity', () => {
 		expect(FLUID_CONFIG.BLOOM_RESOLUTION).toBe(56);
 		expect(FLUID_CONFIG.BLOOM_SOFT_KNEE).toBe(1.5);
 		expect(FLUID_CONFIG.SUNRAYS_RESOLUTION).toBe(256);
-		expect(FLUID_CONFIG.PRIMARY_RGB).toEqual({ r: 0.051, g: 0.197, b: 0.243 });
+		// Retuned 2026-07-21, darker and less cyan than the original port. This
+		// assertion exists to catch accidental drift, so it is meant to be updated
+		// deliberately alongside a real change — not relaxed.
+		expect(FLUID_CONFIG.PRIMARY_RGB).toEqual({ r: 0, g: 0.05, b: 0.07 });
 	});
 });
 
