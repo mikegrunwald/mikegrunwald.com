@@ -5,6 +5,8 @@
 // itself cannot be: this project's vitest environment is `node`, so there is no
 // DOM to split text in and no GSAP to drive it.
 
+import { ENTER_START } from './enterTrigger.js';
+
 export const BLUR_START = 'blur(6px)';
 export const BLUR_END = 'blur(0px)';
 
@@ -78,7 +80,7 @@ export function buildBlurTween({
 
 	// Non-paused tweens get their scroll trigger.
 	if (mode === 'enter') {
-		toVars.scrollTrigger = { trigger, start: 'top bottom-=10%', once: true };
+		toVars.scrollTrigger = { trigger, start: ENTER_START, once: true };
 	} else {
 		toVars.scrollTrigger = {
 			trigger,

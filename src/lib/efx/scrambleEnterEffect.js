@@ -1,6 +1,7 @@
 import { gsap } from 'gsap/dist/gsap';
 import { ScrambleTextPlugin } from 'gsap/dist/ScrambleTextPlugin';
 import { prefersReducedMotion } from './reducedMotion.js';
+import { ENTER_START } from './enterTrigger.js';
 
 // ScrollTrigger is deliberately NOT imported or registered here. `+layout.svelte`
 // already registers it app-wide, from the `gsap/ScrollTrigger` specifier — and
@@ -58,7 +59,7 @@ export class ScrambleEnterEffect {
 			ease: 'none',
 			scrollTrigger: {
 				trigger: element,
-				start: 'top bottom-=10%',
+				start: ENTER_START,
 				once: true
 			}
 		});

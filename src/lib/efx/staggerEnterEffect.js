@@ -1,5 +1,6 @@
 import { gsap } from 'gsap/dist/gsap';
 import { prefersReducedMotion } from './reducedMotion.js';
+import { ENTER_START } from './enterTrigger.js';
 
 // ScrollTrigger is deliberately NOT imported or registered here — `+layout.svelte`
 // registers it app-wide from the `gsap/ScrollTrigger` specifier, which is a
@@ -42,7 +43,7 @@ export class StaggerEnterEffect {
 					// these sit on one row, so per-element triggers would fire at
 					// effectively the same moment and fight the stagger.
 					trigger: this.elements[0],
-					start: 'top bottom-=10%',
+					start: ENTER_START,
 					once: true
 				}
 			}

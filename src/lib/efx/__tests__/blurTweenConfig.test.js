@@ -43,6 +43,10 @@ describe('buildBlurTween enter mode', () => {
 		expect(toVars.scrollTrigger.scrub).toBeUndefined();
 	});
 
+	it('starts further into the viewport than scrub mode', () => {
+		expect(toVars.scrollTrigger.start).toBe('top bottom-=25%');
+	});
+
 	it('has a real duration and an eased curve', () => {
 		expect(toVars.duration).toBe(0.9);
 		expect(toVars.ease).toBe('power2.out');
