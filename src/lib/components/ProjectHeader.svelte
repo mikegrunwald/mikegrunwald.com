@@ -12,6 +12,21 @@
 	let subtitleEl;
 	let headingEffects = [];
 
+	// Read during init, not inside the entrance onMount: the first onMount
+	// below calls clearHandoff(), and onMounts run in registration order, so
+	// by the time the entrance gate's onMount runs the record is already
+	// gone. The script body runs before either onMount, so it still sees it.
+	//
+	// This is the only reliable way to tell the two arrival paths apart.
+	// document.fonts.ready looks like it should work but doesn't: the site
+	// has one @font-face, the carousel arrives via SvelteKit goto() (a
+	// same-document SPA navigation), and that navigation never unloads the
+	// document — so its fonts are already loaded and fonts.ready resolves in
+	// ~25ms, long before the 450-1050ms transition overlay lifts. A fresh
+	// handoff record matching this page's slug, by contrast, only exists
+	// when setHandoff() ran on the real-overlay carousel path.
+	const entranceHandoff = readHandoff();
+
 	function mediaSrc(media) {
 		if (!media) return null;
 		return typeof media === 'string' ? media : (media.path ?? media.url ?? media.src ?? null);
@@ -96,17 +111,49 @@
 			subtitleEffect.play();
 		});
 
+		// A fresh handoff record for this slug means a real-overlay carousel
+		// transition is in flight (setHandoff() in +layout.svelte only runs on
+		// that path, after the degraded no-rect/no-video case has already
+		// early-returned via goto()). Same 5000ms staleness window as
+		// shouldSeed(), so a record left by an abandoned navigation can't make
+		// a later direct visit wait on an event that will never arrive.
+		const arrivedViaCarousel =
+			entranceHandoff?.slug === slug && Date.now() - entranceHandoff?.at <= 5000;
+
 		// Path 1: arrived through the carousel zoom. Play as the overlay lifts.
 		const onDismissed = () => gate.open();
 		window.addEventListener('project-transition-dismissed', onDismissed);
 
 		// Path 2: direct load or back navigation — there is no overlay, so no
 		// dismissal will ever come. Fonts resolving is the equivalent moment:
-		// it is when the split can measure real glyphs. The gate makes the two
-		// paths safe to both fire on a transition arrival, where they do.
-		document.fonts.ready.then(() => gate.open());
+		// it is when the split can measure real glyphs.
+		//
+		// Only wire this fallback when we did NOT arrive via the carousel.
+		// fonts.ready is useless as a discriminator on its own — goto() is a
+		// same-document SPA navigation, so the document's one @font-face is
+		// already loaded and fonts.ready resolves in ~25ms, well before the
+		// 450-1050ms overlay lifts. Leaving it wired for the carousel path
+		// would always win the race and let the entrance finish unseen
+		// beneath the overlay, defeating the whole point of gating it.
+		if (!arrivedViaCarousel) {
+			document.fonts.ready.then(() => gate.open());
+		}
 
-		return () => window.removeEventListener('project-transition-dismissed', onDismissed);
+		// Backstop: the layout's safety valve dispatches
+		// project-transition-dismissed 1050ms after the transition starts. If
+		// this route takes longer than that to mount, the event fires before
+		// the listener above is attached, and — on the carousel path, where
+		// fonts.ready is deliberately not wired — the gate would then never
+		// open, leaving the headings permanently invisible. That is strictly
+		// worse than an entrance playing a beat early, so open unconditionally
+		// after the same 1050ms. The gate is once-only, so this is a no-op
+		// when the event arrives normally.
+		const backstop = setTimeout(() => gate.open(), 1050);
+
+		return () => {
+			window.removeEventListener('project-transition-dismissed', onDismissed);
+			clearTimeout(backstop);
+		};
 	});
 
 	onDestroy(() => {
