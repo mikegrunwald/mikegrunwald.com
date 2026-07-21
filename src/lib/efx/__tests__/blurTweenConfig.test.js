@@ -74,6 +74,22 @@ describe('buildBlurTween paused', () => {
 	it('creates no ScrollTrigger, because a paused tween is driven manually', () => {
 		expect(toVars.scrollTrigger).toBeUndefined();
 	});
+
+	it('still carries the enter duration, so a paused tween does not silently fall back to GSAP default', () => {
+		expect(toVars.duration).toBe(0.9);
+	});
+});
+
+describe('buildBlurTween paused in scrub mode', () => {
+	const { toVars } = buildBlurTween({ mode: 'scrub', paused: true, trigger: 'EL' });
+
+	it('sets no duration, because scrub drives the playhead', () => {
+		expect(toVars.duration).toBeUndefined();
+	});
+
+	it('creates no ScrollTrigger while paused', () => {
+		expect(toVars.scrollTrigger).toBeUndefined();
+	});
 });
 
 describe('buildBlurTween reduced motion', () => {

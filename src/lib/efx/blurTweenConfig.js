@@ -53,12 +53,17 @@ export function buildBlurTween({
 		ease: mode === 'enter' ? 'power2.out' : 'none'
 	};
 
+	// Enter mode always gets a duration for the self-playing animation.
+	if (mode === 'enter') {
+		toVars.duration = ENTER_DURATION;
+	}
+
 	// A paused tween is started by hand — that is the whole point of pausing it.
 	// Giving it a ScrollTrigger too would mean two things racing to play it.
 	if (paused) return { fromVars, toVars };
 
+	// Non-paused tweens get their scroll trigger.
 	if (mode === 'enter') {
-		toVars.duration = ENTER_DURATION;
 		toVars.scrollTrigger = { trigger, start: 'top bottom-=10%', once: true };
 	} else {
 		toVars.scrollTrigger = {
