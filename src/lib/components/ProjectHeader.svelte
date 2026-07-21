@@ -4,6 +4,7 @@
 	import { readHandoff, shouldSeed, clearHandoff } from '$lib/transitionHandoff.js';
 	import { BlurScrollEffect } from '$lib/efx/blurScrollEffect.js';
 	import { createEntranceGate } from '$lib/efx/entranceGate.js';
+	import { isTransitionActive } from '$lib/transitionSignal.js';
 
 	let { title, subtitle, backgroundMedia = null, slug = null } = $props();
 
@@ -11,21 +12,6 @@
 	let titleEl;
 	let subtitleEl;
 	let headingEffects = [];
-
-	// Read during init, not inside the entrance onMount: the first onMount
-	// below calls clearHandoff(), and onMounts run in registration order, so
-	// by the time the entrance gate's onMount runs the record is already
-	// gone. The script body runs before either onMount, so it still sees it.
-	//
-	// This is the only reliable way to tell the two arrival paths apart.
-	// document.fonts.ready looks like it should work but doesn't: the site
-	// has one @font-face, the carousel arrives via SvelteKit goto() (a
-	// same-document SPA navigation), and that navigation never unloads the
-	// document — so its fonts are already loaded and fonts.ready resolves in
-	// ~25ms, long before the 450-1050ms transition overlay lifts. A fresh
-	// handoff record matching this page's slug, by contrast, only exists
-	// when setHandoff() ran on the real-overlay carousel path.
-	const entranceHandoff = readHandoff();
 
 	function mediaSrc(media) {
 		if (!media) return null;
@@ -111,14 +97,15 @@
 			subtitleEffect.play();
 		});
 
-		// A fresh handoff record for this slug means a real-overlay carousel
-		// transition is in flight (setHandoff() in +layout.svelte only runs on
-		// that path, after the degraded no-rect/no-video case has already
-		// early-returned via goto()). Same 5000ms staleness window as
-		// shouldSeed(), so a record left by an abandoned navigation can't make
-		// a later direct visit wait on an event that will never arrive.
-		const arrivedViaCarousel =
-			entranceHandoff?.slug === slug && Date.now() - entranceHandoff?.at <= 5000;
+		// The layout announces the transition explicitly via
+		// 'project-transition-started', captured at module scope in
+		// transitionSignal.js (that event fires before this component mounts, so
+		// a listener registered here would miss it). This used to be inferred
+		// from the presence of a transition handoff record, which was unsound:
+		// setHandoff() refuses to store a record when currentTime is non-finite
+		// or srcUrl is falsy, but the overlay still goes up in those cases, so a
+		// missing record did not mean a missing transition.
+		const arrivedViaCarousel = isTransitionActive();
 
 		// Path 1: arrived through the carousel zoom. Play as the overlay lifts.
 		const onDismissed = () => gate.open();
