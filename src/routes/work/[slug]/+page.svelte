@@ -30,11 +30,17 @@
 	// survives the round trip holding scroll positions measured against a
 	// document that no longer exists.
 	let effects = [];
+	// Guards against unmounting during the tick() await below: without it,
+	// onDestroy would run first against an empty effects array, then the
+	// resumed microtask would query a torn-down metaEl and build effects that
+	// never make it into the teardown array.
+	let live = true;
 
 	onMount(async () => {
 		// The h3s arrive through {@html descriptionHtml}, so they are not in the
 		// DOM until Svelte has flushed. Same reason AboutIntro awaits a tick.
 		await tick();
+		if (!live) return;
 
 		// Non-full-width values scramble. The `.scramble-target` span is the
 		// aria-hidden copy — never the visually-hidden one, which must keep its
@@ -55,6 +61,7 @@
 	});
 
 	onDestroy(() => {
+		live = false;
 		for (const effect of effects) effect.destroy();
 		effects = [];
 	});
@@ -144,6 +151,11 @@
 			</section>
 		{/if}
 
+		<!-- Re-enabling this needs the entrance effects re-keyed on data.slug first:
+		     SvelteKit reuses this component across /work/a -> /work/b, so onMount and
+		     onDestroy do not re-run. Project A's effects would survive with stale
+		     positions, project B would get no entrance, and the scramble originals
+		     cached on the reused spans would resolve B's values to A's text. -->
 		<!-- <NextProjectLink nextProject={data.nextProject} /> -->
 	</div>
 </article>
