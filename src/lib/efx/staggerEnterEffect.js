@@ -9,10 +9,11 @@ import { prefersReducedMotion } from './reducedMotion.js';
 
 // Rises a group of elements into place, one after another, on scroll-in.
 //
-// Animates `top` rather than `y`/transform because the spec calls for a
-// percentage offset resolved against the element's own height — which is what
-// `top: 50%` means on a positioned element, and is roughly a half-line rise.
-// The elements MUST be `position: relative` or `top` silently does nothing.
+// Animates `yPercent` rather than `top` because the spec calls for a
+// percentage offset resolved against the element's own height — and
+// `yPercent` resolves against the element's own height too, but as a
+// composited transform rather than a layout-forcing property. It also needs
+// no positioning context, so the effect has no CSS precondition.
 export class StaggerEnterEffect {
 	constructor(elements) {
 		this.elements = Array.from(elements ?? []);
@@ -23,16 +24,16 @@ export class StaggerEnterEffect {
 		if (prefersReducedMotion()) {
 			// Land on the end state directly. Nothing is ever set to opacity 0, so
 			// there is no way to leave the content invisible.
-			gsap.set(this.elements, { opacity: 1, top: 0 });
+			gsap.set(this.elements, { opacity: 1, yPercent: 0 });
 			return;
 		}
 
 		this.tween = gsap.fromTo(
 			this.elements,
-			{ opacity: 0, top: '50%' },
+			{ opacity: 0, yPercent: 50 },
 			{
 				opacity: 1,
-				top: 0,
+				yPercent: 0,
 				duration: 0.6,
 				ease: 'power2.out',
 				stagger: 0.06,

@@ -43,18 +43,6 @@
 				margin-bottom: 0;
 				margin-right: 0.5em;
 			}
-
-			// These dd elements are rendered by the consuming page and passed in
-			// as snippet children, so they carry the PAGE's scope hash, not ours —
-			// a plain `dd` selector here never matches them. :global() is the way
-			// to reach snippet children. The rule still only applies inside our own
-			// .full-width element, which keeps its scope hash.
-			//
-			// It has to exist at all because the stagger entrance animates `top`,
-			// which does nothing on a statically positioned element.
-			:global(dd) {
-				position: relative;
-			}
 		}
 
 		&.awards {
