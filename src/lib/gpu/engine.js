@@ -235,18 +235,41 @@ export async function createEngine({ canvas }) {
 
 	// bfcache navigation / OS-level sleep can skip visibilitychange entirely; `pagehide`
 	// (window) and `freeze` (document, Page Lifecycle API) are the documented fallbacks.
-	// We only need to STOP here — the corresponding resume always arrives via a later
-	// `visibilitychange` (pageshow/unfreeze flips document.visibilityState back to
-	// 'visible' before scripts resume running).
+	//
+	// These MUST be paired with resume listeners. The original version stopped here and
+	// relied on "the corresponding resume always arrives via a later visibilitychange" —
+	// that is false. On a bfcache restore the page was `visible` when it was frozen and
+	// is `visible` again when restored, so `visibilityState` never changes and NO
+	// `visibilitychange` fires; only `pageshow` does. The loop therefore stayed
+	// cancelled forever: a frozen canvas (fixed-position, so the stale frame follows
+	// the viewport), dead fluid, dead particles, nothing rendering again until a full
+	// reload. `pageshow`/`resume` are the documented counterparts — pair them.
 	const onPause = () => stopRenderLoop();
+	// Only resume if the page is actually visible: a restore can land in a background
+	// tab, and resuming there would defeat the whole hidden-tab suspension.
+	const onResume = () => {
+		hidden = document.visibilityState === 'hidden';
+		if (!hidden) resumeRenderLoop();
+	};
 	window.addEventListener('pagehide', onPause);
 	document.addEventListener('freeze', onPause);
+	window.addEventListener('pageshow', onResume);
+	document.addEventListener('resume', onResume);
 
 	// Device-lost teardown (resolution notes section 7). Our own handling runs first
 	// (stop the loop, mark dead), THEN subscribers are notified.
 	device.lost.then((info) => {
 		stopRenderLoop();
 		dead = true;
+		// LOG LOUDLY. A lost device is terminal here (resumeRenderLoop early-returns
+		// on `dead`), so the canvas freezes on its last frame forever. Until this
+		// line existed that happened in complete silence — no console output, no
+		// visible failure, just a page that looks rendered but is a still image.
+		// That cost a long debugging session; never let this fail quietly again.
+		console.error('[gpu] WebGPU device lost — rendering has stopped permanently for this page.', {
+			reason: info?.reason,
+			message: info?.message
+		});
 		deviceLostHub.dispatch(info);
 	});
 

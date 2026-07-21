@@ -5,6 +5,36 @@
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
 	import { maybeCreatePanel } from '$lib/gpu/debug/panel.js';
 	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
+	import { CarouselScene } from '$lib/gpu/scenes/CarouselScene.js';
+
+	// Hardcoded fixture for isolated Task 3 verification — same shape Task 1's
+	// selectFeaturedTeasers() produces ({ slug, title, subtitle, teaserUrl,
+	// href }), real R2 video URLs already used by src/content/work/*.md so
+	// this route doesn't depend on +page.server.ts's load. Task 1/2 own the
+	// real data plumbing; this scaffold never imports their files.
+	const DEV_TEASERS = [
+		{
+			slug: 'delta-x-art-basel',
+			title: 'Delta x Art Basel',
+			subtitle: 'New York > Miami for Art Basel',
+			teaserUrl: 'https://assets.mikegrunwald.com/video/1769309792515-Delta_Air_Basel.mp4',
+			href: '/work/delta-x-art-basel'
+		},
+		{
+			slug: 'reliable-robotics',
+			title: 'Reliable Robotics',
+			subtitle: '',
+			teaserUrl: 'https://assets.mikegrunwald.com/video/1769311803955-Reliable_Robotics.mp4',
+			href: '/work/reliable-robotics'
+		},
+		{
+			slug: 'operation-tripod',
+			title: 'Operation Tripod',
+			subtitle: '',
+			teaserUrl: 'https://assets.mikegrunwald.com/video/operation-tripod.mp4',
+			href: '/work/operation-tripod'
+		}
+	];
 
 	let newCanvas;
 	let logoHost;
@@ -12,6 +42,7 @@
 	let scene;
 	let grain;
 	let logoScene;
+	let carouselScene;
 	let wrapObserver;
 	let unsubGrainResize;
 	let panel;
@@ -86,12 +117,20 @@
 			seed: 1234
 		});
 
+		// Task 3 scaffold: static ring, no scroll/velocity/pin wiring yet — see
+		// CarouselScene.js header. setActive(true) is forced here since this
+		// task has no pin-window logic to gate it (Task 4's job); every mesh
+		// stays visible: true regardless per this task's own layout().
+		carouselScene = new CarouselScene({ engine, teasers: DEV_TEASERS });
+		carouselScene.setActive(true);
+
 		panel = await maybeCreatePanel({
 			fluidScene: scene,
 			grainPass: grain,
 			engine,
 			forceProgress,
-			getLogoScene: () => logoScene
+			getLogoScene: () => logoScene,
+			getCarouselScene: () => carouselScene
 		});
 	});
 
@@ -99,6 +138,7 @@
 		wrapObserver?.disconnect();
 		unsubGrainResize?.();
 		panel?.destroy();
+		carouselScene?.destroy();
 		logoScene?.destroy();
 		grain?.destroy();
 		scene?.destroy();
@@ -116,10 +156,29 @@
 
 <div class="parity">
 	<div class="pane">
-		<h2>WebGPU fluid + logo particles</h2>
+		<h2>WebGPU fluid + logo particles + carousel ring</h2>
 		<div class="sim sim-wrap">
 			<canvas bind:this={newCanvas}></canvas>
 			<div class="logo-host" data-gpu-logo bind:this={logoHost}></div>
+		</div>
+	</div>
+	<div class="pane">
+		<h2>Carousel ring (static scaffold, Task 3 — no scroll/velocity yet)</h2>
+		<!-- CarouselScene is NOT DOM-synced (plain Mesh, not a Plane) — it
+		     renders directly into the shared canvas above via the shared
+		     camera, positioned entirely in 3D (ringCenter/ringRadius). This box
+		     is a labeled marker/status section only, given real height so it
+		     reads as its own area in the dev route, same pattern as Task 4/5's
+		     [data-gpu-logo] addition in Phase 2. -->
+		<div class="carousel-host" data-gpu-carousel>
+			<p>
+				{carouselScene ? `${carouselScene.items.length} video plane(s) in the ring` : 'booting…'}
+			</p>
+			<p class="hint">
+				Ring centre sits ON the camera (ringDepth 10 == camera Z) — only an ~80° arc of the 360°
+				ring is ever visible above, so 2 of 3 dev teasers show at a time. Verify with GPU-truth
+				(mesh.position dumps), not this text.
+			</p>
 		</div>
 	</div>
 	<div class="controls">
@@ -181,6 +240,21 @@
 		margin: 2rem auto;
 		outline: 1px dashed #333;
 		pointer-events: none;
+	}
+	.carousel-host {
+		min-height: 120px;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 4px;
+		padding: 12px;
+		outline: 1px dashed #333;
+		color: #0af;
+		font-family: monospace;
+		font-size: 11px;
+	}
+	.carousel-host .hint {
+		color: #888;
 	}
 	.controls {
 		grid-column: 1 / -1;

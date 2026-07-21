@@ -1,7 +1,30 @@
+<script module>
+	// External magnetic target for the cursor dot — set by CarouselScene (Task 6)
+	// to the hovered ring plane's projected screen rect so the DOM dot morphs to
+	// and follows the 3D teaser as the ring rotates, reusing the existing
+	// magnetic-follow animation instead of rendering a cursor into the WebGPU
+	// canvas (which sits behind all page content and would draw behind the text).
+	//
+	// Shape: { x, y, width, height, radius } — x/y are the CENTER in CSS px, or
+	// null to release. The instance's animate() loop reads this every frame; the
+	// setter only stores the value (no DOM access here — it's module scope), so
+	// it's safe to call before/after the component mounts and on touch devices
+	// where the instance never starts its RAF loop.
+	let externalTarget = null;
+
+	export function setExternalMagneticTarget(target) {
+		externalTarget = target;
+	}
+</script>
+
 <script>
 	import { onMount, onDestroy } from 'svelte';
 
 	let dot;
+	// Tracks the previous frame's external-target presence so animate() can fire
+	// the enter (add magnetic class) / leave (start return transition) edges that
+	// mouseenter/mouseleave handle for real DOM magnetic elements.
+	let prevExternalActive = false;
 	let mouseX = 0;
 	let mouseY = 0;
 	let dotX = 0;
@@ -15,18 +38,44 @@
 	let currentMagneticElement = null;
 
 	function animate() {
-		// Magnetic mode
-		if (dot && dot.dataset.magnetic === 'true' && currentMagneticElement) {
-			// Get fresh position data on every frame to handle scrolling
-			const rect = currentMagneticElement.getBoundingClientRect();
-			const styles = getComputedStyle(currentMagneticElement);
-			const gap = 8;
+		// External (3D carousel) magnetic target — detect enter/leave edges here,
+		// since unlike DOM elements there's no mouseenter/mouseleave to drive them.
+		const externalActive = !!externalTarget;
+		if (dot) {
+			if (externalActive && !prevExternalActive) {
+				dot.dataset.magnetic = 'true';
+				dot.classList.add('cursor-dot--magnetic');
+				isTransitioning = false;
+			} else if (!externalActive && prevExternalActive) {
+				dot.classList.remove('cursor-dot--magnetic');
+				isTransitioning = true; // smooth return to the normal dot
+				delete dot.dataset.magnetic;
+			}
+			prevExternalActive = externalActive;
+		}
 
-			const bx = rect.left + gap;
-			const by = rect.top + gap;
-			const bw = rect.width - gap * 2;
-			const bh = rect.height - gap * 2;
-			const borderRadius = styles.borderRadius;
+		// Magnetic mode — an external 3D target takes priority over a DOM element.
+		if (dot && (externalActive || (dot.dataset.magnetic === 'true' && currentMagneticElement))) {
+			const gap = 8;
+			let bx, by, bw, bh, borderRadius;
+			if (externalActive) {
+				// externalTarget.x/y are the rect CENTRE in CSS px; inset by `gap`
+				// to match how the DOM path insets getBoundingClientRect.
+				bw = externalTarget.width - gap * 2;
+				bh = externalTarget.height - gap * 2;
+				bx = externalTarget.x - externalTarget.width / 2 + gap;
+				by = externalTarget.y - externalTarget.height / 2 + gap;
+				borderRadius = `${externalTarget.radius ?? 8}px`;
+			} else {
+				// Get fresh position data on every frame to handle scrolling
+				const rect = currentMagneticElement.getBoundingClientRect();
+				const styles = getComputedStyle(currentMagneticElement);
+				bx = rect.left + gap;
+				by = rect.top + gap;
+				bw = rect.width - gap * 2;
+				bh = rect.height - gap * 2;
+				borderRadius = styles.borderRadius;
+			}
 
 			// Smooth interpolation for magnetic positioning
 			dotX += (bx + bw / 2 - dotX) * 0.1;

@@ -8,11 +8,24 @@ export async function maybeCreatePanel({
 	grainPass,
 	engine,
 	forceProgress,
-	getLogoScene
+	getLogoScene,
+	getCarouselScene
 }) {
 	if (!shouldShowPanel()) return null;
 	const { Pane } = await import('tweakpane');
 	const pane = new Pane({ title: 'GPU debug' });
+
+	// Tweakpane's default wrapper (.tp-dfwv) is `position: absolute` on <body>,
+	// so it scrolls away with the page — useless on a document several viewports
+	// tall when the thing you are tuning is pinned to the viewport. Pin it.
+	// The z-index is set alongside because the default is `auto`: once the panel
+	// is taken out of the scroll flow, any positioned page content (the cursor
+	// dot sits at 100) would otherwise be able to render over it.
+	// `.tp-dfwv` only exists when Tweakpane creates its own wrapper (no
+	// `container` option), hence the fallback to the pane's own element.
+	const paneRoot = pane.element.closest('.tp-dfwv') ?? pane.element;
+	paneRoot.style.position = 'fixed';
+	paneRoot.style.zIndex = '1000';
 
 	const sim = fluidScene.params;
 	const fluid = pane.addFolder({ title: 'Fluid' });
@@ -72,6 +85,7 @@ export async function maybeCreatePanel({
 
 	let disposed = false;
 	let sceneWatchRafId = null;
+	let carouselWatchRafId = null;
 
 	if (getLogoScene) {
 		const particles = pane.addFolder({ title: 'Particles' });
@@ -155,6 +169,61 @@ export async function maybeCreatePanel({
 		watchSceneIdentity();
 	}
 
+	if (getCarouselScene) {
+		const carousel = pane.addFolder({ title: 'Carousel' });
+		// Same proxy-through-a-maybe-missing-scene pattern as Particles above. All
+		// carousel params are plain numbers, so the `?? 0` fallback is always the
+		// right control TYPE (no color binding to mis-infer) and Tweakpane v4's
+		// number read()/write() being plain obj[key] access means the Proxy traps
+		// are sufficient — no plain-object refresh fallback needed (resolved for
+		// Particles, holds identically here).
+		const proxy = new Proxy(
+			{},
+			{
+				get: (_, key) => getCarouselScene()?.params?.[key] ?? 0,
+				set: (_, key, value) => {
+					const scene = getCarouselScene();
+					if (scene) scene.params[key] = value;
+					return true;
+				}
+			}
+		);
+		carousel.addBinding(proxy, 'ringRadius', { min: 1, max: 10 });
+		// Ring-centre world Z. 10 == camera position (viewer at the ring's centre);
+		// lower values push the centre ahead of the viewer. See CarouselScene.js.
+		carousel.addBinding(proxy, 'ringDepth', { min: 2, max: 14 });
+		// Ranges must comfortably exceed the defaults (3.6 x 2.03) — Tweakpane
+		// CLAMPS writes to the bound range, so a max below the default would
+		// silently shrink the real param the first time the slider is touched.
+		carousel.addBinding(proxy, 'planeWidth', { min: 0.4, max: 8 });
+		carousel.addBinding(proxy, 'planeHeight', { min: 0.3, max: 5 });
+		carousel.addBinding(proxy, 'rotationsPerScroll', { min: 0.25, max: 4 });
+		carousel.addBinding(proxy, 'velocityGain', { min: 0, max: 3 });
+		carousel.addBinding(proxy, 'velocitySmoothing', { min: 0.5, max: 20 });
+		carousel.addBinding(proxy, 'maxVelocityBoost', { min: 0, max: 5 });
+		// Bypass the ScrollTrigger pin for isolated tuning — forces the ring
+		// visible + videos playing without scrolling into the pinned section.
+		carousel
+			.addButton({ title: 'Force active (bypass pin)' })
+			.on('click', () => getCarouselScene()?.setActive(true));
+
+		// Same panel-created-before-scene race as Particles: the layout builds the
+		// panel before syncCarouselScene() runs, so seed the real param values once
+		// the scene appears (and again on navigation-recreate) by identity-watching
+		// it. Independent rafId from the logo watcher so each stops on its own.
+		let lastCarouselScene = null;
+		const watchCarouselIdentity = () => {
+			if (disposed) return;
+			const scene = getCarouselScene();
+			if (scene !== lastCarouselScene) {
+				lastCarouselScene = scene;
+				if (scene) pane.refresh();
+			}
+			carouselWatchRafId = requestAnimationFrame(watchCarouselIdentity);
+		};
+		watchCarouselIdentity();
+	}
+
 	const eng = pane.addFolder({ title: 'Engine' });
 	eng.addBinding(engine.quality, 'tier', { readonly: true });
 	eng.addBinding(engine.quality, 'dpr', { readonly: true });
@@ -182,6 +251,9 @@ export async function maybeCreatePanel({
 			disposed = true;
 			if (sceneWatchRafId !== null) {
 				cancelAnimationFrame(sceneWatchRafId);
+			}
+			if (carouselWatchRafId !== null) {
+				cancelAnimationFrame(carouselWatchRafId);
 			}
 			unsub();
 			pane.dispose();

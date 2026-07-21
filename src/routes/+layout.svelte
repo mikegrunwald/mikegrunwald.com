@@ -2,18 +2,19 @@
 	import '../app.scss';
 	import 'lenis/dist/lenis.css';
 	import { SvelteLenis, useLenis } from 'lenis/svelte';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, setContext } from 'svelte';
 	import { ScrollTrigger } from 'gsap/ScrollTrigger';
 	import { SplitText } from 'gsap/dist/SplitText';
 	import { gsap } from 'gsap/dist/gsap';
 	import CursorDot from '$lib/components/CursorDot.svelte';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { beforeNavigate, afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { createEngine } from '$lib/gpu/engine.js';
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
 	import { createGrainPass } from '$lib/gpu/passes/GrainPass.js';
 	import { scrollProgress } from '$lib/gpu/fluid/grading.js';
 	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
+	import { CarouselScene } from '$lib/gpu/scenes/CarouselScene.js';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -21,6 +22,7 @@
 	afterNavigate(() => {
 		if (lenis.current) lenis.current.scrollTo(0, { immediate: true });
 		syncParticlesScene();
+		syncCarouselScene();
 	});
 
 	let { children } = $props();
@@ -36,8 +38,24 @@
 	let debugPanel;
 	let forcedProgress = null;
 	let unsubGrainResize;
+	let unsubDeviceLost;
 	let logoScene;
 	let creatingParticles = false;
+	let carouselScene;
+	let carouselTrigger;
+	let creatingCarousel = false;
+
+	// Carousel raycast hover index (Task 6). Driven by CarouselScene's onHover
+	// callback, consumed by WorkTeasers.svelte's DOM label. WorkTeasers lives in
+	// +page.svelte, not here, so it's exposed via context rather than a prop
+	// thread — a getter keeps the read reactive across the runes boundary without
+	// a store module. `null` when nothing is hovered / no carousel on the page.
+	let hoveredTeaserIndex = $state(null);
+	setContext('carousel-hover', {
+		get index() {
+			return hoveredTeaserIndex;
+		}
+	});
 
 	// /dev/ routes (e.g. /dev/fluid-parity) boot their own engine + debug panel
 	// directly in their +page.svelte. Booting the layout's engine there too
@@ -53,6 +71,16 @@
 		if (forcedProgress === null) {
 			fluidScene.setProgress(scrollProgress(lenis.scroll, window.innerHeight));
 		}
+		// SvelteLenis runs with root: true, so Lenis's wrapper IS window/
+		// documentElement — window.scrollY genuinely advances as Lenis
+		// animates, and ScrollTrigger's default scroller (window) already
+		// agrees with it. No scrollerProxy needed; this one line is the whole
+		// bridge, re-evaluating pins on Lenis's smoothed ticks rather than only
+		// on native scroll events (which Lenis's own smoothing can decouple
+		// from). Safe to call even before any ScrollTrigger instances exist —
+		// it's a no-op walk over an empty list.
+		ScrollTrigger.update();
+		carouselScene?.setVelocity(lenis.velocity); // Task 5 consumes this
 	});
 
 	// The canvas is `position: fixed; width: 100vw; height: 100dvh` — its box is
@@ -162,6 +190,57 @@
 		}
 	}
 
+	// Keys the carousel ring's lifecycle off the presence of WorkTeasers'
+	// `[data-gpu-carousel]` section — present only on the homepage, same
+	// pattern as syncParticlesScene above (Phase 2 Task 8). `creatingCarousel`
+	// guards the same double-create race: CarouselScene's constructor kicks
+	// off async video loads (loadVideo) but returns synchronously, so there's
+	// no `el.isConnected` recheck needed here the way LogoParticlesScene.create
+	// needs one — construction itself can't straddle a navigation the way an
+	// awaited create() can. The guard is still here for symmetry and because a
+	// future async CarouselScene.create() shouldn't have to rediscover this.
+	function syncCarouselScene() {
+		if (!engine || creatingCarousel) return;
+		const el = document.querySelector('[data-gpu-carousel]');
+		if (el && !carouselScene) {
+			creatingCarousel = true;
+			try {
+				carouselScene = new CarouselScene({
+					engine,
+					teasers: page.data.teasers ?? [],
+					onHover: (index) => {
+						hoveredTeaserIndex = index;
+					},
+					onNavigate: (href) => goto(href)
+				});
+				// `trigger: el` pins WorkTeasers' 300vh runway; `onUpdate` feeds
+				// ScrollTrigger's own monotonic-with-scroll-direction `progress`
+				// straight into setProgress (which turns it into rotation — see
+				// CarouselScene.js), and the active section drives play/pause +
+				// visibility via onEnter/onEnterBack/onLeave/onLeaveBack so videos
+				// only decode while the ring is actually on screen.
+				carouselTrigger = ScrollTrigger.create({
+					trigger: el,
+					start: 'top top',
+					end: 'bottom bottom',
+					pin: true,
+					onUpdate: (self) => carouselScene?.setProgress(self.progress),
+					onEnter: () => carouselScene?.setActive(true),
+					onEnterBack: () => carouselScene?.setActive(true),
+					onLeave: () => carouselScene?.setActive(false),
+					onLeaveBack: () => carouselScene?.setActive(false)
+				});
+			} finally {
+				creatingCarousel = false;
+			}
+		} else if (!el && carouselScene) {
+			carouselTrigger?.kill();
+			carouselTrigger = undefined;
+			carouselScene.destroy();
+			carouselScene = undefined;
+		}
+	}
+
 	onMount(async () => {
 		if (page.url.pathname.startsWith('/dev/')) return; // dev routes boot their own engine
 		engine = await createEngine({ canvas });
@@ -169,6 +248,20 @@
 			showCssLogo(); // no WebGPU / reduced motion → DOM-only experience
 			return;
 		}
+
+		// A lost device is terminal (the engine cannot resume its render loop after
+		// one), so the canvas is left frozen on whatever it last drew — which reads
+		// as "the site rendered, then everything stopped moving" rather than as a
+		// failure. Degrade to the same DOM-only presentation used when WebGPU is
+		// unavailable: bring the CSS logo back and tear the particle scene down so
+		// it isn't holding GPU resources for a device that no longer exists.
+		unsubDeviceLost = engine.onDeviceLost(() => {
+			destroyParticlesScene(); // also re-shows the CSS logo
+			carouselTrigger?.kill();
+			carouselTrigger = undefined;
+			carouselScene?.destroy();
+			carouselScene = undefined;
+		});
 
 		fluidScene = new FluidScene({ engine });
 		grainPass = createGrainPass({ engine });
@@ -190,11 +283,39 @@
 					forcedProgress = p;
 					if (p !== null) fluidScene.setProgress(p);
 				},
-				getLogoScene: () => logoScene
+				getLogoScene: () => logoScene,
+				getCarouselScene: () => carouselScene
 			});
 		}
 
 		await syncParticlesScene();
+		syncCarouselScene();
+
+		// Dev-only inspection handle. The WebGPU canvas cannot be read back from
+		// a page-level probe (screenshots of it come back blank), and in a hidden
+		// tab the render loop is suspended, so scene state is otherwise
+		// unobservable from the console or an automated check. Exposing the live
+		// scenes makes GPU state inspectable the only way that works: reading the
+		// objects and driving their methods directly. Stripped from production
+		// builds by the import.meta.env.DEV guard.
+		if (import.meta.env.DEV) {
+			window.__gpu = {
+				engine,
+				fluidScene,
+				// GSAP keeps a global ScrollTrigger registry that nothing else
+				// surfaces. Exposing it makes trigger leaks measurable: the count
+				// must stay CONSTANT across repeated client-side nav away-and-back,
+				// not grow. (It grew by 6 per round trip until AboutIntro started
+				// destroying its scroll effects.)
+				ScrollTrigger,
+				get logoScene() {
+					return logoScene;
+				},
+				get carouselScene() {
+					return carouselScene;
+				}
+			};
+		}
 	});
 
 	onDestroy(() => {
@@ -208,11 +329,14 @@
 		// `document` references need the explicit guards.
 		if (typeof window !== 'undefined') window.removeEventListener('resize', syncCanvasSize);
 		unsubGrainResize?.();
+		unsubDeviceLost?.();
 		debugPanel?.destroy();
 		grainPass?.destroy();
 		logoScene?.destroy();
 		if (typeof document !== 'undefined')
 			document.documentElement.classList.remove('gpu-particles-live');
+		carouselTrigger?.kill();
+		carouselScene?.destroy();
 		fluidScene?.destroy();
 		engine?.destroy();
 	});
