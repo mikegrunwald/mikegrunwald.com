@@ -10,6 +10,11 @@ export const BLUR_END = 'blur(0px)';
 
 const STAGGER_EACH = 0.05;
 const ENTER_DURATION = 0.9;
+// Total stagger time, in seconds, spread across however many characters an
+// enter-mode tween has. Using `amount` instead of `each` keeps the whole
+// entrance's total duration constant regardless of text length — see the
+// `mode === 'enter'` branch below.
+const ENTER_STAGGER_AMOUNT = 0.35;
 
 export function buildBlurTween({
 	mode = 'scrub',
@@ -45,7 +50,6 @@ export function buildBlurTween({
 	const toVars = {
 		opacity: 1,
 		filter: BLUR_END,
-		stagger: { each: STAGGER_EACH, from },
 		delay,
 		paused,
 		// Scrub maps the playhead to scroll position, so an ease would fight the
@@ -53,9 +57,19 @@ export function buildBlurTween({
 		ease: mode === 'enter' ? 'power2.out' : 'none'
 	};
 
-	// Enter mode always gets a duration for the self-playing animation.
 	if (mode === 'enter') {
+		// `amount` distributes a fixed total across however many chars exist, so
+		// total time = duration + amount regardless of character count. `each`
+		// (used below for scrub) would instead grow with character count, making
+		// long subtitles take far longer to animate in than short titles.
+		toVars.stagger = { amount: ENTER_STAGGER_AMOUNT, from };
+		// Enter mode always gets a duration for the self-playing animation.
 		toVars.duration = ENTER_DURATION;
+	} else {
+		// Scrub maps the whole tween to a scroll range anyway, so a per-character
+		// `each` is correct and must stay exactly as it was for the existing
+		// scrub consumers (AboutIntro, WorkTeasers).
+		toVars.stagger = { each: STAGGER_EACH, from };
 	}
 
 	// A paused tween is started by hand — that is the whole point of pausing it.

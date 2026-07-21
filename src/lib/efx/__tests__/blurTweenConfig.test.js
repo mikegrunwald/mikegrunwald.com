@@ -51,12 +51,20 @@ describe('buildBlurTween enter mode', () => {
 	it('drops the scrub-only end marker', () => {
 		expect(toVars.scrollTrigger.end).toBeUndefined();
 	});
+
+	it('staggers using a fixed total amount, not a per-character each', () => {
+		expect(toVars.stagger).toEqual({ amount: 0.35, from: 'start' });
+	});
+
+	it('does not use `each` for its stagger, so total entrance duration does not grow with character count', () => {
+		expect(toVars.stagger.each).toBeUndefined();
+	});
 });
 
 describe('buildBlurTween stagger direction', () => {
 	it('reverses to right-to-left when from is end', () => {
 		const { toVars } = buildBlurTween({ mode: 'enter', from: 'end', trigger: 'EL' });
-		expect(toVars.stagger).toEqual({ each: 0.05, from: 'end' });
+		expect(toVars.stagger).toEqual({ amount: 0.35, from: 'end' });
 	});
 });
 
