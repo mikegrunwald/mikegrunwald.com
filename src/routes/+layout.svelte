@@ -38,6 +38,7 @@
 	let debugPanel;
 	let forcedProgress = null;
 	let unsubGrainResize;
+	let unsubDeviceLost;
 	let logoScene;
 	let creatingParticles = false;
 	let carouselScene;
@@ -248,6 +249,20 @@
 			return;
 		}
 
+		// A lost device is terminal (the engine cannot resume its render loop after
+		// one), so the canvas is left frozen on whatever it last drew — which reads
+		// as "the site rendered, then everything stopped moving" rather than as a
+		// failure. Degrade to the same DOM-only presentation used when WebGPU is
+		// unavailable: bring the CSS logo back and tear the particle scene down so
+		// it isn't holding GPU resources for a device that no longer exists.
+		unsubDeviceLost = engine.onDeviceLost(() => {
+			destroyParticlesScene(); // also re-shows the CSS logo
+			carouselTrigger?.kill();
+			carouselTrigger = undefined;
+			carouselScene?.destroy();
+			carouselScene = undefined;
+		});
+
 		fluidScene = new FluidScene({ engine });
 		grainPass = createGrainPass({ engine });
 		unsubGrainResize = engine.onResize(() => {
@@ -288,6 +303,7 @@
 		// `document` references need the explicit guards.
 		if (typeof window !== 'undefined') window.removeEventListener('resize', syncCanvasSize);
 		unsubGrainResize?.();
+		unsubDeviceLost?.();
 		debugPanel?.destroy();
 		grainPass?.destroy();
 		logoScene?.destroy();
