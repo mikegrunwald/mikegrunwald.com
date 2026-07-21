@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { computeRingRadius } from '../carousel/ringGeometry.js';
+import {
+	computeRingRadius,
+	computeRequiredPlanes,
+	computeRingPlan,
+	selectPlayingTeasers
+} from '../carousel/ringGeometry.js';
 
 // The property that actually matters: the planes must tile the ring leaving
 // exactly the requested proportion of each slot empty, at any count.
@@ -202,5 +207,168 @@ describe('computeRingRadius', () => {
 			expect(Number.isFinite(r)).toBe(true);
 			expect(r).toBeGreaterThanOrEqual(0.5);
 		}
+	});
+});
+
+describe('computeRequiredPlanes', () => {
+	const req = (vw, vh, gap = 0.1) => computeRequiredPlanes({ fovDeg: 50, aspect: vw / vh, gap });
+
+	it('demands far more planes on a portrait phone than a desktop', () => {
+		expect(req(430, 930)).toBe(14);
+		expect(req(375, 812)).toBe(14);
+		expect(req(768, 1024)).toBe(9);
+		expect(req(1440, 900)).toBe(5);
+		expect(req(2560, 1080)).toBe(4);
+	});
+
+	it('is satisfiable — the returned count actually fits the frustum', () => {
+		for (const [vw, vh] of [
+			[375, 812],
+			[430, 930],
+			[768, 1024],
+			[1440, 900],
+			[2560, 1080]
+		]) {
+			const aspect = vw / vh;
+			const n = computeRequiredPlanes({ fovDeg: 50, aspect, gap: 0.1 });
+			// The whole point: at this count, a plane tiling its slot still fits.
+			const arc = fovH(50, aspect);
+			expect(((2 * Math.PI) / n) * 0.9).toBeLessThanOrEqual(arc + 1e-9);
+		}
+	});
+
+	it('grows monotonically as the viewport narrows', () => {
+		const wide = computeRequiredPlanes({ fovDeg: 50, aspect: 2.37, gap: 0.1 });
+		const square = computeRequiredPlanes({ fovDeg: 50, aspect: 1, gap: 0.1 });
+		const tall = computeRequiredPlanes({ fovDeg: 50, aspect: 0.46, gap: 0.1 });
+		expect(square).toBeGreaterThanOrEqual(wide);
+		expect(tall).toBeGreaterThan(square);
+	});
+
+	it('stays bounded and finite for degenerate input', () => {
+		for (const args of [
+			{ fovDeg: 50, aspect: 0.001, gap: 0.1 },
+			{ fovDeg: 0, aspect: 1, gap: 0.1 },
+			{ fovDeg: 50, aspect: 0, gap: 0.1 },
+			{ fovDeg: NaN, aspect: NaN, gap: NaN }
+		]) {
+			const n = computeRequiredPlanes(args);
+			expect(Number.isInteger(n)).toBe(true);
+			expect(n).toBeGreaterThanOrEqual(1);
+			expect(n).toBeLessThanOrEqual(48);
+		}
+	});
+});
+
+describe('computeRingPlan', () => {
+	it('repeats teasers until the required plane count is met', () => {
+		// A phone needs 14 planes; 8 teasers reach it by repeating twice.
+		expect(computeRingPlan({ teaserCount: 8, requiredPlanes: 14 })).toEqual({
+			repeats: 2,
+			planeCount: 16
+		});
+	});
+
+	it('does not repeat when there are already enough teasers', () => {
+		expect(computeRingPlan({ teaserCount: 8, requiredPlanes: 5 })).toEqual({
+			repeats: 1,
+			planeCount: 8
+		});
+	});
+
+	it('always yields a whole multiple of the teaser count', () => {
+		// Load-bearing: plane j shows teaser j % teaserCount, so a non-multiple
+		// would bunch the remainder and make the seamless wrap visibly jump.
+		for (let teaserCount = 1; teaserCount <= 12; teaserCount++) {
+			for (const requiredPlanes of [1, 5, 9, 14, 21, 40]) {
+				const { planeCount, repeats } = computeRingPlan({ teaserCount, requiredPlanes });
+				expect(planeCount % teaserCount).toBe(0);
+				expect(planeCount).toBe(teaserCount * repeats);
+			}
+		}
+	});
+
+	it('handles having no teasers at all', () => {
+		expect(computeRingPlan({ teaserCount: 0, requiredPlanes: 14 })).toEqual({
+			repeats: 0,
+			planeCount: 0
+		});
+	});
+
+	it('stays within the plane ceiling', () => {
+		const { planeCount } = computeRingPlan({ teaserCount: 7, requiredPlanes: 1000 });
+		expect(planeCount).toBeLessThanOrEqual(48 + 7);
+		expect(planeCount % 7).toBe(0);
+	});
+});
+
+describe('selectPlayingTeasers', () => {
+	const PHONE = { fovDeg: 50, aspect: 430 / 930 };
+
+	it('plays far fewer teasers than the ring holds', () => {
+		const playing = selectPlayingTeasers({
+			planeCount: 16,
+			teaserCount: 8,
+			rotation: 0,
+			...PHONE,
+			marginDeg: 20
+		});
+		// This is the whole point: 16 planes on screen, a handful decoding.
+		expect(playing.size).toBeGreaterThan(0);
+		expect(playing.size).toBeLessThan(8);
+	});
+
+	it('only ever returns valid teaser indices', () => {
+		for (let i = 0; i < 40; i++) {
+			const playing = selectPlayingTeasers({
+				planeCount: 16,
+				teaserCount: 8,
+				rotation: (i / 40) * Math.PI * 2,
+				...PHONE
+			});
+			for (const idx of playing) {
+				expect(Number.isInteger(idx)).toBe(true);
+				expect(idx).toBeGreaterThanOrEqual(0);
+				expect(idx).toBeLessThan(8);
+			}
+		}
+	});
+
+	it('never goes silent as the ring rotates', () => {
+		// A rotation that selected nothing would blank the visible teaser.
+		for (let i = 0; i < 90; i++) {
+			const playing = selectPlayingTeasers({
+				planeCount: 16,
+				teaserCount: 8,
+				rotation: (i / 90) * Math.PI * 2,
+				...PHONE
+			});
+			expect(playing.size).toBeGreaterThan(0);
+		}
+	});
+
+	it('selects more on a wide viewport than a narrow one', () => {
+		const args = { planeCount: 16, teaserCount: 8, rotation: 0, fovDeg: 50 };
+		const narrow = selectPlayingTeasers({ ...args, aspect: 430 / 930 });
+		const wide = selectPlayingTeasers({ ...args, aspect: 2560 / 1080 });
+		expect(wide.size).toBeGreaterThan(narrow.size);
+	});
+
+	it('falls back to playing everything when the frustum is unknown', () => {
+		// Better a heavy ring than a silently blank one.
+		const playing = selectPlayingTeasers({
+			planeCount: 16,
+			teaserCount: 8,
+			rotation: 0,
+			fovDeg: 0,
+			aspect: 0
+		});
+		expect(playing.size).toBe(8);
+	});
+
+	it('handles an empty ring', () => {
+		expect(
+			selectPlayingTeasers({ planeCount: 0, teaserCount: 0, rotation: 0, ...PHONE }).size
+		).toBe(0);
 	});
 });
