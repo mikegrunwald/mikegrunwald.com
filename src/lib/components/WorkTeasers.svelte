@@ -1,8 +1,16 @@
 <script>
+	import { getContext } from 'svelte';
+
 	let { teasers = [], hoveredIndex = null } = $props();
 
+	// The layout provides the live raycast hover index via context (Task 6);
+	// outside the layout (isolated dev/test render) it's absent, so fall back to
+	// the `hoveredIndex` prop. getContext must run during init — safe at top level.
+	const carouselHover = getContext('carousel-hover');
+	const activeIndex = $derived(carouselHover ? carouselHover.index : hoveredIndex);
+
 	const hoveredTeaser = $derived(
-		hoveredIndex != null && teasers[hoveredIndex] ? teasers[hoveredIndex] : null
+		activeIndex != null && teasers[activeIndex] ? teasers[activeIndex] : null
 	);
 </script>
 

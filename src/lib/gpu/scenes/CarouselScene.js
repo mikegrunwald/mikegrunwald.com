@@ -107,18 +107,54 @@
 // still comfortably clear of either near value — noted only so a future
 // reader doesn't go looking for a 0.01 that isn't there. This scene never
 // touches `renderer.camera` itself, only reads `.position` for `lookAt`.
+//
+// 6. Task 6 raycast + screen projection.
+//    - `Raycaster` and `Vec3` are both exported from the 'gpu-curtains' main
+//      entry (extras/raycaster/Raycaster.d.ts, math/Vec3.d.ts). `setFromMouse(e)`
+//      sets the pointer from renderer.boundingRect (CSS px); `intersectObjects
+//      (objects, recursive)` returns Intersection[] pre-sorted nearest-first by
+//      ray.origin.distance(point) (Raycaster.mjs) — so hits[0] is the closest
+//      plane, no manual sort needed. Each Intersection carries `.object`
+//      (the ProjectedMesh) and `.distance`.
+//    - World → screen: `Vec3.project(camera)` mutates in place to NDC [-1,1] by
+//      applying viewMatrix then projectionMatrix, and Vec3.applyMat4 performs
+//      the perspective /w divide (Vec3.mjs) — so projecting the plane's four
+//      local (±1,±1,0) corners through `mesh.worldMatrix` then `.project(camera)`
+//      yields a correct NDC bounding box under rotation/scale/perspective.
+//      NDC→CSS px uses `renderer.boundingRect` (CSS px — the SAME rect
+//      setFromMouse reads, keeping ray and projected rect in one space; NOT
+//      getCanvasSize()/device px — Phase 2 note #16). Non-finite guard mirrors
+//      the layout() clamp: any NaN component → null target, never a NaN CSS
+//      transform on the DOM cursor.
 
-import { Mesh, PlaneGeometry, MediaTexture, Sampler } from 'gpu-curtains';
+import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster, Vec3 } from 'gpu-curtains';
 import { CAROUSEL_VERTEX, CAROUSEL_FRAGMENT } from '../carousel/shaders/carousel.wgsl.js';
+import { setExternalMagneticTarget } from '$lib/components/CursorDot.svelte';
 
 export class CarouselScene {
-	constructor({ engine, teasers }) {
+	constructor({ engine, teasers, onHover, onNavigate }) {
 		this.engine = engine;
 		this.destroyed = false;
 		this.active = false;
 		this.progress = 0; // Task 4 turns this into rotation
 		this.rotation = 0; // Task 4
 		this.velocitySmoothed = 0; // Task 5
+
+		// Task 6 — raycast hover/click. `onHover(index|null)` drives WorkTeasers'
+		// DOM label (via +layout.svelte context); `onNavigate(href)` is supplied
+		// goto from +layout.svelte so this scene stays free of any SvelteKit dep.
+		this.onHover = onHover;
+		this.onNavigate = onNavigate;
+		this.hoveredIndex = null;
+		// [VERIFY-API] gpu-curtains ships Raycaster in the main entry (confirmed:
+		// exported from 'gpu-curtains', extras/raycaster/Raycaster.d.ts).
+		// setFromMouse(e) reads renderer.boundingRect (CSS px), intersectObjects
+		// returns nearest-first (sorted by ray.origin.distance(point) in
+		// Raycaster.mjs) so hits[0] is the closest plane.
+		this.raycaster = new Raycaster(engine.curtains);
+		// Reusable Vec3 scratch for per-frame corner projection (avoid per-frame
+		// allocation in the hovered-plane screen-rect computation).
+		this._projScratch = new Vec3();
 
 		const isMobile = engine.quality.tier === 'mobile';
 		this.params = {
@@ -152,6 +188,16 @@ export class CarouselScene {
 		this.items = selected.map((teaser, index) => this.createItem(teaser, index, selected.length));
 
 		this.unsubFrame = engine.onFrame(() => this.update());
+
+		// Bound so removeEventListener works in destroy(). Attached to window (not
+		// the canvas) — the canvas is `position: fixed` fullscreen behind all
+		// content, and setFromMouse reads renderer.boundingRect, so window coords
+		// map directly. `click` fires after `touchend` on mobile, giving tap-to-
+		// navigate for free (flagged for real-device confirmation in Task 7 QA).
+		this._onPointerMove = (e) => this.handlePointerMove(e);
+		this._onClick = (e) => this.handleClick(e);
+		window.addEventListener('pointermove', this._onPointerMove);
+		window.addEventListener('click', this._onClick);
 	}
 
 	createItem(teaser, index, count) {
@@ -263,9 +309,69 @@ export class CarouselScene {
 		this._targetVelocity = v; // Task 5
 	}
 
+	// Returns the item index under the pointer, or null. Early-returns off-pin so
+	// hover/click are inert outside the active section (the DOM .sr-only links
+	// remain the keyboard/AT path regardless — this raycast is a mouse/touch
+	// enhancement, not the only way in).
+	hitTest(e) {
+		if (!this.active || !this.items.length) return null;
+		this.raycaster.setFromMouse(e);
+		const meshes = this.items.map((item) => item.mesh);
+		const hits = this.raycaster.intersectObjects(meshes, false);
+		if (!hits.length) return null;
+		const hitMesh = hits[0].object; // nearest-first, sorted in Raycaster.mjs
+		const index = this.items.findIndex((item) => item.mesh === hitMesh);
+		return index === -1 ? null : index;
+	}
+
+	handlePointerMove(e) {
+		const index = this.hitTest(e);
+		if (index === this.hoveredIndex) return;
+		if (this.hoveredIndex != null) this.setHoverScale(this.hoveredIndex, false);
+		this.hoveredIndex = index;
+		if (index != null) this.setHoverScale(index, true);
+		else setExternalMagneticTarget(null); // hover-out: release the cursor now
+		// Plain CSS hook + DOM-inspectable QA signal (the WebGPU canvas can't be
+		// read back from a page-level probe).
+		document.documentElement.classList.toggle('carousel-hovering', index != null);
+		this.onHover?.(index);
+	}
+
+	handleClick(e) {
+		const index = this.hitTest(e);
+		if (index == null) return; // click on a ring gap / empty space: no-op
+		this.onNavigate?.(this.items[index].teaser.href);
+	}
+
+	setHoverScale(index, hovered) {
+		const item = this.items[index];
+		if (!item) return;
+		// Base scale is HALVED (geometry is a 2x2 quad — header note #1); the hover
+		// scale multiplies that same halved base so the plane grows about its own
+		// centre without changing the /2 convention layout()/createItem() rely on.
+		const scale = hovered ? 1.08 : 1;
+		item.mesh.scale.set(
+			(this.params.planeWidth / 2) * scale,
+			(this.params.planeHeight / 2) * scale,
+			1
+		);
+	}
+
 	setActive(isActive) {
 		if (this.active === isActive) return;
 		this.active = isActive;
+		// Leaving the pinned window: proactively clear any hover state. The
+		// pointer may not move again for a while, so we can't rely on the next
+		// handlePointerMove to notice the section went inactive — the hovered
+		// plane would otherwise stay scaled up and the cursor stranded morphed
+		// around a plane that's about to be hidden.
+		if (!isActive && this.hoveredIndex != null) {
+			this.setHoverScale(this.hoveredIndex, false);
+			this.hoveredIndex = null;
+			setExternalMagneticTarget(null);
+			document.documentElement.classList.remove('carousel-hovering');
+			this.onHover?.(null);
+		}
 		for (const item of this.items) {
 			// [VERIFY-API #4] `visible` fully skips per-frame work when false —
 			// see header note #4. layout() also re-applies this every frame off
@@ -308,11 +414,73 @@ export class CarouselScene {
 		this.velocitySmoothed += (target - this.velocitySmoothed) * rate;
 
 		this.layout();
+
+		// Track the hovered plane's projected screen rect every frame so the DOM
+		// cursor (CursorDot's magnetic mode) morphs to it and follows as the ring
+		// rotates. Only while hovered — hover-out / setActive(false) / destroy all
+		// clear the target explicitly, so we never write it when nothing's hovered
+		// (which would fight DOM magnetic elements elsewhere on the page).
+		if (this.hoveredIndex != null) {
+			const rect = this.projectMeshRect(this.items[this.hoveredIndex]?.mesh);
+			// projectMeshRect returns null on any non-finite component — a
+			// degenerate matrix must never reach the dot's CSS transform (the exact
+			// failure class behind Phase 2's hangs). Clear rather than write NaN.
+			setExternalMagneticTarget(rect);
+		}
+	}
+
+	// World → screen (CSS px) bounding rect of a plane, by projecting its four
+	// local corners through the world matrix + camera. Returns
+	// { x, y, width, height, radius } with x/y the CENTER in CSS px, or null if
+	// any projected component is non-finite or the plane is entirely behind the
+	// camera. Uses renderer.boundingRect (CSS px — the same rect setFromMouse
+	// uses, so hover ray and projected rect stay in one coordinate space; NOT
+	// getCanvasSize(), which is device px — Phase 2 note #16).
+	projectMeshRect(mesh) {
+		if (!mesh) return null;
+		const camera = this.engine.curtains.renderer.camera;
+		const bounds = this.engine.curtains.renderer.boundingRect;
+		let minX = Infinity;
+		let minY = Infinity;
+		let maxX = -Infinity;
+		let maxY = -Infinity;
+		for (let cx = -1; cx <= 1; cx += 2) {
+			for (let cy = -1; cy <= 1; cy += 2) {
+				// PlaneGeometry corners are at (±1, ±1, 0) (native 2x2 quad — see
+				// header note #1); worldMatrix carries position/lookAt/scale.
+				this._projScratch.set(cx, cy, 0);
+				this._projScratch.applyMat4(mesh.worldMatrix).project(camera);
+				const ndc = this._projScratch;
+				if (!Number.isFinite(ndc.x) || !Number.isFinite(ndc.y)) return null;
+				const sx = bounds.left + (ndc.x * 0.5 + 0.5) * bounds.width;
+				const sy = bounds.top + (0.5 - ndc.y * 0.5) * bounds.height;
+				if (sx < minX) minX = sx;
+				if (sx > maxX) maxX = sx;
+				if (sy < minY) minY = sy;
+				if (sy > maxY) maxY = sy;
+			}
+		}
+		const width = maxX - minX;
+		const height = maxY - minY;
+		if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+		return {
+			x: (minX + maxX) / 2,
+			y: (minY + maxY) / 2,
+			width,
+			height,
+			radius: 12
+		};
 	}
 
 	destroy() {
 		this.destroyed = true;
 		this.unsubFrame();
+		window.removeEventListener('pointermove', this._onPointerMove);
+		window.removeEventListener('click', this._onClick);
+		// Never leave the DOM cursor stranded morphed around a mesh that's about
+		// to be torn down, nor the CSS hook set.
+		setExternalMagneticTarget(null);
+		document.documentElement.classList.remove('carousel-hovering');
 		for (const item of this.items) {
 			// Pause the <video> BEFORE tearing down the texture: once the mesh
 			// is gone, nothing samples the element, but an un-paused video keeps

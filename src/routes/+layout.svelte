@@ -2,12 +2,12 @@
 	import '../app.scss';
 	import 'lenis/dist/lenis.css';
 	import { SvelteLenis, useLenis } from 'lenis/svelte';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, setContext } from 'svelte';
 	import { ScrollTrigger } from 'gsap/ScrollTrigger';
 	import { SplitText } from 'gsap/dist/SplitText';
 	import { gsap } from 'gsap/dist/gsap';
 	import CursorDot from '$lib/components/CursorDot.svelte';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { beforeNavigate, afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { createEngine } from '$lib/gpu/engine.js';
 	import { FluidScene } from '$lib/gpu/scenes/FluidScene.js';
@@ -43,6 +43,18 @@
 	let carouselScene;
 	let carouselTrigger;
 	let creatingCarousel = false;
+
+	// Carousel raycast hover index (Task 6). Driven by CarouselScene's onHover
+	// callback, consumed by WorkTeasers.svelte's DOM label. WorkTeasers lives in
+	// +page.svelte, not here, so it's exposed via context rather than a prop
+	// thread — a getter keeps the read reactive across the runes boundary without
+	// a store module. `null` when nothing is hovered / no carousel on the page.
+	let hoveredTeaserIndex = $state(null);
+	setContext('carousel-hover', {
+		get index() {
+			return hoveredTeaserIndex;
+		}
+	});
 
 	// /dev/ routes (e.g. /dev/fluid-parity) boot their own engine + debug panel
 	// directly in their +page.svelte. Booting the layout's engine there too
@@ -192,7 +204,14 @@
 		if (el && !carouselScene) {
 			creatingCarousel = true;
 			try {
-				carouselScene = new CarouselScene({ engine, teasers: page.data.teasers ?? [] });
+				carouselScene = new CarouselScene({
+					engine,
+					teasers: page.data.teasers ?? [],
+					onHover: (index) => {
+						hoveredTeaserIndex = index;
+					},
+					onNavigate: (href) => goto(href)
+				});
 				// `trigger: el` pins WorkTeasers' 300vh runway; `onUpdate` feeds
 				// ScrollTrigger's own monotonic-with-scroll-direction `progress`
 				// straight into setProgress (which turns it into rotation — see
