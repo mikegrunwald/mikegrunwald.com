@@ -21,7 +21,12 @@
 </script>
 
 <article class="project">
-	<ProjectHeader title={content.title} subtitle={content.subtitle} {backgroundMedia} />
+	<ProjectHeader
+		title={content.title}
+		subtitle={content.subtitle}
+		{backgroundMedia}
+		slug={data.slug}
+	/>
 	<div class="content">
 		<div class="meta">
 			<dl>

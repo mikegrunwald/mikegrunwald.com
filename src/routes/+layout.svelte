@@ -16,14 +16,39 @@
 	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
 	import { CarouselScene } from '$lib/gpu/scenes/CarouselScene.js';
 	import { shouldLoopRunway, wrapScrollPosition } from '$lib/gpu/carousel/scrollModel.js';
+	import TransitionVideo from '$lib/components/TransitionVideo.svelte';
+	import { setHandoff } from '$lib/transitionHandoff.js';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
-	beforeNavigate(() => {});
-	afterNavigate(() => {
-		if (lenis.current) lenis.current.scrollTo(0, { immediate: true });
+	beforeNavigate((nav) => {
+		// Only the homepage carries a position worth restoring — it is the only
+		// route with the carousel.
+		if (nav.from?.url?.pathname === '/') {
+			homeScrollY = window.scrollY;
+		}
+	});
+	afterNavigate((nav) => {
+		// Returning to the homepage restores where you were, so zooming into a
+		// project and coming back does not throw you to the hero. Every other
+		// navigation still resets to the top, which is what you want when
+		// arriving somewhere new.
+		const returningHome = nav.to?.url?.pathname === '/' && homeScrollY != null;
+		if (lenis.current) {
+			lenis.current.scrollTo(returningHome ? homeScrollY : 0, { immediate: true });
+		}
+		// Deliberately NOT cleared here. beforeNavigate captures the position on
+		// the way OUT of the homepage, and this runs on that same navigation —
+		// clearing it would wipe the value that was just recorded, so back would
+		// always land at the top. It is overwritten on the next departure from
+		// home, which is the only time it can go stale.
 		syncParticlesScene();
 		syncCarouselScene();
+		// ScrollTrigger measured its positions against the previous document.
+		// Without this the restored scroll lands at the right pixel but the pin
+		// and its progress are computed from stale offsets, so the ring's
+		// rotation does not match where the scroll actually is.
+		if (returningHome) ScrollTrigger.refresh();
 	});
 
 	let { children } = $props();
@@ -50,6 +75,85 @@
 	// triggers another ScrollTrigger.update, which can re-enter onUpdate while
 	// progress is still >= 1 and wrap repeatedly in a single frame.
 	let wrappingRunway = false;
+
+	// Scroll position on the homepage when we last navigated away from it, so
+	// returning lands back at the carousel rather than the top of the page.
+	// Rotation needs no equivalent: it is derived from scroll through the pinned
+	// trigger, so restoring position restores it, and storing it separately
+	// would create a second source of truth that could disagree.
+	let homeScrollY = null;
+
+	// The in-flight zoom overlay's payload, or null. Holding the whole payload
+	// rather than a boolean keeps the component's props in one place.
+	let transition = $state(null);
+	// Set when the zoom animation completes. The overlay is NOT dismissed here —
+	// it waits for the detail page's own video too, so the arrival has no black
+	// frame. See onTransitionArrived.
+	let transitionArrived = $state(false);
+	// Set when the detail page's header video reports it has data.
+	let headerReady = false;
+	let transitionTimeout;
+	let transitionCleanup;
+
+	// Starts the zoom. Falls back to a plain goto when there is no usable rect —
+	// which happens if the plane projected to something degenerate, e.g. a
+	// zero-sized canvas. A missing transition is fine; a NaN one is not.
+	function startTransition(payload) {
+		// Without a rect there is nowhere to start from, and without the carousel's
+		// live video element there is nothing to paint — a fresh <video> cannot
+		// decode a frame inside the 450ms zoom. Either way a plain navigation is
+		// better than an empty box expanding across the screen.
+		if (!payload?.rect || !payload?.video) {
+			goto(payload.href);
+			return;
+		}
+		setHandoff({
+			slug: payload.slug,
+			currentTime: payload.currentTime,
+			srcUrl: payload.srcUrl
+		});
+		// Hide the clicked teaser's planes so they cannot show through the
+		// overlay mid-zoom.
+		carouselScene?.suppressTeaser(
+			carouselScene.teasers.findIndex((s) => s.teaser.slug === payload.slug)
+		);
+		transitionArrived = false;
+		headerReady = false;
+		transition = payload;
+		// Navigate IN PARALLEL with the animation so SvelteKit loads route data
+		// while the zoom plays. The detail page mounting underneath the overlay
+		// mid-zoom is the point, not a glitch.
+		goto(payload.href);
+		// Safety valve: if the detail page's video never reports data — failed
+		// load, missing media, decode error — the overlay must not sit over the
+		// page forever.
+		clearTimeout(transitionTimeout);
+		transitionTimeout = setTimeout(dismissTransition, 450 + 600);
+	}
+
+	// The zoom finishing and the detail video becoming ready race each other, in
+	// either order. The overlay leaves only once BOTH have happened: dismissing
+	// on the animation alone risks a black frame, and dismissing on the video
+	// alone would cut the zoom short.
+	function onTransitionArrived() {
+		// Ignore a late arrival for an overlay that has already gone. Dismissing
+		// unmounts TransitionVideo, whose cleanup cancels the animation, which
+		// rejects `finished` — and that rejection path also calls onArrived.
+		// Without this guard the flag is left true after dismissal, so the next
+		// stray project-header-ready would act on a transition that no longer
+		// exists.
+		if (!transition) return;
+		transitionArrived = true;
+		if (headerReady) dismissTransition();
+	}
+
+	function dismissTransition() {
+		clearTimeout(transitionTimeout);
+		transition = null;
+		transitionArrived = false;
+		headerReady = false;
+		carouselScene?.clearSuppressed();
+	}
 
 	// Teleports scroll back to the start of the pinned runway, making downward
 	// scrolling loop forever. Invisible because the runway is exactly one
@@ -258,7 +362,7 @@
 					onHover: (index) => {
 						hoveredTeaserIndex = index;
 					},
-					onNavigate: (href) => goto(href)
+					onNavigate: (payload) => startTransition(payload)
 				});
 				// `trigger: el` pins WorkTeasers' 300vh runway; `onUpdate` feeds
 				// ScrollTrigger's own monotonic-with-scroll-direction `progress`
@@ -349,6 +453,15 @@
 			carouselScene = undefined;
 		});
 
+		// ProjectHeader dispatches this once its header video has data, which is
+		// the moment the overlay can be removed without a black frame.
+		const onHeaderReady = () => {
+			headerReady = true;
+			if (transitionArrived) dismissTransition();
+		};
+		window.addEventListener('project-header-ready', onHeaderReady);
+		transitionCleanup = () => window.removeEventListener('project-header-ready', onHeaderReady);
+
 		fluidScene = new FluidScene({ engine });
 		grainPass = createGrainPass({ engine });
 		unsubGrainResize = engine.onResize(() => {
@@ -401,6 +514,26 @@
 					return carouselScene;
 				}
 			};
+			// The overlay is real DOM, but its lifecycle — and the two-way wait
+			// before dismissal — is not otherwise observable from a page probe.
+			window.__transition = {
+				get active() {
+					return !!transition;
+				},
+				get arrived() {
+					return transitionArrived;
+				},
+				get headerReady() {
+					return headerReady;
+				},
+				// The homepage scroll position held for the return trip. Exposed
+				// because the pane cannot scroll (Lenis owns it under root: true
+				// and the viewport is zero), so the capture/clear lifecycle is
+				// otherwise unobservable there.
+				get homeScrollY() {
+					return homeScrollY;
+				}
+			};
 		}
 	});
 
@@ -416,6 +549,10 @@
 		if (typeof window !== 'undefined') window.removeEventListener('resize', syncCanvasSize);
 		unsubGrainResize?.();
 		unsubDeviceLost?.();
+		// Both are only ever set inside onMount, so they are undefined during the
+		// prerender pass and the optional calls are the guard.
+		transitionCleanup?.();
+		clearTimeout(transitionTimeout);
 		debugPanel?.destroy();
 		grainPass?.destroy();
 		logoScene?.destroy();
@@ -434,6 +571,14 @@
 		<canvas class="canvas" bind:this={canvas}></canvas>
 	{/if}
 	<CursorDot class="dot" />
+	{#if transition}
+		<TransitionVideo
+			sourceVideo={transition.video}
+			rect={transition.rect}
+			radiusPx={transition.rect.radiusPx}
+			onArrived={onTransitionArrived}
+		/>
+	{/if}
 	<SvelteLenis root {options}>
 		<main>
 			{@render children()}

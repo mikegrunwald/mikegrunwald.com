@@ -117,9 +117,10 @@
 //      plane, no manual sort needed. Each Intersection carries `.object`
 //      (the ProjectedMesh) and `.distance`.
 
-import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster } from 'gpu-curtains';
+import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster, Vec3 } from 'gpu-curtains';
 import { CAROUSEL_VERTEX, CAROUSEL_FRAGMENT } from '../carousel/shaders/carousel.wgsl.js';
 import { computeQuadGeometry } from '../carousel/quadGeometry.js';
+import { videoCorners } from '../carousel/planeProjection.js';
 import { composeRotation } from '../carousel/scrollModel.js';
 import {
 	computeRingRadius,
@@ -173,6 +174,12 @@ export class CarouselScene {
 		// returns nearest-first (sorted by ray.origin.distance(point) in
 		// Raycaster.mjs) so hits[0] is the closest plane.
 		this.raycaster = new Raycaster(engine.curtains);
+		// Reusable scratch for corner projection, so the transition's rect
+		// measurement does not allocate per click.
+		this._projScratch = new Vec3();
+		// Teaser indices whose planes are hidden because the page transition has
+		// taken over their appearance.
+		this._suppressed = new Set();
 
 		this.params = {
 			// When true (the default), the radius is DERIVED from the number of
@@ -507,7 +514,7 @@ export class CarouselScene {
 			// this runs every frame via update(), so a hardcoded true here would
 			// fight setActive(false)'s own `mesh.visible = false` on the very
 			// next frame.
-			item.mesh.visible = this.active;
+			item.mesh.visible = this.active && !this._suppressed.has(item.teaserIndex);
 			item.mesh.position.set(x, y, z);
 			// Scale is re-applied every frame from params, so the debug panel's
 			// planeWidth/planeHeight/glowPad sliders stay live. Hover is folded in
@@ -618,6 +625,84 @@ export class CarouselScene {
 		return index === -1 ? null : index;
 	}
 
+	// World -> screen (CSS px) rect of a plane's VIDEO area, for the page
+	// transition to start its overlay from. Returns { x, y, width, height,
+	// radiusPx } with x/y the CENTRE, or null if any projected component is
+	// non-finite.
+	//
+	// Projects the video's corners, not the plane's: the quad is padded by
+	// glowPad so the shader can draw an outer glow, so PlaneGeometry's -1..1
+	// corners are the padding's outer edge (see planeProjection.js).
+	//
+	// Uses renderer.boundingRect — CSS px, the same rect setFromMouse reads, so
+	// the hit test and this rect stay in one coordinate space. NOT
+	// getCanvasSize(), which is device px (Phase 2 note #16). boundingRect is
+	// viewport-relative, which is exactly what a position: fixed overlay wants.
+	projectVideoRect(mesh) {
+		if (!mesh) return null;
+		const camera = this.engine.curtains.renderer.camera;
+		const bounds = this.engine.curtains.renderer.boundingRect;
+		if (!bounds?.width || !bounds?.height) return null;
+		const geo = computeQuadGeometry(this.params);
+		const corners = videoCorners({
+			videoHalfX: geo.videoHalfX,
+			videoHalfY: geo.videoHalfY,
+			quadHalfX: geo.quadHalfX,
+			quadHalfY: geo.quadHalfY
+		});
+
+		let minX = Infinity;
+		let minY = Infinity;
+		let maxX = -Infinity;
+		let maxY = -Infinity;
+		for (const [cx, cy] of corners) {
+			this._projScratch.set(cx, cy, 0);
+			this._projScratch.applyMat4(mesh.worldMatrix).project(camera);
+			const ndc = this._projScratch;
+			if (!Number.isFinite(ndc.x) || !Number.isFinite(ndc.y)) return null;
+			const sx = bounds.left + (ndc.x * 0.5 + 0.5) * bounds.width;
+			const sy = bounds.top + (0.5 - ndc.y * 0.5) * bounds.height;
+			if (sx < minX) minX = sx;
+			if (sx > maxX) maxX = sx;
+			if (sy < minY) minY = sy;
+			if (sy > maxY) maxY = sy;
+		}
+		const width = maxX - minX;
+		const height = maxY - minY;
+		if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+			return null;
+		}
+		// World-unit corner radius as a fraction of the video's world width,
+		// applied to the measured pixel width. Keeps the overlay's corners
+		// matching the shader's at whatever size the plane happens to be.
+		const radiusPx = (this.params.cornerRadius / (this.params.planeWidth || 1)) * width;
+		return {
+			x: (minX + maxX) / 2,
+			y: (minY + maxY) / 2,
+			width,
+			height,
+			radiusPx: Number.isFinite(radiusPx) ? radiusPx : 0
+		};
+	}
+
+	// Hides a single teaser's planes by index, for the page transition: the
+	// overlay takes over that teaser's appearance, and leaving the planes visible
+	// would let them show behind a partly transparent overlay mid-zoom. Hides
+	// EVERY plane for that teaser, since a teaser can occupy several around the
+	// ring.
+	//
+	// layout() re-derives visibility from `this.active` every frame, so this
+	// cannot simply set mesh.visible — it would be overwritten on the next
+	// frame. The suppression set is consulted there instead.
+	suppressTeaser(teaserIndex) {
+		if (teaserIndex == null || teaserIndex < 0) return;
+		this._suppressed.add(teaserIndex);
+	}
+
+	clearSuppressed() {
+		this._suppressed.clear();
+	}
+
 	// Drives the pointer cursor (and doubles as a DOM-inspectable QA signal, since
 	// the WebGPU canvas cannot be read back from a page-level probe).
 	//
@@ -655,7 +740,25 @@ export class CarouselScene {
 		if (e.target instanceof Element && e.target.closest(INTERACTIVE_SELECTOR)) return;
 		const index = this.hitTest(e);
 		if (index == null) return; // click on a ring gap / empty space: no-op
-		this.onNavigate?.(this.teasers[this.items[index].teaserIndex].teaser.href);
+		const item = this.items[index];
+		const source = this.teasers[item.teaserIndex];
+		const video = source.texture.sources[0]?.source;
+		// Everything the transition needs, gathered while the plane still
+		// exists. currentTime may be 0 or the video may be paused — playback is
+		// gated to the visible arc, so a teaser at the edge of that window is
+		// legitimately not running. Pass it anyway; continuity matters least
+		// exactly when it is unavailable.
+		this.onNavigate?.({
+			href: source.teaser.href,
+			slug: source.teaser.slug,
+			srcUrl: source.teaser.teaserUrl,
+			currentTime: Number.isFinite(video?.currentTime) ? video.currentTime : 0,
+			rect: this.projectVideoRect(item.mesh),
+			// The live element, handed over so the transition can paint the frames
+			// already decoded here instead of starting a second decoder that will
+			// not have a frame until after the zoom has finished.
+			video: video ?? null
+		});
 	}
 
 	setActive(isActive) {

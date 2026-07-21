@@ -17,6 +17,10 @@ export async function load({ params }) {
 
   return {
     project,
-    nextProject
+    nextProject,
+    // The transition handoff matches on this. loadMarkdown() returns only
+    // { html, meta }, so without it the detail page cannot say which project it
+    // is, and the seed check silently refuses every time.
+    slug
   };
 }
