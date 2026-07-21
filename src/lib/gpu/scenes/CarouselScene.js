@@ -148,10 +148,9 @@ export class CarouselScene {
 		this.preRoll = 0;
 		this.rotation = 0; // Task 4
 		this.velocitySmoothed = 0; // Task 5
-		// Set for a single frame after a runway wrap. The teleport makes Lenis
-		// report a huge instantaneous velocity that would otherwise punch the
-		// ring outward via the radius boost, making the seam obvious.
-		this._suppressVelocityFrames = 0;
+		// Counts down after a runway wrap, during which incoming velocity samples
+		// are ignored so the last good value carries through the seam.
+		this._holdVelocityFrames = 0;
 
 		// Task 6 — raycast hover/click. `onHover(index|null)` drives WorkTeasers'
 		// DOM label (via +layout.svelte context); `onNavigate(href)` is supplied
@@ -462,13 +461,21 @@ export class CarouselScene {
 		// recovery short of a reload. Dropping the bad sample keeps the last good
 		// velocity instead.
 		if (!Number.isFinite(v)) return;
+		// Across a runway wrap Lenis's own velocity collapses to 0, because its
+		// `immediate` scrollTo calls reset(). Ignoring samples for a couple of
+		// frames HOLDS the last good value instead, so the radius boost sails
+		// through the seam. Forcing it to 0 here (as this used to) made the ring
+		// visibly spring inward and back out at exactly the moment the user was
+		// scrolling fast enough to notice.
+		if (this._holdVelocityFrames > 0) return;
 		this._targetVelocity = v; // Task 5
 	}
 
 	// Called by the layout's runway-wrap handler immediately before it teleports
-	// the scroll position.
-	suppressVelocity() {
-		this._suppressVelocityFrames = 2;
+	// the scroll position, so the teleport's bogus velocity readings are ignored
+	// rather than driving the radius boost.
+	holdVelocity() {
+		this._holdVelocityFrames = 2;
 	}
 
 	// Returns the item index under the pointer, or null. Early-returns off-pin so
@@ -559,18 +566,14 @@ export class CarouselScene {
 		// an outward radius boost. Magnitude only — direction already lives in
 		// `rotation` (setProgress) — clamped so a hard flick can't explode the
 		// ring outward past maxVelocityBoost.
-		let target;
-		if (this._suppressVelocityFrames > 0) {
-			this._suppressVelocityFrames -= 1;
-			// Ease toward rest across the seam rather than holding the pre-wrap
-			// value, so a wrap during a fast flick doesn't freeze the boost.
-			target = 0;
-		} else {
-			target = Math.min(
-				Math.abs(this._targetVelocity ?? 0) * this.params.velocityGain,
-				this.params.maxVelocityBoost
-			);
-		}
+		if (this._holdVelocityFrames > 0) this._holdVelocityFrames -= 1;
+		// `_targetVelocity` is frozen at its last good value while the hold is
+		// counting down (see setVelocity), so this needs no special case — the
+		// boost simply keeps easing toward wherever it was already headed.
+		const target = Math.min(
+			Math.abs(this._targetVelocity ?? 0) * this.params.velocityGain,
+			this.params.maxVelocityBoost
+		);
 		// Frame-rate-independent exponential ease toward target. Eases back to 0
 		// automatically once Lenis's own velocity settles to 0 at rest — no
 		// separate "return to rest" branch needed.

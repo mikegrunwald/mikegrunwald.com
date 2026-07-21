@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { composeRotation, shouldLoopRunway } from '../carousel/scrollModel.js';
+import { composeRotation, shouldLoopRunway, wrapScrollPosition } from '../carousel/scrollModel.js';
 
 const TAU = Math.PI * 2;
 
@@ -57,5 +57,39 @@ describe('shouldLoopRunway', () => {
 
 	it('does not loop on non-finite progress', () => {
 		expect(shouldLoopRunway({ progress: NaN, direction: 1 })).toBe(false);
+	});
+});
+
+describe('wrapScrollPosition', () => {
+	const runway = { start: 1000, end: 2400 }; // 1400px runway
+
+	it('preserves the overshoot remainder instead of snapping to start', () => {
+		// 300px past the end must land 300px into the runway, not at its start.
+		const y = wrapScrollPosition({ current: 2700, ...runway });
+		expect(y).toBeCloseTo(1300, 10);
+	});
+
+	it('handles an overshoot larger than a full runway', () => {
+		// 1.5 runways past the start -> half a runway in.
+		const y = wrapScrollPosition({ current: 1000 + 1400 * 1.5, ...runway });
+		expect(y).toBeCloseTo(1700, 10);
+	});
+
+	it('never lands exactly on the boundary, which would unpin', () => {
+		// Exactly one runway past the start -> remainder 0 -> nudged inside.
+		const y = wrapScrollPosition({ current: 2400, ...runway });
+		expect(y).toBe(1001);
+	});
+
+	it('keeps a negative overshoot inside the runway', () => {
+		const y = wrapScrollPosition({ current: 900, ...runway });
+		expect(y).toBeGreaterThanOrEqual(runway.start);
+		expect(y).toBeLessThan(runway.end);
+	});
+
+	it('returns null for a degenerate runway rather than teleporting', () => {
+		expect(wrapScrollPosition({ current: 1500, start: 1000, end: 1000 })).toBeNull();
+		expect(wrapScrollPosition({ current: 1500, start: 2000, end: 1000 })).toBeNull();
+		expect(wrapScrollPosition({ current: NaN, ...runway })).toBeNull();
 	});
 });

@@ -15,7 +15,7 @@
 	import { scrollProgress } from '$lib/gpu/fluid/grading.js';
 	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
 	import { CarouselScene } from '$lib/gpu/scenes/CarouselScene.js';
-	import { shouldLoopRunway } from '$lib/gpu/carousel/scrollModel.js';
+	import { shouldLoopRunway, wrapScrollPosition } from '$lib/gpu/carousel/scrollModel.js';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -56,20 +56,34 @@
 	// rotation, so progress 0 and progress 1 are the same ring orientation.
 	function wrapRunway(self) {
 		if (wrappingRunway) return;
-		// `self.start` is the document scroll position where the pin engages —
-		// i.e. progress 0 — so this is the runway's start, not the section's top.
-		// Land 1px INSIDE the runway rather than exactly on the boundary, where
-		// ScrollTrigger could immediately read us as "before the trigger" and
-		// unpin. At a ~1400px runway that is under a quarter degree of rotation.
-		const startY = self.start + 1;
-		if (!Number.isFinite(startY)) return;
+		// `self.start`/`self.end` are document scroll positions bounding the pin.
+		// wrapScrollPosition wraps modulo the runway rather than snapping to its
+		// start, which is what keeps rotation continuous at speed — see its
+		// comment and the tests in __tests__/scrollModel.test.js.
+		const wrapped = wrapScrollPosition({
+			current: self.scroll(),
+			start: self.start,
+			end: self.end
+		});
+		if (wrapped === null) return;
+
 		wrappingRunway = true;
-		carouselScene?.suppressVelocity();
+		carouselScene?.holdVelocity();
 		// MUST go through Lenis, not window.scrollTo: Lenis owns the scroll
 		// position under `root: true` and would smoothly animate straight back to
 		// where it was. `immediate` skips its easing; `force` overrides any
 		// in-flight scrollTo.
-		lenis.current?.scrollTo(startY, { immediate: true, force: true });
+		//
+		// Known residual: Lenis's `immediate` path calls its own reset(), which
+		// zeroes velocity and stops the in-flight animation (lenis 1.3.1,
+		// dist/lenis.mjs reset()). There is no supported way to shift Lenis's
+		// position while keeping its animation — mutating animatedScroll/
+		// targetScroll directly gets overwritten on the next frame, because the
+		// running animate.fromTo still interpolates toward its captured target.
+		// A wheel/trackpad flick re-establishes velocity on the next input event
+		// (~1 frame); holdVelocity above keeps the RING steady across that blip
+		// so the seam doesn't also dip the radius boost.
+		lenis.current?.scrollTo(wrapped, { immediate: true, force: true });
 		// Release on the next frame rather than synchronously — the scrollTo
 		// above re-enters ScrollTrigger.update() before it returns.
 		requestAnimationFrame(() => {

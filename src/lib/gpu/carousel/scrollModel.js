@@ -41,3 +41,26 @@ export function shouldLoopRunway({ progress, direction }) {
 	if (!Number.isFinite(progress)) return false;
 	return progress >= 1 && direction === 1;
 }
+
+// Scroll position to wrap to when the pinned runway overruns, given where the
+// scroller actually is.
+//
+// Wraps MODULO the runway rather than snapping to its start, which is the
+// difference between a seamless loop and a visible stagger: at speed a single
+// frame can overshoot the end by hundreds of pixels, and discarding that
+// remainder stalls the ring's rotation for exactly as long as it takes to
+// re-cover the lost distance. The faster the scroll, the worse it reads.
+//
+// Returns a position at least 1px inside the runway — landing exactly on
+// `start` lets ScrollTrigger read the trigger as not yet entered and unpin.
+// Returns null when the runway is degenerate, so callers skip the wrap rather
+// than teleporting somewhere nonsensical.
+export function wrapScrollPosition({ current, start, end }) {
+	const runway = end - start;
+	if (!Number.isFinite(runway) || runway <= 0) return null;
+	if (!Number.isFinite(current) || !Number.isFinite(start)) return null;
+	const overshoot = current - start;
+	// Double-modulo so a negative overshoot still lands in [0, runway).
+	const remainder = ((overshoot % runway) + runway) % runway;
+	return start + Math.max(1, remainder);
+}
