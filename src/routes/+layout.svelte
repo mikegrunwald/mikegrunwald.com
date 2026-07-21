@@ -258,7 +258,9 @@
 					onHover: (index) => {
 						hoveredTeaserIndex = index;
 					},
-					onNavigate: (href) => goto(href)
+					// Payload shape, not a bare href — Task 5 consumes rect/
+					// currentTime from it. Behaviour is unchanged for now.
+					onNavigate: (payload) => goto(payload.href)
 				});
 				// `trigger: el` pins WorkTeasers' 300vh runway; `onUpdate` feeds
 				// ScrollTrigger's own monotonic-with-scroll-direction `progress`
