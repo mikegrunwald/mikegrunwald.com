@@ -15,6 +15,18 @@ export async function maybeCreatePanel({
 	const { Pane } = await import('tweakpane');
 	const pane = new Pane({ title: 'GPU debug' });
 
+	// Tweakpane's default wrapper (.tp-dfwv) is `position: absolute` on <body>,
+	// so it scrolls away with the page — useless on a document several viewports
+	// tall when the thing you are tuning is pinned to the viewport. Pin it.
+	// The z-index is set alongside because the default is `auto`: once the panel
+	// is taken out of the scroll flow, any positioned page content (the cursor
+	// dot sits at 100) would otherwise be able to render over it.
+	// `.tp-dfwv` only exists when Tweakpane creates its own wrapper (no
+	// `container` option), hence the fallback to the pane's own element.
+	const paneRoot = pane.element.closest('.tp-dfwv') ?? pane.element;
+	paneRoot.style.position = 'fixed';
+	paneRoot.style.zIndex = '1000';
+
 	const sim = fluidScene.params;
 	const fluid = pane.addFolder({ title: 'Fluid' });
 	fluid.addBinding(sim, 'DENSITY_DISSIPATION', { min: 0, max: 8 });
