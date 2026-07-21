@@ -9,7 +9,6 @@
 	const itemTiltOptions = { maxTilt: 8.2, perspective: 670, ease: 0.067 };
 
 	let { data } = $props();
-	console.log('data: ', data);
 
 	// Use $derived to make content reactive to data changes
 	const content = $derived(data.project.meta);

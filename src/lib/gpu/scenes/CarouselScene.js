@@ -136,6 +136,12 @@ import { setExternalMagneticTarget } from '$lib/components/CursorDot.svelte';
 // drift apart.
 const HOVER_SCALE = 1.08;
 
+// Elements whose clicks must never fall through to a ring navigation — see
+// handleClick. Deliberately broad: anything focusable/actionable, plus
+// Tweakpane's wrapper (`.tp-dfwv`), whose sliders are plain divs and so match
+// none of the standard interactive selectors.
+const INTERACTIVE_SELECTOR = 'a, button, input, select, textarea, label, [role="button"], .tp-dfwv';
+
 export class CarouselScene {
 	constructor({ engine, teasers, onHover, onNavigate }) {
 		this.engine = engine;
@@ -332,6 +338,14 @@ export class CarouselScene {
 	}
 
 	setVelocity(v) {
+		// Same finite guard as setProgress, for a sharper reason: a NaN here is
+		// STICKY. update() does `velocitySmoothed += (target - velocitySmoothed) *
+		// rate`, and once velocitySmoothed is NaN no later finite value can ever
+		// pull it back. layout() would then see a NaN radius and hide every mesh
+		// on every subsequent frame — the ring would go dark permanently, with no
+		// recovery short of a reload. Dropping the bad sample keeps the last good
+		// velocity instead.
+		if (!Number.isFinite(v)) return;
 		this._targetVelocity = v; // Task 5
 	}
 
@@ -363,6 +377,17 @@ export class CarouselScene {
 	}
 
 	handleClick(e) {
+		// The listener is on `window`, not the canvas — the canvas is fixed and
+		// sits BEHIND all page content, so it is never the event target for a
+		// click over any DOM element. Without this check, clicking any DOM UI
+		// that happens to overlap the ring's screen area would do its own thing
+		// AND navigate to whichever teaser was behind it.
+		//
+		// Today that is latent only by accident (the .sr-only links are clipped
+		// to 1px, the hover label is pointer-events: none, and the debug panel
+		// sits in a corner the planes don't reach). Anything placed over the ring
+		// later would trip it, so gate on the target rather than on that luck.
+		if (e.target instanceof Element && e.target.closest(INTERACTIVE_SELECTOR)) return;
 		const index = this.hitTest(e);
 		if (index == null) return; // click on a ring gap / empty space: no-op
 		this.onNavigate?.(this.items[index].teaser.href);
@@ -493,6 +518,16 @@ export class CarouselScene {
 		// to be torn down, nor the CSS hook set.
 		setExternalMagneticTarget(null);
 		document.documentElement.classList.remove('carousel-hovering');
+		// Mirror setActive(false)'s hover reset. Without this the consumer's
+		// hovered-index state survives the scene: on the device-lost path
+		// (+layout.svelte) the page stays mounted while the ring is destroyed, so
+		// WorkTeasers' label would sit onscreen naming a teaser that no longer
+		// exists. Guarded on hoveredIndex so a teardown from a non-hovered state
+		// doesn't fire a redundant null.
+		if (this.hoveredIndex != null) {
+			this.hoveredIndex = null;
+			this.onHover?.(null);
+		}
 		for (const item of this.items) {
 			// Pause the <video> BEFORE tearing down the texture: once the mesh
 			// is gone, nothing samples the element, but an un-paused video keeps
