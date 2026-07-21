@@ -179,10 +179,12 @@ export class CarouselScene {
 			// the layout: at a fixed radius 4, five entries left a 23.6deg gap and
 			// eight overlapped by 3.4deg.
 			autoRadius: true,
-			// Fraction of its angular slot each plane fills. 1 means planes meet
-			// edge to edge with no gap and no overlap; below 1 opens a gap, above
-			// 1 deliberately overlaps.
-			ringFill: 1,
+			// Fraction of each angular slot left EMPTY between planes. Kept as a
+			// fraction of the slot rather than a fixed angle or world distance so
+			// the gap stays proportional: the gap-to-teaser ratio is identical at
+			// any featured-entry count, where a fixed angle would look generous at
+			// 5 entries and cramped at 12.
+			ringGap: 0.1,
 			// Manual radius, used only when autoRadius is false.
 			ringRadius: 4,
 			// World Z of the ring CENTER, defaulting to the camera's own Z so the
@@ -373,13 +375,13 @@ export class CarouselScene {
 		const n = this.items.length;
 		if (!n) return;
 		// Recomputed every frame off the live params so the panel's planeWidth and
-		// ringFill sliders stay honest, and so a change in featured-entry count
+		// ringGap sliders stay honest, and so a change in featured-entry count
 		// needs no hand-tuning at all.
 		const baseRadius = this.params.autoRadius
 			? computeRingRadius({
 					planeWidth: this.params.planeWidth,
 					count: n,
-					fill: this.params.ringFill
+					gap: this.params.ringGap
 				})
 			: this.params.ringRadius;
 		const radius = baseRadius + this.velocitySmoothed;

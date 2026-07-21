@@ -26,17 +26,25 @@ function finiteOr(value, fallback) {
 	return Number.isFinite(value) ? value : fallback;
 }
 
-// `fill` is how much of its angular slot each plane occupies:
-//   1   — planes exactly meet edge to edge, no gap and no overlap
-//   <1  — leaves a gap between planes
-//   >1  — planes deliberately overlap
-export function computeRingRadius({ planeWidth, count, fill }) {
+// `gap` is the fraction of each angular slot left EMPTY between planes:
+//   0     — planes meet edge to edge, touching
+//   0.1   — a tenth of every slot is empty space
+//
+// Expressed as a fraction of the slot rather than a fixed angle or a world
+// distance, so it stays proportional: the plane occupies (1 - gap) of its slot
+// at every count, which fixes the gap-to-plane ratio no matter how many entries
+// are featured. A fixed angular gap would look generous at 5 entries and
+// cramped at 12; a fixed world distance would additionally drift as planeWidth
+// changed.
+export function computeRingRadius({ planeWidth, count, gap }) {
 	const width = finiteOr(planeWidth, 1);
 	const n = Math.max(1, Math.floor(finiteOr(count, 1)));
-	const f = Math.max(0.01, finiteOr(fill, 1));
+	// Clamped below 1 because a full-slot gap leaves the plane no angular width
+	// at all, which solves to an infinite radius.
+	const g = Math.min(0.9, Math.max(0, finiteOr(gap, 0)));
 
-	// Half the angular slot this plane may occupy.
-	const halfSlot = Math.min(Math.PI / n, MAX_HALF_ANGLE) * f;
+	// Half the angular slot this plane may occupy, after the gap is removed.
+	const halfSlot = Math.min(Math.PI / n, MAX_HALF_ANGLE) * (1 - g);
 	const t = Math.tan(halfSlot);
 	// tan goes to infinity approaching 90deg and negative past it; either way a
 	// non-positive or non-finite tangent means "no sensible radius", so fall back

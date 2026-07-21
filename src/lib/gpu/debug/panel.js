@@ -198,7 +198,9 @@ export async function maybeCreatePanel({
 		// adding or removing featured entries needs no retuning. `ringRadius`
 		// below only takes effect once this is off.
 		carousel.addBinding(proxy, 'autoRadius');
-		carousel.addBinding(proxy, 'ringFill', { min: 0.5, max: 1.3, step: 0.01 });
+		// Fraction of each slot left empty between teasers. Proportional by
+		// construction — the gap reads the same relative to a teaser at any count.
+		carousel.addBinding(proxy, 'ringGap', { min: 0, max: 0.5, step: 0.005 });
 		carousel.addBinding(proxy, 'ringRadius', { min: 1, max: 10 });
 		// Ring-centre world Z. 10 == camera position (viewer at the ring's centre);
 		// lower values push the centre ahead of the viewer. See CarouselScene.js.
