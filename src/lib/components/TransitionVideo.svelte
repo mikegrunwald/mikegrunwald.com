@@ -49,7 +49,44 @@
 		// rejected promise would strand the overlay until the timeout.
 		animation.finished.then(() => onArrived?.()).catch(() => onArrived?.());
 
-		return () => animation.cancel();
+		// Dev-only trace. Whether the overlay is on screen, growing, and actually
+		// showing video frames is not answerable from a screenshot — a video with
+		// no decoded frame renders TRANSPARENT, and this element sits under a 95%
+		// black gradient, so "invisible" and "absent" look identical.
+		let traceId;
+		if (import.meta.env.DEV) {
+			const samples = [];
+			const started = performance.now();
+			const sample = () => {
+				const r = el.getBoundingClientRect();
+				const cs = getComputedStyle(el);
+				samples.push({
+					ms: Math.round(performance.now() - started),
+					w: Math.round(r.width),
+					h: Math.round(r.height),
+					top: Math.round(r.top),
+					left: Math.round(r.left),
+					z: cs.zIndex,
+					opacity: cs.opacity,
+					visibility: cs.visibility,
+					// 0 until the browser has decoded a frame — the difference
+					// between "not zooming" and "zooming but showing nothing".
+					videoW: video?.videoWidth ?? 0,
+					readyState: video?.readyState ?? 0,
+					paused: video?.paused ?? null
+				});
+				if (performance.now() - started < durationMs + 200) {
+					traceId = requestAnimationFrame(sample);
+				}
+			};
+			window.__transitionTrace = samples;
+			traceId = requestAnimationFrame(sample);
+		}
+
+		return () => {
+			animation.cancel();
+			if (traceId) cancelAnimationFrame(traceId);
+		};
 	});
 </script>
 
