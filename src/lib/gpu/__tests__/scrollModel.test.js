@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { composeRotation } from '../carousel/scrollModel.js';
+import { composeRotation, shouldLoopRunway } from '../carousel/scrollModel.js';
 
 const TAU = Math.PI * 2;
 
@@ -33,5 +33,29 @@ describe('composeRotation', () => {
 	it('treats non-finite inputs as zero rather than propagating NaN', () => {
 		expect(composeRotation({ ...base, preRoll: NaN, progress: 0.5 })).toBeCloseTo(0.5 * TAU, 10);
 		expect(composeRotation({ ...base, preRoll: 0.5, progress: NaN })).toBeCloseTo(0.1 * TAU, 10);
+	});
+});
+
+describe('shouldLoopRunway', () => {
+	it('loops when the runway is exhausted going down', () => {
+		expect(shouldLoopRunway({ progress: 1, direction: 1 })).toBe(true);
+	});
+
+	it('does not loop mid-runway going down', () => {
+		expect(shouldLoopRunway({ progress: 0.99, direction: 1 })).toBe(false);
+	});
+
+	it('does not loop at the runway end going up', () => {
+		// Scrolling up is bounded to one rotation and must release into the
+		// preceding section, so the upward direction never wraps.
+		expect(shouldLoopRunway({ progress: 1, direction: -1 })).toBe(false);
+	});
+
+	it('does not loop at the runway start going up', () => {
+		expect(shouldLoopRunway({ progress: 0, direction: -1 })).toBe(false);
+	});
+
+	it('does not loop on non-finite progress', () => {
+		expect(shouldLoopRunway({ progress: NaN, direction: 1 })).toBe(false);
 	});
 });

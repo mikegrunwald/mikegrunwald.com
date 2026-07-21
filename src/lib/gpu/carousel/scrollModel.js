@@ -26,3 +26,18 @@ export function composeRotation({ preRoll, progress, rotationsPerScroll, preRoll
 	const perScroll = finiteOr(rotationsPerScroll, 1);
 	return pre * turns * TAU + prog * perScroll * TAU;
 }
+
+// Whether the pinned runway should wrap back to its start.
+//
+// The section is an asymmetric scroll trap: scrolling DOWN loops forever, so
+// the ring rotates without bound and the carousel is the end of the page.
+// Scrolling UP is deliberately NOT looped — it unwinds the single rotation the
+// runway represents and then releases into the preceding section. That
+// asymmetry is the whole feature; do not "fix" it by making this symmetric.
+//
+// The wrap is invisible because a runway of exactly one rotation puts progress
+// 0 and progress 1 at the same ring orientation (0 and 2*pi).
+export function shouldLoopRunway({ progress, direction }) {
+	if (!Number.isFinite(progress)) return false;
+	return progress >= 1 && direction === 1;
+}

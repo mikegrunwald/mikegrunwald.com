@@ -15,6 +15,7 @@
 	import { scrollProgress } from '$lib/gpu/fluid/grading.js';
 	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
 	import { CarouselScene } from '$lib/gpu/scenes/CarouselScene.js';
+	import { shouldLoopRunway } from '$lib/gpu/carousel/scrollModel.js';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -45,6 +46,10 @@
 	let carouselTrigger;
 	let carouselPreRollTrigger;
 	let creatingCarousel = false;
+	// Re-entrancy guard for the runway wrap. Without it the programmatic scroll
+	// triggers another ScrollTrigger.update, which can re-enter onUpdate while
+	// progress is still >= 1 and wrap repeatedly in a single frame.
+	let wrappingRunway = false;
 
 	// Carousel raycast hover index (Task 6). Driven by CarouselScene's onHover
 	// callback, consumed by WorkTeasers.svelte's DOM label. WorkTeasers lives in
@@ -225,7 +230,28 @@
 					start: 'top top',
 					end: 'bottom bottom',
 					pin: true,
-					onUpdate: (self) => carouselScene?.setProgress(self.progress),
+					onUpdate: (self) => {
+						carouselScene?.setProgress(self.progress);
+						if (wrappingRunway || !shouldLoopRunway(self)) return;
+						// `self.start` is the document scroll position where the pin
+						// engages — i.e. progress 0 — so this is the runway's start,
+						// not the section's top.
+						const startY = self.start;
+						if (!Number.isFinite(startY)) return;
+						wrappingRunway = true;
+						carouselScene?.suppressVelocity();
+						// MUST go through Lenis, not window.scrollTo: Lenis owns the
+						// scroll position under `root: true` and would smoothly
+						// animate straight back to where it was. `immediate` skips
+						// its easing; `force` overrides any in-flight scrollTo.
+						lenis.current?.scrollTo(startY, { immediate: true, force: true });
+						// Release on the next frame rather than synchronously — the
+						// scrollTo above re-enters ScrollTrigger.update() before it
+						// returns.
+						requestAnimationFrame(() => {
+							wrappingRunway = false;
+						});
+					},
 					onLeave: () => carouselScene?.setActive(false),
 					onLeaveBack: () => carouselScene?.setActive(false)
 				});

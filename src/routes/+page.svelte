@@ -1,7 +1,6 @@
 <script>
 	import AboutIntro from '../lib/components/AboutIntro.svelte';
 	import HeroHeader from '../lib/components/HeroHeader.svelte';
-	import UserActions from '../lib/components/UserActions.svelte';
 	import WorkTeasers from '../lib/components/WorkTeasers.svelte';
 	import siteSettings from '$content/meta/site.json';
 
@@ -18,7 +17,6 @@
 	<HeroHeader />
 	<AboutIntro />
 	<WorkTeasers teasers={data.teasers} />
-	<UserActions />
 </section>
 
 <style>
