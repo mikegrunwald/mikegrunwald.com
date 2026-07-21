@@ -26,6 +26,20 @@ export class BlurScrollEffect {
     // them all rather than keeping only the latest.
     this.tweens = new Set();
 
+    // Without this, the element renders at full opacity for the ~25ms between
+    // mount and document.fonts.ready resolving, THEN SplitText runs and
+    // gsap.fromTo applies opacity: 0 to the characters — a visible flash of
+    // text that immediately vanishes. This has to happen synchronously, here,
+    // before the constructor returns: anything deferred (even a microtask)
+    // risks the browser painting a frame in between. Skipped under reduced
+    // motion, where buildBlurTween returns an empty fromVars — nothing would
+    // ever set the characters' opacity, so hiding the parent would just be a
+    // needless flicker, and any bug in the restore path would permanently
+    // hide content from exactly the users least able to tolerate it.
+    if (!prefersReducedMotion()) {
+      gsap.set(textElement, { opacity: 0 });
+    }
+
     document.fonts.ready.then(() => {
       // The component can unmount before fonts resolve. Without this guard the
       // effect would still initialize, splitting and attaching a ScrollTrigger
@@ -61,6 +75,10 @@ export class BlurScrollEffect {
         return tween;
       }
     });
+    // Restore the element now that the characters carry their own opacity: 0
+    // start state (or, under reduced motion, are already at their end state).
+    // Safe either way — this only undoes the synchronous hide above.
+    gsap.set(this.textElement, { opacity: 1 });
   }
 
   // Starts a tween built with `paused: true`. Safe to call at any time and any
@@ -88,5 +106,9 @@ export class BlurScrollEffect {
     // Restores the original DOM and detaches SplitText's own resize handling.
     this.split?.revert();
     this.split = null;
+    // Unmounting before document.fonts.ready resolves would otherwise leave
+    // the synchronous pre-hide above in place forever, since initializeEffect
+    // — the only other place that restores opacity — never runs.
+    gsap.set(this.textElement, { opacity: 1 });
   }
 }
