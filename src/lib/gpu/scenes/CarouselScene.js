@@ -284,6 +284,29 @@ export class CarouselScene {
 
 	update() {
 		if (this.destroyed || this.engine.hidden) return;
+
+		// Real per-frame dt (seconds), clamped to ~2 frames so a stalled tab that
+		// resumes doesn't apply one giant lerp step — same performance.now()-based
+		// dt pattern as FluidScene/LogoParticlesScene, not a fixed per-frame
+		// constant (which would tie the ease rate to the display's refresh rate).
+		const now = performance.now();
+		const dt = Math.min((now - (this._lastFrameTime ?? now)) / 1000, 0.033);
+		this._lastFrameTime = now;
+
+		// Lenis's `velocity` (fed via setVelocity, either scroll direction) drives
+		// an outward radius boost. Magnitude only — direction already lives in
+		// `rotation` (setProgress) — clamped so a hard flick can't explode the
+		// ring outward past maxVelocityBoost.
+		const target = Math.min(
+			Math.abs(this._targetVelocity ?? 0) * this.params.velocityGain,
+			this.params.maxVelocityBoost
+		);
+		// Frame-rate-independent exponential ease toward target. Eases back to 0
+		// automatically once Lenis's own velocity settles to 0 at rest — no
+		// separate "return to rest" branch needed.
+		const rate = 1 - Math.exp(-this.params.velocitySmoothing * dt);
+		this.velocitySmoothed += (target - this.velocitySmoothed) * rate;
+
 		this.layout();
 	}
 
