@@ -290,6 +290,26 @@
 
 		await syncParticlesScene();
 		syncCarouselScene();
+
+		// Dev-only inspection handle. The WebGPU canvas cannot be read back from
+		// a page-level probe (screenshots of it come back blank), and in a hidden
+		// tab the render loop is suspended, so scene state is otherwise
+		// unobservable from the console or an automated check. Exposing the live
+		// scenes makes GPU state inspectable the only way that works: reading the
+		// objects and driving their methods directly. Stripped from production
+		// builds by the import.meta.env.DEV guard.
+		if (import.meta.env.DEV) {
+			window.__gpu = {
+				engine,
+				fluidScene,
+				get logoScene() {
+					return logoScene;
+				},
+				get carouselScene() {
+					return carouselScene;
+				}
+			};
+		}
 	});
 
 	onDestroy(() => {

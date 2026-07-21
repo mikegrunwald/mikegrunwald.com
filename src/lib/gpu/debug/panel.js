@@ -180,8 +180,11 @@ export async function maybeCreatePanel({
 		// Ring-centre world Z. 10 == camera position (viewer at the ring's centre);
 		// lower values push the centre ahead of the viewer. See CarouselScene.js.
 		carousel.addBinding(proxy, 'ringDepth', { min: 2, max: 14 });
-		carousel.addBinding(proxy, 'planeWidth', { min: 0.4, max: 3 });
-		carousel.addBinding(proxy, 'planeHeight', { min: 0.3, max: 2 });
+		// Ranges must comfortably exceed the defaults (3.6 x 2.03) — Tweakpane
+		// CLAMPS writes to the bound range, so a max below the default would
+		// silently shrink the real param the first time the slider is touched.
+		carousel.addBinding(proxy, 'planeWidth', { min: 0.4, max: 8 });
+		carousel.addBinding(proxy, 'planeHeight', { min: 0.3, max: 5 });
 		carousel.addBinding(proxy, 'rotationsPerScroll', { min: 0.25, max: 4 });
 		carousel.addBinding(proxy, 'velocityGain', { min: 0, max: 3 });
 		carousel.addBinding(proxy, 'velocitySmoothing', { min: 0.5, max: 20 });

@@ -131,6 +131,11 @@ import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster, Vec3 } from 'gpu
 import { CAROUSEL_VERTEX, CAROUSEL_FRAGMENT } from '../carousel/shaders/carousel.wgsl.js';
 import { setExternalMagneticTarget } from '$lib/components/CursorDot.svelte';
 
+// Hover growth factor, applied on top of the params-derived base scale in
+// layout(). Kept here rather than inline so the hover and base scale can never
+// drift apart.
+const HOVER_SCALE = 1.08;
+
 export class CarouselScene {
 	constructor({ engine, teasers, onHover, onNavigate }) {
 		this.engine = engine;
@@ -165,8 +170,17 @@ export class CarouselScene {
 			// the brief's "Ring placement" section. Do not move/re-fov the camera;
 			// move the ring instead by changing this value.
 			ringDepth: 10,
-			planeWidth: isMobile ? 1.2 : 1.6,
-			planeHeight: isMobile ? 0.68 : 0.9,
+			// Sized to fill the view rather than float in it. With the camera AT
+			// the ring's centre, a plane's on-screen size is its angular width,
+			// 2*atan((planeWidth/2) / ringRadius) — so these are tuned against the
+			// frustum, not picked by eye. At ringRadius 4 with the default fov 50
+			// on a 16:9 viewport the visible world box is ~6.63 x 3.73 units, so
+			// 3.6 x 2.03 covers ~54% of the width and ~54% of the height (the
+			// previous 1.6 x 0.9 covered only ~24%, which is why teasers read as
+			// small islands with a large dead gap between them).
+			// 16:9 is preserved (3.6 / 1.7778 = 2.025) to match the source videos.
+			planeWidth: isMobile ? 2.6 : 3.6,
+			planeHeight: isMobile ? 1.46 : 2.03,
 			rotationsPerScroll: 1,
 			velocityGain: 0.6,
 			velocitySmoothing: 6, // per-second lerp rate, Task 5
@@ -283,6 +297,18 @@ export class CarouselScene {
 			// next frame.
 			item.mesh.visible = this.active;
 			item.mesh.position.set(x, y, z);
+			// Re-apply scale every frame from params so the debug panel's
+			// planeWidth/planeHeight sliders actually do something. They were
+			// previously inert: scale was set once in createItem() and only ever
+			// touched again by setHoverScale, so dragging the sliders changed
+			// nothing until you happened to hover a plane. Hover is folded in here
+			// (rather than writing scale from two places) so the two can't fight.
+			const hoverScale = item.index === this.hoveredIndex ? HOVER_SCALE : 1;
+			item.mesh.scale.set(
+				(this.params.planeWidth / 2) * hoverScale,
+				(this.params.planeHeight / 2) * hoverScale,
+				1
+			);
 			// [VERIFY-API #3] orients the plane's video-facing (+Z-normal) side
 			// toward the camera — see header note #3.
 			item.mesh.lookAt(camera.position);
@@ -327,10 +353,9 @@ export class CarouselScene {
 	handlePointerMove(e) {
 		const index = this.hitTest(e);
 		if (index === this.hoveredIndex) return;
-		if (this.hoveredIndex != null) this.setHoverScale(this.hoveredIndex, false);
 		this.hoveredIndex = index;
-		if (index != null) this.setHoverScale(index, true);
-		else setExternalMagneticTarget(null); // hover-out: release the cursor now
+		// hover-out: release the cursor now (scale is applied in layout()).
+		if (index == null) setExternalMagneticTarget(null);
 		// Plain CSS hook + DOM-inspectable QA signal (the WebGPU canvas can't be
 		// read back from a page-level probe).
 		document.documentElement.classList.toggle('carousel-hovering', index != null);
@@ -343,20 +368,6 @@ export class CarouselScene {
 		this.onNavigate?.(this.items[index].teaser.href);
 	}
 
-	setHoverScale(index, hovered) {
-		const item = this.items[index];
-		if (!item) return;
-		// Base scale is HALVED (geometry is a 2x2 quad — header note #1); the hover
-		// scale multiplies that same halved base so the plane grows about its own
-		// centre without changing the /2 convention layout()/createItem() rely on.
-		const scale = hovered ? 1.08 : 1;
-		item.mesh.scale.set(
-			(this.params.planeWidth / 2) * scale,
-			(this.params.planeHeight / 2) * scale,
-			1
-		);
-	}
-
 	setActive(isActive) {
 		if (this.active === isActive) return;
 		this.active = isActive;
@@ -366,7 +377,8 @@ export class CarouselScene {
 		// plane would otherwise stay scaled up and the cursor stranded morphed
 		// around a plane that's about to be hidden.
 		if (!isActive && this.hoveredIndex != null) {
-			this.setHoverScale(this.hoveredIndex, false);
+			// Clearing hoveredIndex is enough to drop the hover scale — layout()
+			// derives it from this field every frame.
 			this.hoveredIndex = null;
 			setExternalMagneticTarget(null);
 			document.documentElement.classList.remove('carousel-hovering');
