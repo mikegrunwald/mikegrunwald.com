@@ -185,6 +185,11 @@ export class CarouselScene {
 			// any featured-entry count, where a fixed angle would look generous at
 			// 5 entries and cramped at 12.
 			ringGap: 0.1,
+			// Most of the visible frustum a single teaser may fill, once the
+			// frustum is the binding constraint (portrait/narrow viewports). On a
+			// wide desktop viewport ring tiling binds instead and this does
+			// nothing — which makes it effectively the MOBILE size control.
+			frustumFit: 0.9,
 			// Manual radius, used only when autoRadius is false.
 			ringRadius: 4,
 			// World Z of the ring CENTER, defaulting to the camera's own Z so the
@@ -377,15 +382,25 @@ export class CarouselScene {
 		// Recomputed every frame off the live params so the panel's planeWidth and
 		// ringGap sliders stay honest, and so a change in featured-entry count
 		// needs no hand-tuning at all.
+		// Viewport aspect from the renderer's CSS-px rect (the same rect the
+		// raycaster uses). Guarded: a zero height would make the aspect
+		// non-finite, and computeRingRadius then falls back to ring tiling alone
+		// rather than emitting a garbage radius.
+		const camera = this.engine.curtains.renderer.camera;
+		const bounds = this.engine.curtains.renderer.boundingRect;
+		const aspect = bounds?.height > 0 ? bounds.width / bounds.height : 0;
 		const baseRadius = this.params.autoRadius
 			? computeRingRadius({
 					planeWidth: this.params.planeWidth,
+					planeHeight: this.params.planeHeight,
 					count: n,
-					gap: this.params.ringGap
+					gap: this.params.ringGap,
+					fovDeg: camera.fov,
+					aspect,
+					fit: this.params.frustumFit
 				})
 			: this.params.ringRadius;
 		const radius = baseRadius + this.velocitySmoothed;
-		const camera = this.engine.curtains.renderer.camera;
 		for (const item of this.items) {
 			// `n` rather than the item's own captured `count`, so the angular
 			// spacing and the radius above are always derived from the same

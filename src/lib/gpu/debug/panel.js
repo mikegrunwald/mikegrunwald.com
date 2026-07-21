@@ -201,6 +201,10 @@ export async function maybeCreatePanel({
 		// Fraction of each slot left empty between teasers. Proportional by
 		// construction — the gap reads the same relative to a teaser at any count.
 		carousel.addBinding(proxy, 'ringGap', { min: 0, max: 0.5, step: 0.005 });
+		// How much of the visible frustum one teaser may fill. Only bites when the
+		// frustum is the binding constraint (portrait/narrow viewports), so in
+		// practice this is the mobile size control — ringGap has no effect there.
+		carousel.addBinding(proxy, 'frustumFit', { min: 0.3, max: 1, step: 0.01 });
 		carousel.addBinding(proxy, 'ringRadius', { min: 1, max: 10 });
 		// Ring-centre world Z. 10 == camera position (viewer at the ring's centre);
 		// lower values push the centre ahead of the viewer. See CarouselScene.js.
