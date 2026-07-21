@@ -74,6 +74,14 @@ fn main(fsInput: VSOutput) -> @location(0) vec4f {
   // is exactly what happened.
   let video = textureSampleBaseClampToEdge(videoTexture, videoSampler, videoUv);
 
+  // Vertical darkening, matching ProjectHeader's :after gradient on the work
+  // detail pages. Symmetric about the midpoint: darkest at top and bottom,
+  // lightest in the middle. abs(uv.y - 0.5) * 2 gives 1 at both edges and 0 at
+  // the centre, so one mix reproduces the three-stop CSS gradient exactly.
+  let edgeT = abs(fsInput.uv.y - 0.5) * 2.0;
+  let darkness = mix(params.gradientMid, params.gradientEdge, edgeT);
+  let graded = video.rgb * (1.0 - darkness);
+
   let d = sdRoundedBox(p, params.videoHalf, params.cornerRadius);
 
   // Antialias across roughly one pixel. fwidth(d) is the screen-space rate of
@@ -88,7 +96,7 @@ fn main(fsInput: VSOutput) -> @location(0) vec4f {
   // fill mask above then trims its outer half so the border never extends past
   // the video's silhouette.
   let border = (1.0 - smoothstep(params.borderWidth - aa, params.borderWidth + aa, abs(d))) * fill;
-  let rgb = mix(video.rgb, GLOW_COLOR, border);
+  let rgb = mix(graded, GLOW_COLOR, border);
 
   // Outer glow: falls off with distance OUTSIDE the shape (d > 0). Squared
   // falloff rather than linear so it reads closer to a Gaussian box-shadow.

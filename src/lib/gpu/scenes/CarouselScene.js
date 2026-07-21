@@ -202,6 +202,12 @@ export class CarouselScene {
 			glowStrength: 0.6,
 			// Multiplier applied to glowStrength for the hovered item.
 			hoverGlowBoost: 1.8,
+			// Vertical darkening overlay, mirroring ProjectHeader's :after
+			// gradient on the work detail pages (src/lib/components/
+			// ProjectHeader.svelte): rgba(0,0,0,0.95) at both edges easing to
+			// rgba(0,0,0,0.666) at the midpoint.
+			gradientEdge: 0.95,
+			gradientMid: 0.666,
 			rotationsPerScroll: 1,
 			velocityGain: 0.6,
 			velocitySmoothing: 6, // per-second lerp rate, Task 5
@@ -312,7 +318,9 @@ export class CarouselScene {
 						glowRadius: { type: 'f32', value: this.params.glowRadius },
 						glowInset: { type: 'f32', value: this.params.glowInset },
 						glowStrength: { type: 'f32', value: this.params.glowStrength },
-						hover: { type: 'f32', value: 0 }
+						hover: { type: 'f32', value: 0 },
+						gradientEdge: { type: 'f32', value: this.params.gradientEdge },
+						gradientMid: { type: 'f32', value: this.params.gradientMid }
 					}
 				}
 			},
@@ -383,6 +391,8 @@ export class CarouselScene {
 			u.glowInset.value = this.params.glowInset;
 			u.glowStrength.value = this.params.glowStrength;
 			u.hover.value = item.hoverWeight * this.params.hoverGlowBoost;
+			u.gradientEdge.value = this.params.gradientEdge;
+			u.gradientMid.value = this.params.gradientMid;
 			// [VERIFY-API #3] orients the plane's video-facing (+Z-normal) side
 			// toward the camera — see header note #3.
 			item.mesh.lookAt(camera.position);
