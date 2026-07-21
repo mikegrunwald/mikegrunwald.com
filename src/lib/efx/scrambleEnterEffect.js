@@ -27,6 +27,7 @@ export class ScrambleEnterEffect {
 
 		this.element = element;
 		this.tween = null;
+		this.original = null;
 		// ScrambleTextPlugin rewrites textContent frame by frame, so a second effect
 		// constructed on this element mid-tween would capture a half-scrambled string
 		// and then resolve the element to it permanently. Cache the pristine value on
@@ -37,6 +38,7 @@ export class ScrambleEnterEffect {
 		// Nothing to resolve, and an empty scramble target throws.
 		if (!original) return;
 
+		this.original = original;
 		element.dataset.scrambleOriginal = original;
 
 		if (prefersReducedMotion()) {
@@ -69,5 +71,16 @@ export class ScrambleEnterEffect {
 		this.tween?.scrollTrigger?.kill();
 		this.tween?.kill();
 		this.tween = null;
+
+		// Nothing was ever cached in the empty-text case (constructor's first
+		// early return) — there is nothing to restore or remove.
+		if (this.original === null) return;
+
+		// Restore the DOM: leaving whatever random glyphs were on screen mid-tween
+		// behind, and leaving data-scramble-original on the element, is the same
+		// class of bug BlurScrollEffect.destroy() avoids via split.revert().
+		this.element.textContent = this.original;
+		delete this.element.dataset.scrambleOriginal;
+		this.original = null;
 	}
 }
