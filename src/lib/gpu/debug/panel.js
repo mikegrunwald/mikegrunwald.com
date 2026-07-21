@@ -197,6 +197,11 @@ export async function maybeCreatePanel({
 		// silently shrink the real param the first time the slider is touched.
 		carousel.addBinding(proxy, 'planeWidth', { min: 0.4, max: 8 });
 		carousel.addBinding(proxy, 'planeHeight', { min: 0.3, max: 5 });
+		// World-unit padding around the video for the glow to draw into. Max is
+		// far above the 0.15 default because Tweakpane CLAMPS writes to the bound
+		// range — a max at or below the default silently shrinks the real value
+		// the first time the slider is touched.
+		carousel.addBinding(proxy, 'glowPad', { min: 0, max: 1, step: 0.005 });
 		carousel.addBinding(proxy, 'rotationsPerScroll', { min: 0.25, max: 4 });
 		carousel.addBinding(proxy, 'velocityGain', { min: 0, max: 3 });
 		carousel.addBinding(proxy, 'velocitySmoothing', { min: 0.5, max: 20 });

@@ -27,6 +27,18 @@ struct VSOutput {
 
 @fragment
 fn main(fsInput: VSOutput) -> @location(0) vec4f {
+  // The quad is LARGER than the video (params.quadHalf vs params.videoHalf) so
+  // later work has room to draw outside the video's edge. Convert uv into
+  // plane-local WORLD units first — doing the geometry in world units rather
+  // than normalized uv keeps corners circular on a non-square plane, instead of
+  // stretching with the aspect ratio.
+  let p = (fsInput.uv - vec2f(0.5)) * 2.0 * params.quadHalf;
+
+  // Video uv: p mapped back into 0..1 across the video's extent only. Outside
+  // the video this goes beyond 0..1, which is why the region is masked below
+  // rather than relying on the sampler's clamp.
+  let videoUv = (p / params.videoHalf) * 0.5 + vec2f(0.5);
+
   // MUST be textureSampleBaseClampToEdge, NOT textureSample.
   //
   // gpu-curtains binds a video MediaTexture as WGSL \`texture_external\`
@@ -43,6 +55,15 @@ fn main(fsInput: VSOutput) -> @location(0) vec4f {
   // render(), so the rAF is NEVER re-armed and the ENTIRE canvas freezes on its
   // last frame, taking the fluid and hero particles down with it. Verified: this
   // is exactly what happened.
-  return textureSampleBaseClampToEdge(videoTexture, videoSampler, fsInput.uv);
+  let video = textureSampleBaseClampToEdge(videoTexture, videoSampler, videoUv);
+
+  // Hard rectangular mask for now — Task 4 replaces this with a rounded-box SDF.
+  let inside = step(abs(p.x), params.videoHalf.x) * step(abs(p.y), params.videoHalf.y);
+  let alpha = inside;
+
+  // PREMULTIPLIED alpha — the convention every transparent surface in this
+  // codebase uses (FluidScene, LogoParticlesScene, GrainPass). Returning
+  // straight alpha here produces a bright fringe where the video meets the pad.
+  return vec4f(video.rgb * alpha, alpha);
 }
 `;

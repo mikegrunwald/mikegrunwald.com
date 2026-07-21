@@ -119,6 +119,7 @@
 
 import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster } from 'gpu-curtains';
 import { CAROUSEL_VERTEX, CAROUSEL_FRAGMENT } from '../carousel/shaders/carousel.wgsl.js';
+import { computeQuadGeometry } from '../carousel/quadGeometry.js';
 
 // Hover growth factor, applied on top of the params-derived base scale in
 // layout(). Kept here rather than inline so the hover and base scale can never
@@ -173,6 +174,13 @@ export class CarouselScene {
 			// 16:9 is preserved (3.6 / 1.7778 = 2.025) to match the source videos.
 			planeWidth: isMobile ? 2.6 : 3.6,
 			planeHeight: isMobile ? 1.46 : 2.03,
+			// World-unit padding added around the video on every side, so the
+			// fragment shader has somewhere to draw the outer glow. Default is
+			// ~2x the 16px glow blur converted to world units (16/782 * 3.6 =
+			// 0.074), giving the falloff room to reach zero before the quad edge.
+			// 782px is the plane's on-screen width at a 1440px viewport, from
+			// its NDC half-width tan(24.2deg)/tan(39.65deg) = 0.543.
+			glowPad: 0.15,
 			rotationsPerScroll: 1,
 			velocityGain: 0.6,
 			velocitySmoothing: 6, // per-second lerp rate, Task 5
@@ -242,20 +250,40 @@ export class CarouselScene {
 		// [VERIFY-API #1] plain (non-DOM-synced) Mesh + PlaneGeometry. No
 		// `transparent: true` — [VERIFY-API #5], stays in the opaque
 		// renderOrder-only sort bucket.
+		const geo = computeQuadGeometry(this.params);
 		const mesh = new Mesh(this.engine.curtains, {
 			label: `carousel-plane-${index}`,
 			geometry: new PlaneGeometry(),
+			// The quad now extends past the video (glowPad) and the shader writes
+			// alpha < 1 there, so this can no longer live in the opaque bucket.
+			// Moves the mesh from Scene.mjs's opaque PROJECTED category to the
+			// transparent PROJECTED one, which adds a per-frame Z sort. Safe for
+			// this ring: at 72deg spacing with 48.4deg-wide planes no two items
+			// ever overlap on screen, so blend order cannot produce artifacts.
+			transparent: true,
 			shaders: {
 				vertex: { code: CAROUSEL_VERTEX },
 				fragment: { code: CAROUSEL_FRAGMENT }
+			},
+			uniforms: {
+				params: {
+					struct: {
+						// Half-extents in world units, measured from the plane
+						// centre. quadHalf converts uv into plane-local world
+						// coordinates; videoHalf is where the video actually sits
+						// inside that quad.
+						quadHalf: { type: 'vec2f', value: [geo.quadHalfX, geo.quadHalfY] },
+						videoHalf: { type: 'vec2f', value: [geo.videoHalfX, geo.videoHalfY] }
+					}
+				}
 			},
 			textures: [texture],
 			samplers: [sampler]
 		});
 		// [VERIFY-API #1] PlaneGeometry's native vertex range is -1..1 (2x2
-		// quad), so scale must be HALVED to get an on-screen size of exactly
-		// planeWidth x planeHeight world units — see header note.
-		mesh.scale.set(this.params.planeWidth / 2, this.params.planeHeight / 2, 1);
+		// quad), so scale is HALF the world size — computeQuadGeometry already
+		// returns it halved. See header note and quadGeometry.js.
+		mesh.scale.set(geo.meshScaleX, geo.meshScaleY, 1);
 
 		item.mesh = mesh;
 		return item;
@@ -296,11 +324,15 @@ export class CarouselScene {
 			// nothing until you happened to hover a plane. Hover is folded in here
 			// (rather than writing scale from two places) so the two can't fight.
 			const hoverScale = item.index === this.hoveredIndex ? HOVER_SCALE : 1;
-			item.mesh.scale.set(
-				(this.params.planeWidth / 2) * hoverScale,
-				(this.params.planeHeight / 2) * hoverScale,
-				1
-			);
+			const geo = computeQuadGeometry(this.params);
+			item.mesh.scale.set(geo.meshScaleX * hoverScale, geo.meshScaleY * hoverScale, 1);
+			// The uniforms stay UNSCALED by hover: hover grows the whole plane via
+			// mesh.scale, and the shader works in the plane's own local space, so
+			// scaling these too would double-apply the hover and shrink the video
+			// inside its own quad.
+			const u = item.mesh.uniforms.params;
+			u.quadHalf.value = [geo.quadHalfX, geo.quadHalfY];
+			u.videoHalf.value = [geo.videoHalfX, geo.videoHalfY];
 			// [VERIFY-API #3] orients the plane's video-facing (+Z-normal) side
 			// toward the camera — see header note #3.
 			item.mesh.lookAt(camera.position);
