@@ -27,12 +27,17 @@ export class ScrambleEnterEffect {
 
 		this.element = element;
 		this.tween = null;
-		// Captured before the plugin ever touches textContent. Reading it later
-		// would capture a half-scrambled string as the target.
-		const original = element.textContent;
+		// ScrambleTextPlugin rewrites textContent frame by frame, so a second effect
+		// constructed on this element mid-tween would capture a half-scrambled string
+		// and then resolve the element to it permanently. Cache the pristine value on
+		// first sight so every later construction recovers the real text, not whatever
+		// the previous tween happened to be displaying.
+		const original = element.dataset.scrambleOriginal ?? element.textContent;
 
 		// Nothing to resolve, and an empty scramble target throws.
 		if (!original) return;
+
+		element.dataset.scrambleOriginal = original;
 
 		if (prefersReducedMotion()) {
 			// Already correct in the DOM — no animation, and crucially nothing to
