@@ -126,6 +126,9 @@ import { computeQuadGeometry } from '../carousel/quadGeometry.js';
 // drift apart.
 const HOVER_SCALE = 1.08;
 
+// Per-second exponential rate for the hover glow ease. Roughly a 150ms settle.
+const HOVER_EASE_RATE = 12;
+
 // Elements whose clicks must never fall through to a ring navigation — see
 // handleClick. Deliberately broad: anything focusable/actionable, plus
 // Tweakpane's wrapper (`.tp-dfwv`), whose sliders are plain divs and so match
@@ -189,6 +192,16 @@ export class CarouselScene {
 			cornerRadius: 0.015,
 			// World units, ~1px at the same reference viewport (1/782 * 3.6).
 			borderWidth: 0.004,
+			// World units. 16px outer blur at the 1440px reference viewport
+			// (16/782 * 3.6), matching .media's `box-shadow: 0 0 16px`.
+			glowRadius: 0.074,
+			// World units. 12px inner blur, matching `inset 0 0 12px`.
+			glowInset: 0.055,
+			// Base glow opacity at rest. The glow is ALWAYS on (matching the
+			// detail page's .media), not hover-only.
+			glowStrength: 0.6,
+			// Multiplier applied to glowStrength for the hovered item.
+			hoverGlowBoost: 1.8,
 			rotationsPerScroll: 1,
 			velocityGain: 0.6,
 			velocitySmoothing: 6, // per-second lerp rate, Task 5
@@ -235,7 +248,19 @@ export class CarouselScene {
 			name: 'videoTexture'
 		});
 
-		const item = { teaser, index, count, mesh: null, texture, sampler, playing: false };
+		const item = {
+			teaser,
+			index,
+			count,
+			mesh: null,
+			texture,
+			sampler,
+			playing: false,
+			// Eased 0..1 hover weight driving the glow boost. Stepping it
+			// instantly makes the glow snap on and off, which reads as a bug
+			// rather than as feedback.
+			hoverWeight: 0
+		};
 
 		// [VERIFY-API #2] Registered before loadVideo() so the synchronous
 		// already-ready path still fires it. Callback receives the real
@@ -283,7 +308,11 @@ export class CarouselScene {
 						quadHalf: { type: 'vec2f', value: [geo.quadHalfX, geo.quadHalfY] },
 						videoHalf: { type: 'vec2f', value: [geo.videoHalfX, geo.videoHalfY] },
 						cornerRadius: { type: 'f32', value: this.params.cornerRadius },
-						borderWidth: { type: 'f32', value: this.params.borderWidth }
+						borderWidth: { type: 'f32', value: this.params.borderWidth },
+						glowRadius: { type: 'f32', value: this.params.glowRadius },
+						glowInset: { type: 'f32', value: this.params.glowInset },
+						glowStrength: { type: 'f32', value: this.params.glowStrength },
+						hover: { type: 'f32', value: 0 }
 					}
 				}
 			},
@@ -299,7 +328,7 @@ export class CarouselScene {
 		return item;
 	}
 
-	layout() {
+	layout(dt = 0) {
 		const n = this.items.length;
 		if (!n) return;
 		const radius = this.params.ringRadius + this.velocitySmoothed;
@@ -345,6 +374,15 @@ export class CarouselScene {
 			u.videoHalf.value = [geo.videoHalfX, geo.videoHalfY];
 			u.cornerRadius.value = this.params.cornerRadius;
 			u.borderWidth.value = this.params.borderWidth;
+			// Frame-rate-independent ease toward the hover target, same
+			// exponential form as velocitySmoothed above.
+			const hoverTarget = item.index === this.hoveredIndex ? 1 : 0;
+			const hoverRate = 1 - Math.exp(-HOVER_EASE_RATE * dt);
+			item.hoverWeight += (hoverTarget - item.hoverWeight) * hoverRate;
+			u.glowRadius.value = this.params.glowRadius;
+			u.glowInset.value = this.params.glowInset;
+			u.glowStrength.value = this.params.glowStrength;
+			u.hover.value = item.hoverWeight * this.params.hoverGlowBoost;
 			// [VERIFY-API #3] orients the plane's video-facing (+Z-normal) side
 			// toward the camera — see header note #3.
 			item.mesh.lookAt(camera.position);
@@ -477,7 +515,7 @@ export class CarouselScene {
 		const rate = 1 - Math.exp(-this.params.velocitySmoothing * dt);
 		this.velocitySmoothed += (target - this.velocitySmoothed) * rate;
 
-		this.layout();
+		this.layout(dt);
 	}
 
 	destroy() {

@@ -204,6 +204,10 @@ export async function maybeCreatePanel({
 		carousel.addBinding(proxy, 'glowPad', { min: 0, max: 1, step: 0.005 });
 		carousel.addBinding(proxy, 'cornerRadius', { min: 0, max: 0.3, step: 0.001 });
 		carousel.addBinding(proxy, 'borderWidth', { min: 0, max: 0.05, step: 0.001 });
+		carousel.addBinding(proxy, 'glowRadius', { min: 0, max: 0.5, step: 0.002 });
+		carousel.addBinding(proxy, 'glowInset', { min: 0, max: 0.5, step: 0.002 });
+		carousel.addBinding(proxy, 'glowStrength', { min: 0, max: 3, step: 0.01 });
+		carousel.addBinding(proxy, 'hoverGlowBoost', { min: 0, max: 5, step: 0.05 });
 		carousel.addBinding(proxy, 'rotationsPerScroll', { min: 0.25, max: 4 });
 		carousel.addBinding(proxy, 'velocityGain', { min: 0, max: 3 });
 		carousel.addBinding(proxy, 'velocitySmoothing', { min: 0.5, max: 20 });

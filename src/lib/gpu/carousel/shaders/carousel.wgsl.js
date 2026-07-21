@@ -89,11 +89,37 @@ fn main(fsInput: VSOutput) -> @location(0) vec4f {
   // the video's silhouette.
   let border = (1.0 - smoothstep(params.borderWidth - aa, params.borderWidth + aa, abs(d))) * fill;
   let rgb = mix(video.rgb, GLOW_COLOR, border);
-  let alpha = fill;
+
+  // Outer glow: falls off with distance OUTSIDE the shape (d > 0). Squared
+  // falloff rather than linear so it reads closer to a Gaussian box-shadow.
+  let outerT = 1.0 - clamp(d / max(params.glowRadius, 1e-5), 0.0, 1.0);
+  let outer = outerT * outerT * (1.0 - fill);
+
+  // Inset glow: mirrors it inside the shape (d < 0), brightest at the edge.
+  let innerT = 1.0 - clamp(-d / max(params.glowInset, 1e-5), 0.0, 1.0);
+  let inner = innerT * innerT * fill;
+
+  // hover already carries hoverGlowBoost from the scene, so it is an additive
+  // multiplier on top of the resting strength rather than a replacement.
+  let strength = params.glowStrength * (1.0 + params.hover);
+
+  // The inset glow brightens pixels the video already covers; the outer glow
+  // adds coverage where there was none, so only it contributes alpha.
+  let litRgb = rgb + GLOW_COLOR * inner * strength;
+  let outerA = clamp(outer * strength, 0.0, 1.0);
+  let alpha = clamp(fill + outerA, 0.0, 1.0);
+
+  // Composite the outer glow's colour in proportionally to the alpha it added,
+  // so the pad region is glow-coloured and the video region is unaffected.
+  let rgbOut = select(
+    (litRgb * fill + GLOW_COLOR * outerA) / max(alpha, 1e-5),
+    litRgb,
+    alpha <= 0.0
+  );
 
   // PREMULTIPLIED alpha — the convention every transparent surface in this
   // codebase uses (FluidScene, LogoParticlesScene, GrainPass). Returning
   // straight alpha here produces a bright fringe where the video meets the pad.
-  return vec4f(rgb * alpha, alpha);
+  return vec4f(rgbOut * alpha, alpha);
 }
 `;
