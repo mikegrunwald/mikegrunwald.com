@@ -4,6 +4,15 @@ html {
   scroll-behavior: smooth;
 }
 
+// Set by CarouselScene while a ring teaser is under the pointer. The teasers
+// are WebGPU meshes, not DOM elements, so there is nothing to put a :hover
+// cursor on — the class on <html> is the only hook. Applied here rather than
+// to the canvas because the canvas sits behind all page content and is not
+// the hovered element.
+html.carousel-hovering {
+  cursor: pointer;
+}
+
 
 body {
   // background-image: url("/images/noise.png");

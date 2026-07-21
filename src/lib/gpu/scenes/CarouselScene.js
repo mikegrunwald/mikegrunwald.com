@@ -127,8 +127,11 @@ import { composeRotation } from '../carousel/scrollModel.js';
 // drift apart.
 const HOVER_SCALE = 1.08;
 
-// Per-second exponential rate for the hover glow ease. Roughly a 150ms settle.
-const HOVER_EASE_RATE = 12;
+// Per-second exponential rate for the hover ease, driving BOTH the scale and
+// the glow off one weight so they can't drift apart. 8 is a ~250ms settle —
+// slower than the 12 the glow alone used, because a scale change reads as
+// jumpy at a rate the glow got away with.
+const HOVER_EASE_RATE = 8;
 
 // Elements whose clicks must never fall through to a ring navigation — see
 // handleClick. Deliberately broad: anything focusable/actionable, plus
@@ -215,11 +218,14 @@ export class CarouselScene {
 			gradientEdge: 0.95,
 			gradientMid: 0.666,
 			rotationsPerScroll: 1,
-			// Turns contributed by the approach (section entering the viewport ->
-			// pin engaging). 0.2 of a turn is 72deg — exactly one item slot at 5
-			// items — so the first teaser sweeps in from the frustum edge and
-			// lands centred as the pin engages.
-			preRollTurns: 0.2,
+			// Turns contributed by the approach (see the approach trigger in
+			// +layout.svelte). Chosen so the ANGULAR RATE matches the pinned
+			// section's exactly, making the handover velocity-continuous rather
+			// than just position-continuous: the pin turns 1 rotation over ~200vh
+			// (1.8deg/vh), and the approach spans 20vh, so 20 * 1.8 = 36deg =
+			// 0.1 turns. Raising this makes the ring visibly accelerate into the
+			// pin; lowering it makes it stall.
+			preRollTurns: 0.1,
 			velocityGain: 0.6,
 			velocitySmoothing: 6, // per-second lerp rate, Task 5
 			maxVelocityBoost: 1.2
@@ -381,8 +387,16 @@ export class CarouselScene {
 			// touched again by setHoverScale, so dragging the sliders changed
 			// nothing until you happened to hover a plane. Hover is folded in here
 			// (rather than writing scale from two places) so the two can't fight.
-			const hoverScale = item.index === this.hoveredIndex ? HOVER_SCALE : 1;
 			const geo = computeQuadGeometry(this.params);
+			// Ease the hover weight FIRST, then derive scale from it. This used to
+			// be a hard `index === hoveredIndex ? HOVER_SCALE : 1`, which snapped
+			// the plane between two sizes in a single frame and read as a glitch.
+			// The glow was already eased off this same weight, so scale and glow
+			// now move together instead of one jumping ahead of the other.
+			const hoverTarget = item.index === this.hoveredIndex ? 1 : 0;
+			const hoverRate = 1 - Math.exp(-HOVER_EASE_RATE * dt);
+			item.hoverWeight += (hoverTarget - item.hoverWeight) * hoverRate;
+			const hoverScale = 1 + (HOVER_SCALE - 1) * item.hoverWeight;
 			item.mesh.scale.set(geo.meshScaleX * hoverScale, geo.meshScaleY * hoverScale, 1);
 			// The uniforms stay UNSCALED by hover: hover grows the whole plane via
 			// mesh.scale, and the shader works in the plane's own local space, so
@@ -393,11 +407,6 @@ export class CarouselScene {
 			u.videoHalf.value = [geo.videoHalfX, geo.videoHalfY];
 			u.cornerRadius.value = this.params.cornerRadius;
 			u.borderWidth.value = this.params.borderWidth;
-			// Frame-rate-independent ease toward the hover target, same
-			// exponential form as velocitySmoothed above.
-			const hoverTarget = item.index === this.hoveredIndex ? 1 : 0;
-			const hoverRate = 1 - Math.exp(-HOVER_EASE_RATE * dt);
-			item.hoverWeight += (hoverTarget - item.hoverWeight) * hoverRate;
 			u.glowRadius.value = this.params.glowRadius;
 			u.glowInset.value = this.params.glowInset;
 			u.glowStrength.value = this.params.glowStrength;

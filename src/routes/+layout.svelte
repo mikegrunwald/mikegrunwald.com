@@ -51,6 +51,32 @@
 	// progress is still >= 1 and wrap repeatedly in a single frame.
 	let wrappingRunway = false;
 
+	// Teleports scroll back to the start of the pinned runway, making downward
+	// scrolling loop forever. Invisible because the runway is exactly one
+	// rotation, so progress 0 and progress 1 are the same ring orientation.
+	function wrapRunway(self) {
+		if (wrappingRunway) return;
+		// `self.start` is the document scroll position where the pin engages —
+		// i.e. progress 0 — so this is the runway's start, not the section's top.
+		// Land 1px INSIDE the runway rather than exactly on the boundary, where
+		// ScrollTrigger could immediately read us as "before the trigger" and
+		// unpin. At a ~1400px runway that is under a quarter degree of rotation.
+		const startY = self.start + 1;
+		if (!Number.isFinite(startY)) return;
+		wrappingRunway = true;
+		carouselScene?.suppressVelocity();
+		// MUST go through Lenis, not window.scrollTo: Lenis owns the scroll
+		// position under `root: true` and would smoothly animate straight back to
+		// where it was. `immediate` skips its easing; `force` overrides any
+		// in-flight scrollTo.
+		lenis.current?.scrollTo(startY, { immediate: true, force: true });
+		// Release on the next frame rather than synchronously — the scrollTo
+		// above re-enters ScrollTrigger.update() before it returns.
+		requestAnimationFrame(() => {
+			wrappingRunway = false;
+		});
+	}
+
 	// Carousel raycast hover index (Task 6). Driven by CarouselScene's onHover
 	// callback, consumed by WorkTeasers.svelte's DOM label. WorkTeasers lives in
 	// +page.svelte, not here, so it's exposed via context rather than a prop
@@ -232,38 +258,34 @@
 					pin: true,
 					onUpdate: (self) => {
 						carouselScene?.setProgress(self.progress);
-						if (wrappingRunway || !shouldLoopRunway(self)) return;
-						// `self.start` is the document scroll position where the pin
-						// engages — i.e. progress 0 — so this is the runway's start,
-						// not the section's top.
-						const startY = self.start;
-						if (!Number.isFinite(startY)) return;
-						wrappingRunway = true;
-						carouselScene?.suppressVelocity();
-						// MUST go through Lenis, not window.scrollTo: Lenis owns the
-						// scroll position under `root: true` and would smoothly
-						// animate straight back to where it was. `immediate` skips
-						// its easing; `force` overrides any in-flight scrollTo.
-						lenis.current?.scrollTo(startY, { immediate: true, force: true });
-						// Release on the next frame rather than synchronously — the
-						// scrollTo above re-enters ScrollTrigger.update() before it
-						// returns.
-						requestAnimationFrame(() => {
-							wrappingRunway = false;
-						});
+						// Fast path: catches the case where scrolling lands exactly on
+						// progress 1 without crossing the end. onLeave below is the
+						// path that actually fires most of the time.
+						if (shouldLoopRunway(self)) wrapRunway(self);
 					},
-					onLeave: () => carouselScene?.setActive(false),
-					onLeaveBack: () => carouselScene?.setActive(false)
+					// THE wrap trigger. onUpdate only fires while between start and
+					// end, and under smooth scrolling its last call is typically at
+					// progress < 1 — so relying on it alone meant the wrap never ran
+					// and scrolling down simply fell off the end of the page. onLeave
+					// is guaranteed to fire when crossing the end going forward.
+					onLeave: (self) => wrapRunway(self)
+					// No setActive here. The approach trigger owns activation now:
+					// leaving the pin FORWARD wraps (so the ring must stay live), and
+					// leaving it BACKWARD lands in the approach zone where the ring
+					// is still supposed to be visible.
 				});
-				// Approach trigger: scrubs 0..1 from the moment the section's top
-				// enters the viewport bottom until it reaches the viewport top —
-				// i.e. it ends exactly where the pin trigger begins. Driving a
-				// pre-roll rotation from it means the ring is already onscreen and
-				// turning before the pin engages, which is what stops the first
-				// teaser popping into the centre.
+				// Approach trigger: scrubs 0..1 over the last stretch before the pin
+				// engages, so the ring is already onscreen and turning by the time
+				// the pin takes over — which is what stops the first teaser popping
+				// into the centre.
+				//
+				// Starts at `top 20%`, NOT `top bottom`. A full-viewport approach
+				// made the ring fade up over AboutIntro's closing paragraph, so the
+				// teasers and the text fought each other. At 20% the About copy has
+				// essentially left the viewport before any teaser appears.
 				carouselPreRollTrigger = ScrollTrigger.create({
 					trigger: el,
-					start: 'top bottom',
+					start: 'top 20%',
 					end: 'top top',
 					scrub: true,
 					onUpdate: (self) => carouselScene?.setPreRoll(self.progress),

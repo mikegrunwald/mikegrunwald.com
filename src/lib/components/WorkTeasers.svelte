@@ -1,7 +1,25 @@
 <script>
-	import { getContext } from 'svelte';
+	import { getContext, onMount, onDestroy } from 'svelte';
+	import { BlurScrollEffect } from '$lib/efx/blurScrollEffect.js';
 
 	let { teasers = [], hoveredIndex = null } = $props();
+
+	let heading;
+	// Retained for teardown. BlurScrollEffect implicitly creates a ScrollTrigger
+	// that GSAP keeps in its own global registry, so dropping the reference
+	// leaks one trigger per visit to this page — the same bug AboutIntro had.
+	let headingEffect;
+
+	onMount(() => {
+		headingEffect = new BlurScrollEffect(heading);
+	});
+
+	onDestroy(() => {
+		// Also covers unmounting before document.fonts.ready resolves: destroy()
+		// sets a flag the pending init checks, so no trigger is created after this.
+		headingEffect?.destroy();
+		headingEffect = undefined;
+	});
 
 	// The layout provides the live raycast hover index via context (Task 6);
 	// outside the layout (isolated dev/test render) it's absent, so fall back to
@@ -15,6 +33,10 @@
 </script>
 
 <section class="work-teasers" data-gpu-carousel aria-label="Featured work">
+	<!-- h2 carrying the .h1 type scale, per the same pattern AboutIntro uses.
+	     `.display` is the hook BlurScrollEffect splits and animates. -->
+	<h2 class="work-teasers__title h1 display" bind:this={heading}>Featured Work</h2>
+
 	<ul class="work-teasers__list sr-only">
 		{#each teasers as teaser (teaser.slug)}
 			<li>
@@ -40,6 +62,23 @@
 		   through its full range while the user scrolls through this height.
 		   Tuned here, not left to ScrollTrigger's end-of-content default. */
 		height: 300vh;
+	}
+
+	.work-teasers__title {
+		/* The section is pinned by ScrollTrigger for the whole rotation, so the
+		   heading is carried along with it and holds its position without any
+		   position: sticky of its own. Left-aligned to match AboutIntro's
+		   headings. pointer-events: none so it never swallows a click meant for
+		   the ring behind it. */
+		position: relative;
+		z-index: 2;
+		margin: 0;
+		padding: var(--spacing-base) var(--spacing-base) 0;
+		pointer-events: none;
+
+		@media (max-width: 768px) {
+			padding: var(--spacing-base) var(--spacing-xs) 0;
+		}
 	}
 
 	.work-teasers__label {
