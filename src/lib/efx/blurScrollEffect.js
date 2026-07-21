@@ -9,19 +9,29 @@ export class BlurScrollEffect {
     }
 
     this.textElement = textElement;
+    this.destroyed = false;
+    this.split = null;
+    // onSplit fires again on every re-split (autoSplit re-splits on resize and
+    // font swaps), each time creating a NEW tween + ScrollTrigger, so collect
+    // them all rather than keeping only the latest.
+    this.tweens = new Set();
 
     document.fonts.ready.then(() => {
+      // The component can unmount before fonts resolve. Without this guard the
+      // effect would still initialize, splitting and attaching a ScrollTrigger
+      // to an element that is no longer in the document.
+      if (this.destroyed) return;
       this.initializeEffect();
     });
   }
 
 
   initializeEffect() {
-    SplitText.create(this.textElement, {
+    this.split = SplitText.create(this.textElement, {
       type: 'words, chars',
       autoSplit: true,
       onSplit: (instance) => {
-        return gsap.fromTo(instance.chars, {
+        const tween = gsap.fromTo(instance.chars, {
           opacity: 0,
           // x: -20,
           // filter: 'blur(30px) brightness(0%)',
@@ -42,7 +52,30 @@ export class BlurScrollEffect {
             // markers: true
           },
         });
+        this.tweens.add(tween);
+        // Returned so SplitText reverts it before re-splitting (GSAP contract).
+        return tween;
       }
     });
+  }
+
+  // Callers MUST invoke this on unmount. Passing `scrollTrigger` to gsap.fromTo()
+  // makes GSAP implicitly create a ScrollTrigger, and nothing kills it when the
+  // component goes away — on a client-side nav away and back the old instances
+  // stayed alive (with stale positions computed against the previous document)
+  // while a fresh set was created, doubling the count on every round trip.
+  destroy() {
+    this.destroyed = true;
+    for (const tween of this.tweens) {
+      // Kill the trigger explicitly: killing a tween does not necessarily take
+      // its attached ScrollTrigger with it, and the trigger is the thing that
+      // leaks. Both calls are safe if SplitText already reverted the tween.
+      tween.scrollTrigger?.kill();
+      tween.kill();
+    }
+    this.tweens.clear();
+    // Restores the original DOM and detaches SplitText's own resize handling.
+    this.split?.revert();
+    this.split = null;
   }
 }

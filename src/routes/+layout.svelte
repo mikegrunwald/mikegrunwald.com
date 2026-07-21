@@ -302,6 +302,12 @@
 			window.__gpu = {
 				engine,
 				fluidScene,
+				// GSAP keeps a global ScrollTrigger registry that nothing else
+				// surfaces. Exposing it makes trigger leaks measurable: the count
+				// must stay CONSTANT across repeated client-side nav away-and-back,
+				// not grow. (It grew by 6 per round trip until AboutIntro started
+				// destroying its scroll effects.)
+				ScrollTrigger,
 				get logoScene() {
 					return logoScene;
 				},

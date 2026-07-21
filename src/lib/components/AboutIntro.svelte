@@ -1,20 +1,34 @@
 <script>
 	import { BlurScrollEffect } from '$lib/efx/blurScrollEffect.js';
 	import { LinesScrollEffect } from '$lib/efx/linesScrollEffect.js';
-	import { onMount, tick } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 
 	let intro;
+	// Retained so they can be torn down on unmount. Each effect implicitly
+	// creates a ScrollTrigger, which is NOT garbage collected when the component
+	// goes away — GSAP keeps its own global registry. Dropping the references
+	// leaked 6 triggers per visit: navigating away and back left the old set
+	// alive (holding stale positions measured against the previous document)
+	// alongside a fresh set, doubling on every round trip.
+	let effects = [];
 
 	onMount(async () => {
 		await tick();
 
 		intro.querySelectorAll('.display').forEach((display) => {
-			new BlurScrollEffect(display);
+			effects.push(new BlurScrollEffect(display));
 		});
 
 		intro.querySelectorAll('.lines').forEach((line) => {
-			new LinesScrollEffect(line);
+			effects.push(new LinesScrollEffect(line));
 		});
+	});
+
+	onDestroy(() => {
+		// Also covers unmounting before `document.fonts.ready` resolves — destroy()
+		// sets a flag the pending init checks, so no trigger is created after this.
+		for (const effect of effects) effect.destroy();
+		effects = [];
 	});
 </script>
 
