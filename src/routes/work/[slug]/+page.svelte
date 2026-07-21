@@ -7,6 +7,7 @@
 	import ProjectHeader from '$lib/components/ProjectHeader.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import { BlurScrollEffect } from '$lib/efx/blurScrollEffect.js';
+	import { GlowEnterEffect } from '$lib/efx/glowEnterEffect.js';
 	import { ScrambleEnterEffect } from '$lib/efx/scrambleEnterEffect.js';
 	import { StaggerEnterEffect } from '$lib/efx/staggerEnterEffect.js';
 
@@ -49,9 +50,16 @@
 			.querySelectorAll('.meta-item:not(.full-width) .scramble-target')
 			.forEach((el) => effects.push(new ScrambleEnterEffect(el)));
 
-		// Full-width groups (Tech, Awards) rise in together, one group per row so
+		// Full-width groups (Tech, Awards) enter together, one group per row so
 		// each keeps its own stagger rather than sharing one across the page.
-		metaEl.querySelectorAll('.meta-item.full-width').forEach((group) => {
+		// Awards stay fully visible and unmoved — only their logo glow blooms in
+		// — so they get GlowEnterEffect instead of the rise-and-fade used by Tech
+		// and any other full-width group.
+		metaEl.querySelectorAll('.meta-item.full-width.awards').forEach((group) => {
+			effects.push(new GlowEnterEffect(group.querySelectorAll('dd')));
+		});
+
+		metaEl.querySelectorAll('.meta-item.full-width:not(.awards)').forEach((group) => {
 			effects.push(new StaggerEnterEffect(group.querySelectorAll('dd')));
 		});
 

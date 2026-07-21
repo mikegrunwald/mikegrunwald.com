@@ -54,7 +54,7 @@
 	.logo {
 		color: var(--color-white);
 		display: block;
-		filter: drop-shadow(0px 0px 14px color-mix(in srgb, currentColor 67%, transparent));
+		filter: drop-shadow(0px 0px var(--award-glow, 14px) color-mix(in srgb, currentColor 67%, transparent));
 		margin: 0;
 		--media-height: 40px;
 		--media-width: auto;
