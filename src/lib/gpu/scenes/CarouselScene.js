@@ -287,6 +287,10 @@ export class CarouselScene {
 		// ring needs is a property of the VIEWPORT, not of the content — see
 		// syncPlanes and ringGeometry.computeRequiredPlanes.
 		this.items = [];
+		// Parallel array of just the meshes, for the raycaster. Initialized here
+		// rather than only in syncPlanes, which early-returns when there are no
+		// teasers at all and would otherwise leave this undefined.
+		this.meshes = [];
 		this.planeCount = 0;
 		this.syncPlanes();
 
@@ -386,6 +390,13 @@ export class CarouselScene {
 		// quad), so scale is HALF the world size — computeQuadGeometry already
 		// returns it halved. See header note and quadGeometry.js.
 		mesh.scale.set(geo.meshScaleX, geo.meshScaleY, 1);
+		// Match the ring's current state at birth. A Mesh defaults to visible, so
+		// a plane built while the section is inactive — which is exactly what a
+		// resize away from the carousel does — would otherwise render over
+		// whatever the user is actually looking at until the next layout() pass
+		// corrects it. That window is one frame normally, but unbounded while the
+		// engine is hidden, since update() (and therefore layout) does not run.
+		mesh.visible = this.active;
 
 		return {
 			mesh,
@@ -410,7 +421,7 @@ export class CarouselScene {
 			aspect,
 			gap: this.params.ringGap
 		});
-		const { planeCount, repeats } = computeRingPlan({
+		const { planeCount } = computeRingPlan({
 			teaserCount: this.teasers.length,
 			requiredPlanes: required
 		});
@@ -430,7 +441,9 @@ export class CarouselScene {
 		}
 		this.items = next;
 		this.planeCount = planeCount;
-		this.repeats = repeats;
+		// Cached so hitTest does not rebuild it on every pointermove. Rebuilt here
+		// because this is the only place the plane set changes.
+		this.meshes = next.map((item) => item.mesh);
 
 		for (const item of previous) item.mesh.remove();
 
@@ -467,6 +480,11 @@ export class CarouselScene {
 				})
 			: this.params.ringRadius;
 		const radius = baseRadius + this.velocitySmoothed;
+		// Hoisted out of the loop: it depends only on params, so computing it per
+		// plane allocated one object per plane per frame — 16 to 24 of them now
+		// that the plane count follows the viewport, for a value that is identical
+		// every time.
+		const geo = computeQuadGeometry(this.params);
 		for (const item of this.items) {
 			// `n` rather than the item's own captured `count`, so the angular
 			// spacing and the radius above are always derived from the same
@@ -478,10 +496,8 @@ export class CarouselScene {
 			// Defensive: a non-finite position must never reach the GPU
 			// transform — Phase 2's repeated machine-hang incidents trace to
 			// exactly this failure mode (see particlesRender.wgsl.js's clamp).
-			// Not reachable today (ringRadius/velocitySmoothed/rotation are all
-			// finite constants this task), but Task 4/5 wire real scroll/
-			// velocity input here, so the guard is added now rather than
-			// retrofitted later under time pressure.
+			// Live scroll and velocity both feed this now, so it is a real guard
+			// rather than a precaution.
 			if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
 				item.mesh.visible = false;
 				continue;
@@ -493,18 +509,15 @@ export class CarouselScene {
 			// next frame.
 			item.mesh.visible = this.active;
 			item.mesh.position.set(x, y, z);
-			// Re-apply scale every frame from params so the debug panel's
-			// planeWidth/planeHeight sliders actually do something. They were
-			// previously inert: scale was set once in createItem() and only ever
-			// touched again by setHoverScale, so dragging the sliders changed
-			// nothing until you happened to hover a plane. Hover is folded in here
-			// (rather than writing scale from two places) so the two can't fight.
-			const geo = computeQuadGeometry(this.params);
-			// Ease the hover weight FIRST, then derive scale from it. This used to
-			// be a hard `index === hoveredIndex ? HOVER_SCALE : 1`, which snapped
-			// the plane between two sizes in a single frame and read as a glitch.
-			// The glow was already eased off this same weight, so scale and glow
-			// now move together instead of one jumping ahead of the other.
+			// Scale is re-applied every frame from params, so the debug panel's
+			// planeWidth/planeHeight/glowPad sliders stay live. Hover is folded in
+			// here rather than written from a second place, so the two can't fight.
+			//
+			// Ease the hover weight FIRST, then derive scale from it. A hard
+			// `index === hoveredIndex ? HOVER_SCALE : 1` snapped the plane between
+			// two sizes in a single frame and read as a glitch. The glow rides the
+			// same weight, so scale and glow move together rather than one jumping
+			// ahead of the other.
 			const hoverTarget = item.index === this.hoveredIndex ? 1 : 0;
 			const hoverRate = 1 - Math.exp(-HOVER_EASE_RATE * dt);
 			item.hoverWeight += (hoverTarget - item.hoverWeight) * hoverRate;
@@ -598,8 +611,7 @@ export class CarouselScene {
 	hitTest(e) {
 		if (!this.active || !this.items.length) return null;
 		this.raycaster.setFromMouse(e);
-		const meshes = this.items.map((item) => item.mesh);
-		const hits = this.raycaster.intersectObjects(meshes, false);
+		const hits = this.raycaster.intersectObjects(this.meshes, false);
 		if (!hits.length) return null;
 		const hitMesh = hits[0].object; // nearest-first, sorted in Raycaster.mjs
 		const index = this.items.findIndex((item) => item.mesh === hitMesh);
@@ -790,6 +802,7 @@ export class CarouselScene {
 			item.mesh.remove();
 		}
 		this.items = [];
+		this.meshes = [];
 		this.planeCount = 0;
 	}
 }
