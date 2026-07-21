@@ -171,16 +171,22 @@ export async function maybeCreatePanel({
 
 	if (getCarouselScene) {
 		const carousel = pane.addFolder({ title: 'Carousel' });
-		// Same proxy-through-a-maybe-missing-scene pattern as Particles above. All
-		// carousel params are plain numbers, so the `?? 0` fallback is always the
-		// right control TYPE (no color binding to mis-infer) and Tweakpane v4's
-		// number read()/write() being plain obj[key] access means the Proxy traps
-		// are sufficient — no plain-object refresh fallback needed (resolved for
-		// Particles, holds identically here).
+		// Same proxy-through-a-maybe-missing-scene pattern as Particles above.
+		// Tweakpane v4's number read()/write() are plain obj[key] access, so the
+		// Proxy traps are sufficient — no plain-object refresh fallback needed
+		// (resolved for Particles, holds identically here).
+		//
+		// Tweakpane infers the control TYPE from the value present at
+		// addBinding() time, and the panel can be built before the scene exists.
+		// A bare `?? 0` would hand `autoRadius` the number 0 and build a slider
+		// for a boolean, which no later refresh repairs — the same trap the
+		// Particles folder hit with its color binding. Non-number params need a
+		// fallback of the right type here.
+		const CAROUSEL_FALLBACKS = { autoRadius: true };
 		const proxy = new Proxy(
 			{},
 			{
-				get: (_, key) => getCarouselScene()?.params?.[key] ?? 0,
+				get: (_, key) => getCarouselScene()?.params?.[key] ?? CAROUSEL_FALLBACKS[key] ?? 0,
 				set: (_, key, value) => {
 					const scene = getCarouselScene();
 					if (scene) scene.params[key] = value;
@@ -188,6 +194,11 @@ export async function maybeCreatePanel({
 				}
 			}
 		);
+		// Radius is derived from the teaser count by default (ringGeometry.js), so
+		// adding or removing featured entries needs no retuning. `ringRadius`
+		// below only takes effect once this is off.
+		carousel.addBinding(proxy, 'autoRadius');
+		carousel.addBinding(proxy, 'ringFill', { min: 0.5, max: 1.3, step: 0.01 });
 		carousel.addBinding(proxy, 'ringRadius', { min: 1, max: 10 });
 		// Ring-centre world Z. 10 == camera position (viewer at the ring's centre);
 		// lower values push the centre ahead of the viewer. See CarouselScene.js.

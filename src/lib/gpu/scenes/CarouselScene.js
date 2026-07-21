@@ -121,6 +121,7 @@ import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster } from 'gpu-curta
 import { CAROUSEL_VERTEX, CAROUSEL_FRAGMENT } from '../carousel/shaders/carousel.wgsl.js';
 import { computeQuadGeometry } from '../carousel/quadGeometry.js';
 import { composeRotation } from '../carousel/scrollModel.js';
+import { computeRingRadius } from '../carousel/ringGeometry.js';
 
 // Hover growth factor, applied on top of the params-derived base scale in
 // layout(). Kept here rather than inline so the hover and base scale can never
@@ -170,6 +171,19 @@ export class CarouselScene {
 
 		const isMobile = engine.quality.tier === 'mobile';
 		this.params = {
+			// When true (the default), the radius is DERIVED from the number of
+			// teasers so the planes always tile the ring exactly — see
+			// ringGeometry.js. `ringRadius` below is then ignored, and only used
+			// as a manual override when this is switched off in the debug panel.
+			// Without this, changing which entries are featured silently breaks
+			// the layout: at a fixed radius 4, five entries left a 23.6deg gap and
+			// eight overlapped by 3.4deg.
+			autoRadius: true,
+			// Fraction of its angular slot each plane fills. 1 means planes meet
+			// edge to edge with no gap and no overlap; below 1 opens a gap, above
+			// 1 deliberately overlaps.
+			ringFill: 1,
+			// Manual radius, used only when autoRadius is false.
 			ringRadius: 4,
 			// World Z of the ring CENTER, defaulting to the camera's own Z so the
 			// viewer sits at the ring's centre and only an arc is ever visible.
@@ -358,10 +372,23 @@ export class CarouselScene {
 	layout(dt = 0) {
 		const n = this.items.length;
 		if (!n) return;
-		const radius = this.params.ringRadius + this.velocitySmoothed;
+		// Recomputed every frame off the live params so the panel's planeWidth and
+		// ringFill sliders stay honest, and so a change in featured-entry count
+		// needs no hand-tuning at all.
+		const baseRadius = this.params.autoRadius
+			? computeRingRadius({
+					planeWidth: this.params.planeWidth,
+					count: n,
+					fill: this.params.ringFill
+				})
+			: this.params.ringRadius;
+		const radius = baseRadius + this.velocitySmoothed;
 		const camera = this.engine.curtains.renderer.camera;
 		for (const item of this.items) {
-			const angle = this.rotation + (item.index / item.count) * Math.PI * 2;
+			// `n` rather than the item's own captured `count`, so the angular
+			// spacing and the radius above are always derived from the same
+			// number — they would silently disagree if the two ever drifted.
+			const angle = this.rotation + (item.index / n) * Math.PI * 2;
 			const x = this.ringCenter.x + radius * Math.sin(angle);
 			const y = this.ringCenter.y;
 			const z = this.ringCenter.z - radius * Math.cos(angle);
