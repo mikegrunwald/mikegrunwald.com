@@ -29,27 +29,37 @@
 			const srcW = sourceVideo?.videoWidth ?? 0;
 			const srcH = sourceVideo?.videoHeight ?? 0;
 			const box = el.getBoundingClientRect();
-			const dstW = Math.max(1, Math.round(box.width));
-			const dstH = Math.max(1, Math.round(box.height));
+			const cssW = Math.max(1, Math.round(box.width));
+			const cssH = Math.max(1, Math.round(box.height));
+			// Backing store in DEVICE pixels, not CSS pixels. The canvas is sized
+			// by CSS to fill the element, so a CSS-pixel backing store is upscaled
+			// by the device pixel ratio — a visibly soft video on any retina
+			// display. Capped because the overlay reaches fullscreen: on a 5K
+			// screen at dpr 2 an uncapped buffer is ~4x the pixels of the source
+			// video, which costs memory to gain nothing.
+			const dpr = Math.min(window.devicePixelRatio || 1, 2);
+			const dstW = Math.round(cssW * dpr);
+			const dstH = Math.round(cssH * dpr);
 
-			// Match the backing store to the element so the frame is not resampled
-			// twice. Reassigning width/height clears the canvas, so only do it on
-			// an actual change — the box changes every frame during the zoom.
+			// Reassigning width/height clears the canvas, so only do it on an
+			// actual change — the box changes every frame during the zoom.
 			if (canvas.width !== dstW || canvas.height !== dstH) {
 				canvas.width = dstW;
 				canvas.height = dstH;
 			}
 
 			if (srcW > 0 && srcH > 0) {
-				const c = coverRect({ srcW, srcH, dstW, dstH });
+				// Crop against the DISPLAYED aspect, which is identical either way,
+				// then draw across the full device-pixel buffer.
+				const c = coverRect({ srcW, srcH, dstW: cssW, dstH: cssH });
 				ctx.drawImage(sourceVideo, c.sx, c.sy, c.sw, c.sh, 0, 0, dstW, dstH);
 			}
 
 			if (trace && trace.length < 240) {
 				trace.push({
 					ms: Math.round(performance.now() - startedAt),
-					w: dstW,
-					h: dstH,
+					w: cssW,
+					h: cssH,
 					srcW,
 					srcReadyState: sourceVideo?.readyState ?? 0,
 					srcPaused: sourceVideo?.paused ?? null,
