@@ -33,9 +33,12 @@
 </script>
 
 <section class="work-teasers" data-gpu-carousel aria-label="Featured work">
-	<!-- h2 carrying the .h1 type scale, per the same pattern AboutIntro uses.
-	     `.display` is the hook BlurScrollEffect splits and animates. -->
-	<h2 class="work-teasers__title h1 display" bind:this={heading}>Featured Work</h2>
+	<!-- h2 carrying the .h1 type scale. No `.display` class: BlurScrollEffect is
+	     handed this element directly (bind:this), not found by selector the way
+	     AboutIntro does it, so the class bought nothing — and since `.h1` and
+	     `.display` are both single-class selectors setting font-size, which one
+	     won came down to their order in _typography.scss. -->
+	<h2 class="work-teasers__title h1" bind:this={heading}>Featured Work</h2>
 
 	<ul class="work-teasers__list sr-only">
 		{#each teasers as teaser (teaser.slug)}
@@ -75,6 +78,10 @@
 		margin: 0;
 		padding: var(--spacing-base) var(--spacing-base) 0;
 		pointer-events: none;
+		/* Was inherited from the `.display` class this element used to also carry.
+		   Set explicitly now that the class is gone, so dropping it changed the
+		   size only and not the weight. */
+		font-weight: 600;
 
 		@media (max-width: 768px) {
 			padding: var(--spacing-base) var(--spacing-xs) 0;

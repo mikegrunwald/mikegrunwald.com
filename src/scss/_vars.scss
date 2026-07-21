@@ -94,7 +94,11 @@
   --font-size-super: clamp(3.6rem, 16vw, 10rem);
   // --font-size-display: 4.8rem;
   --font-size-display: clamp(2.4rem, 10vw, 4.8rem);
-  --font-size-h1: 3.6rem;
+  // The only heading token that was a fixed value while --font-size-super,
+  // --font-size-display, -h3 and -h4 all scaled. Same shape as those: the max
+  // is the previous fixed size, so nothing changes above the clamp's upper
+  // knee and only narrow viewports are affected.
+  --font-size-h1: clamp(1.8rem, 7.5vw, 3.6rem);
   --font-size-h2: 2.4rem;
   // --font-size-h3: 1.6rem;
   --font-size-h3: clamp(1rem, 5vw, 1.6rem);
