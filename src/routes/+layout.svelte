@@ -268,7 +268,8 @@
 					forcedProgress = p;
 					if (p !== null) fluidScene.setProgress(p);
 				},
-				getLogoScene: () => logoScene
+				getLogoScene: () => logoScene,
+				getCarouselScene: () => carouselScene
 			});
 		}
 

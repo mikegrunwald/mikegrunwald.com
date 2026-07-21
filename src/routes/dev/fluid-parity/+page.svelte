@@ -129,7 +129,8 @@
 			grainPass: grain,
 			engine,
 			forceProgress,
-			getLogoScene: () => logoScene
+			getLogoScene: () => logoScene,
+			getCarouselScene: () => carouselScene
 		});
 	});
 
