@@ -120,6 +120,7 @@
 import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster } from 'gpu-curtains';
 import { CAROUSEL_VERTEX, CAROUSEL_FRAGMENT } from '../carousel/shaders/carousel.wgsl.js';
 import { computeQuadGeometry } from '../carousel/quadGeometry.js';
+import { composeRotation } from '../carousel/scrollModel.js';
 
 // Hover growth factor, applied on top of the params-derived base scale in
 // layout(). Kept here rather than inline so the hover and base scale can never
@@ -141,6 +142,7 @@ export class CarouselScene {
 		this.destroyed = false;
 		this.active = false;
 		this.progress = 0; // Task 4 turns this into rotation
+		this.preRoll = 0;
 		this.rotation = 0; // Task 4
 		this.velocitySmoothed = 0; // Task 5
 
@@ -209,6 +211,11 @@ export class CarouselScene {
 			gradientEdge: 0.95,
 			gradientMid: 0.666,
 			rotationsPerScroll: 1,
+			// Turns contributed by the approach (section entering the viewport ->
+			// pin engaging). 0.2 of a turn is 72deg — exactly one item slot at 5
+			// items — so the first teaser sweeps in from the frustum edge and
+			// lands centred as the pin engages.
+			preRollTurns: 0.2,
 			velocityGain: 0.6,
 			velocitySmoothing: 6, // per-second lerp rate, Task 5
 			maxVelocityBoost: 1.2
@@ -412,7 +419,25 @@ export class CarouselScene {
 		// `p`'s sign/direction already encodes scroll direction via
 		// ScrollTrigger's monotonic-with-scroll-direction `progress` — no extra
 		// sign logic needed here (see brief's Interfaces note).
-		this.rotation = p * this.params.rotationsPerScroll * Math.PI * 2;
+		this.updateRotation();
+	}
+
+	// 0..1 across the section's approach, from a scrubbed ScrollTrigger that
+	// ends where the pin begins. Same finite guard as setProgress: a NaN would
+	// flow into rotation and from there into every mesh's GPU transform.
+	setPreRoll(p) {
+		if (!Number.isFinite(p)) return;
+		this.preRoll = p;
+		this.updateRotation();
+	}
+
+	updateRotation() {
+		this.rotation = composeRotation({
+			preRoll: this.preRoll,
+			progress: this.progress,
+			rotationsPerScroll: this.params.rotationsPerScroll,
+			preRollTurns: this.params.preRollTurns
+		});
 	}
 
 	setVelocity(v) {

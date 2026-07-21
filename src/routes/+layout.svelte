@@ -43,6 +43,7 @@
 	let creatingParticles = false;
 	let carouselScene;
 	let carouselTrigger;
+	let carouselPreRollTrigger;
 	let creatingCarousel = false;
 
 	// Carousel raycast hover index (Task 6). Driven by CarouselScene's onHover
@@ -225,9 +226,27 @@
 					end: 'bottom bottom',
 					pin: true,
 					onUpdate: (self) => carouselScene?.setProgress(self.progress),
+					onLeave: () => carouselScene?.setActive(false),
+					onLeaveBack: () => carouselScene?.setActive(false)
+				});
+				// Approach trigger: scrubs 0..1 from the moment the section's top
+				// enters the viewport bottom until it reaches the viewport top —
+				// i.e. it ends exactly where the pin trigger begins. Driving a
+				// pre-roll rotation from it means the ring is already onscreen and
+				// turning before the pin engages, which is what stops the first
+				// teaser popping into the centre.
+				carouselPreRollTrigger = ScrollTrigger.create({
+					trigger: el,
+					start: 'top bottom',
+					end: 'top top',
+					scrub: true,
+					onUpdate: (self) => carouselScene?.setPreRoll(self.progress),
+					// setActive moves here from the pin trigger: the meshes have to
+					// be VISIBLE during the approach for the pre-roll to be seen at
+					// all. Side effect: the videos start decoding earlier than they
+					// used to (one viewport-height sooner), which is accepted.
 					onEnter: () => carouselScene?.setActive(true),
 					onEnterBack: () => carouselScene?.setActive(true),
-					onLeave: () => carouselScene?.setActive(false),
 					onLeaveBack: () => carouselScene?.setActive(false)
 				});
 			} finally {
@@ -236,6 +255,8 @@
 		} else if (!el && carouselScene) {
 			carouselTrigger?.kill();
 			carouselTrigger = undefined;
+			carouselPreRollTrigger?.kill();
+			carouselPreRollTrigger = undefined;
 			carouselScene.destroy();
 			carouselScene = undefined;
 		}
@@ -259,6 +280,8 @@
 			destroyParticlesScene(); // also re-shows the CSS logo
 			carouselTrigger?.kill();
 			carouselTrigger = undefined;
+			carouselPreRollTrigger?.kill();
+			carouselPreRollTrigger = undefined;
 			carouselScene?.destroy();
 			carouselScene = undefined;
 		});
@@ -336,6 +359,7 @@
 		if (typeof document !== 'undefined')
 			document.documentElement.classList.remove('gpu-particles-live');
 		carouselTrigger?.kill();
+		carouselPreRollTrigger?.kill();
 		carouselScene?.destroy();
 		fluidScene?.destroy();
 		engine?.destroy();
