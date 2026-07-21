@@ -6,16 +6,27 @@
 	const hasSlot = children;
 </script>
 
+{#snippet metaValue(text)}
+	<dd>
+		<!-- The scramble rewrites textContent frame by frame, so assistive tech
+		     would otherwise announce random glyphs. The hidden copy holds the
+		     real, never-mutated string; the aria-hidden copy is the one that
+		     animates. Same split the reference site (hubtown.co.in) uses. -->
+		<span class="visually-hidden">{text}</span>
+		<span class="scramble-target" aria-hidden="true">{text}</span>
+	</dd>
+{/snippet}
+
 <div class="meta-item" class:full-width={fullWidth} class:awards>
 	<dt class="h4">{label}</dt>
 	{#if hasSlot}
 		{@render children()}
 	{:else if hasValues}
 		{#each values as val}
-			<dd>{val}</dd>
+			{@render metaValue(val)}
 		{/each}
 	{:else if value}
-		<dd>{value}</dd>
+		{@render metaValue(value)}
 	{/if}
 </div>
 
@@ -34,7 +45,10 @@
 			}
 
 			dd {
-				// display: inline-block;
+				// `top` has no effect on a statically positioned element, and the
+				// stagger entrance animates `top`. Without this the items fade in
+				// without ever rising.
+				position: relative;
 			}
 		}
 
@@ -56,5 +70,17 @@
 		line-height: var(--line-height-text);
 		margin-left: 0.75em;
 		display: block;
+	}
+
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 </style>
