@@ -25,6 +25,23 @@ struct VSOutput {
   @location(0) uv: vec2f,
 };
 
+// #33c5f3 — the same cyan as .media's box-shadow on the work detail pages
+// (src/routes/work/[slug]/+page.svelte). Hardcoded rather than passed as a
+// uniform to avoid a vec3f in the uniform block: vec3f aligns to 16 bytes and
+// mis-sizing that struct has already cost this project a debugging session.
+const GLOW_COLOR = vec3f(0.2, 0.773, 0.953);
+
+// Signed distance to a rounded box centred at the origin. Negative inside,
+// zero on the edge, positive outside. Standard formulation: shrink the box by
+// the corner radius, take the distance to that smaller box, then subtract the
+// radius back off.
+fn sdRoundedBox(p: vec2f, halfExtent: vec2f, radius: f32) -> f32 {
+  // Clamp so a radius larger than the box cannot invert the shape.
+  let r = min(radius, min(halfExtent.x, halfExtent.y));
+  let q = abs(p) - halfExtent + vec2f(r);
+  return min(max(q.x, q.y), 0.0) + length(max(q, vec2f(0.0))) - r;
+}
+
 @fragment
 fn main(fsInput: VSOutput) -> @location(0) vec4f {
   // The quad is LARGER than the video (params.quadHalf vs params.videoHalf) so
@@ -57,13 +74,26 @@ fn main(fsInput: VSOutput) -> @location(0) vec4f {
   // is exactly what happened.
   let video = textureSampleBaseClampToEdge(videoTexture, videoSampler, videoUv);
 
-  // Hard rectangular mask for now — Task 4 replaces this with a rounded-box SDF.
-  let inside = step(abs(p.x), params.videoHalf.x) * step(abs(p.y), params.videoHalf.y);
-  let alpha = inside;
+  let d = sdRoundedBox(p, params.videoHalf, params.cornerRadius);
+
+  // Antialias across roughly one pixel. fwidth(d) is the screen-space rate of
+  // change of the distance field, so this stays a constant apparent width as
+  // the plane rotates toward or away from the camera — a fixed epsilon would
+  // go hard-edged up close and mushy far away.
+  let aa = max(fwidth(d), 1e-5);
+  let fill = 1.0 - smoothstep(-aa, aa, d);
+
+  // Border hugging the inside of the edge, matching .media's 1px border on the
+  // detail page. abs(d) < borderWidth selects a band centred on the edge; the
+  // fill mask above then trims its outer half so the border never extends past
+  // the video's silhouette.
+  let border = (1.0 - smoothstep(params.borderWidth - aa, params.borderWidth + aa, abs(d))) * fill;
+  let rgb = mix(video.rgb, GLOW_COLOR, border);
+  let alpha = fill;
 
   // PREMULTIPLIED alpha — the convention every transparent surface in this
   // codebase uses (FluidScene, LogoParticlesScene, GrainPass). Returning
   // straight alpha here produces a bright fringe where the video meets the pad.
-  return vec4f(video.rgb * alpha, alpha);
+  return vec4f(rgb * alpha, alpha);
 }
 `;

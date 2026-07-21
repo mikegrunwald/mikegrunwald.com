@@ -202,6 +202,8 @@ export async function maybeCreatePanel({
 		// range — a max at or below the default silently shrinks the real value
 		// the first time the slider is touched.
 		carousel.addBinding(proxy, 'glowPad', { min: 0, max: 1, step: 0.005 });
+		carousel.addBinding(proxy, 'cornerRadius', { min: 0, max: 0.3, step: 0.001 });
+		carousel.addBinding(proxy, 'borderWidth', { min: 0, max: 0.05, step: 0.001 });
 		carousel.addBinding(proxy, 'rotationsPerScroll', { min: 0.25, max: 4 });
 		carousel.addBinding(proxy, 'velocityGain', { min: 0, max: 3 });
 		carousel.addBinding(proxy, 'velocitySmoothing', { min: 0.5, max: 20 });

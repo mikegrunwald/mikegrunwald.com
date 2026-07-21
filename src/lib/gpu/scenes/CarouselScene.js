@@ -181,6 +181,14 @@ export class CarouselScene {
 			// 782px is the plane's on-screen width at a 1440px viewport, from
 			// its NDC half-width tan(24.2deg)/tan(39.65deg) = 0.543.
 			glowPad: 0.15,
+			// World units. Matches --border-radius: 0.2rem (3.2px) at a 1440px
+			// viewport: the plane is 54.3% of viewport width (782px) and 3.6 world
+			// units wide, so 3.2/782 * 3.6 = 0.0147. This is a fixed world value,
+			// so it cannot track rem at every viewport size — see the spec's
+			// non-goals.
+			cornerRadius: 0.015,
+			// World units, ~1px at the same reference viewport (1/782 * 3.6).
+			borderWidth: 0.004,
 			rotationsPerScroll: 1,
 			velocityGain: 0.6,
 			velocitySmoothing: 6, // per-second lerp rate, Task 5
@@ -273,7 +281,9 @@ export class CarouselScene {
 						// coordinates; videoHalf is where the video actually sits
 						// inside that quad.
 						quadHalf: { type: 'vec2f', value: [geo.quadHalfX, geo.quadHalfY] },
-						videoHalf: { type: 'vec2f', value: [geo.videoHalfX, geo.videoHalfY] }
+						videoHalf: { type: 'vec2f', value: [geo.videoHalfX, geo.videoHalfY] },
+						cornerRadius: { type: 'f32', value: this.params.cornerRadius },
+						borderWidth: { type: 'f32', value: this.params.borderWidth }
 					}
 				}
 			},
@@ -333,6 +343,8 @@ export class CarouselScene {
 			const u = item.mesh.uniforms.params;
 			u.quadHalf.value = [geo.quadHalfX, geo.quadHalfY];
 			u.videoHalf.value = [geo.videoHalfX, geo.videoHalfY];
+			u.cornerRadius.value = this.params.cornerRadius;
+			u.borderWidth.value = this.params.borderWidth;
 			// [VERIFY-API #3] orients the plane's video-facing (+Z-normal) side
 			// toward the camera — see header note #3.
 			item.mesh.lookAt(camera.position);
