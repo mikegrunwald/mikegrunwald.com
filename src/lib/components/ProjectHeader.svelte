@@ -127,14 +127,17 @@
 		}
 
 		// Backstop: the layout's safety valve dispatches
-		// project-transition-dismissed 1050ms after the transition starts. If
-		// this route takes longer than that to mount, the event fires before
-		// the listener above is attached, and — on the carousel path, where
-		// fonts.ready is deliberately not wired — the gate would then never
-		// open, leaving the headings permanently invisible. That is strictly
-		// worse than an entrance playing a beat early, so open unconditionally
-		// after the same 1050ms. The gate is once-only, so this is a no-op
-		// when the event arrives normally.
+		// project-transition-dismissed 1050ms after the transition STARTS, but
+		// this timer starts at component MOUNT — which always happens at or
+		// after the transition starts, never before. So this timer necessarily
+		// expires at or after the layout's valve has already fired and
+		// dispatched. If this route takes longer than 1050ms to mount, the
+		// event fires before the listener above is attached, and — on the
+		// carousel path, where fonts.ready is deliberately not wired — the gate
+		// would then never open, leaving the headings permanently invisible.
+		// That is strictly worse than an entrance playing a beat early, so open
+		// unconditionally after the same 1050ms. The gate is once-only, so this
+		// is a no-op when the event arrives normally.
 		const backstop = setTimeout(() => gate.open(), 1050);
 
 		return () => {
