@@ -16,6 +16,15 @@
 		const ctx = canvas.getContext('2d');
 		let rafId;
 
+		// Dev-only trace, folded into the paint loop rather than given its own
+		// rAF. The overlay's visibility depends entirely on the SOURCE video
+		// having decoded frames — an undecoded one paints nothing, which is
+		// indistinguishable from the overlay being absent. That is exactly how
+		// the first version failed, so the signal is worth keeping.
+		const trace = import.meta.env.DEV ? [] : null;
+		const startedAt = performance.now();
+		if (trace) window.__transitionTrace = trace;
+
 		const paint = () => {
 			const srcW = sourceVideo?.videoWidth ?? 0;
 			const srcH = sourceVideo?.videoHeight ?? 0;
@@ -34,6 +43,18 @@
 			if (srcW > 0 && srcH > 0) {
 				const c = coverRect({ srcW, srcH, dstW, dstH });
 				ctx.drawImage(sourceVideo, c.sx, c.sy, c.sw, c.sh, 0, 0, dstW, dstH);
+			}
+
+			if (trace && trace.length < 240) {
+				trace.push({
+					ms: Math.round(performance.now() - startedAt),
+					w: dstW,
+					h: dstH,
+					srcW,
+					srcReadyState: sourceVideo?.readyState ?? 0,
+					srcPaused: sourceVideo?.paused ?? null,
+					srcTime: +(sourceVideo?.currentTime ?? 0).toFixed(2)
+				});
 			}
 			rafId = requestAnimationFrame(paint);
 		};
@@ -68,37 +89,9 @@
 		// rejected promise would strand the overlay until the timeout.
 		animation.finished.then(() => onArrived?.()).catch(() => onArrived?.());
 
-		// Dev-only trace. The overlay's visibility depends entirely on the SOURCE
-		// video having decoded frames — an undecoded one paints nothing and the
-		// result is indistinguishable from the overlay being absent, which is
-		// exactly the failure this component was rewritten to fix.
-		let traceId;
-		if (import.meta.env.DEV) {
-			const samples = [];
-			const started = performance.now();
-			const sample = () => {
-				const r = el.getBoundingClientRect();
-				samples.push({
-					ms: Math.round(performance.now() - started),
-					w: Math.round(r.width),
-					h: Math.round(r.height),
-					srcW: sourceVideo?.videoWidth ?? 0,
-					srcReadyState: sourceVideo?.readyState ?? 0,
-					srcPaused: sourceVideo?.paused ?? null,
-					srcTime: +(sourceVideo?.currentTime ?? 0).toFixed(2)
-				});
-				if (performance.now() - started < durationMs + 200) {
-					traceId = requestAnimationFrame(sample);
-				}
-			};
-			window.__transitionTrace = samples;
-			traceId = requestAnimationFrame(sample);
-		}
-
 		return () => {
 			animation.cancel();
 			cancelAnimationFrame(rafId);
-			if (traceId) cancelAnimationFrame(traceId);
 		};
 	});
 </script>
