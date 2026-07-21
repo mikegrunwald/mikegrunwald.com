@@ -1,11 +1,16 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import MediaItem from '$lib/components/MediaItem.svelte';
 	import { readHandoff, shouldSeed, clearHandoff } from '$lib/transitionHandoff.js';
+	import { BlurScrollEffect } from '$lib/efx/blurScrollEffect.js';
+	import { createEntranceGate } from '$lib/efx/entranceGate.js';
 
 	let { title, subtitle, backgroundMedia = null, slug = null } = $props();
 
 	let figure;
+	let titleEl;
+	let subtitleEl;
+	let headingEffects = [];
 
 	function mediaSrc(media) {
 		if (!media) return null;
@@ -68,6 +73,49 @@
 			video.removeEventListener('loadedmetadata', seek);
 		};
 	});
+
+	onMount(() => {
+		// Built paused: these headings are above the fold, so a ScrollTrigger
+		// would fire them at mount — which on a carousel arrival is underneath
+		// the transition overlay, where nobody sees them.
+		const titleEffect = new BlurScrollEffect(titleEl, {
+			mode: 'enter',
+			from: 'end',
+			paused: true
+		});
+		const subtitleEffect = new BlurScrollEffect(subtitleEl, {
+			mode: 'enter',
+			from: 'start',
+			delay: 0.15,
+			paused: true
+		});
+		headingEffects = [titleEffect, subtitleEffect];
+
+		const gate = createEntranceGate(() => {
+			titleEffect.play();
+			subtitleEffect.play();
+		});
+
+		// Path 1: arrived through the carousel zoom. Play as the overlay lifts.
+		const onDismissed = () => gate.open();
+		window.addEventListener('project-transition-dismissed', onDismissed);
+
+		// Path 2: direct load or back navigation — there is no overlay, so no
+		// dismissal will ever come. Fonts resolving is the equivalent moment:
+		// it is when the split can measure real glyphs. The gate makes the two
+		// paths safe to both fire on a transition arrival, where they do.
+		document.fonts.ready.then(() => gate.open());
+
+		return () => window.removeEventListener('project-transition-dismissed', onDismissed);
+	});
+
+	onDestroy(() => {
+		// Not optional. These pages are reached by client-side navigation from the
+		// carousel, which is exactly the away-and-back round trip that previously
+		// left stale ScrollTriggers alive alongside the fresh ones.
+		for (const effect of headingEffects) effect.destroy();
+		headingEffects = [];
+	});
 </script>
 
 <header class="project-header">
@@ -76,8 +124,8 @@
 			<MediaItem media={backgroundMedia} alt={title} />
 		</figure>
 	{/if}
-	<h1 class="title super">{title}</h1>
-	<h2 class="subtitle display">{subtitle}</h2>
+	<h1 class="title super" bind:this={titleEl}>{title}</h1>
+	<h2 class="subtitle display" bind:this={subtitleEl}>{subtitle}</h2>
 </header>
 
 <style lang="scss">
