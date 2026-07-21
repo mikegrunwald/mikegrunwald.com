@@ -116,25 +116,28 @@
 //      ray.origin.distance(point) (Raycaster.mjs) — so hits[0] is the closest
 //      plane, no manual sort needed. Each Intersection carries `.object`
 //      (the ProjectedMesh) and `.distance`.
-//    - World → screen: `Vec3.project(camera)` mutates in place to NDC [-1,1] by
-//      applying viewMatrix then projectionMatrix, and Vec3.applyMat4 performs
-//      the perspective /w divide (Vec3.mjs) — so projecting the plane's four
-//      local (±1,±1,0) corners through `mesh.worldMatrix` then `.project(camera)`
-//      yields a correct NDC bounding box under rotation/scale/perspective.
-//      NDC→CSS px uses `renderer.boundingRect` (CSS px — the SAME rect
-//      setFromMouse reads, keeping ray and projected rect in one space; NOT
-//      getCanvasSize()/device px — Phase 2 note #16). Non-finite guard mirrors
-//      the layout() clamp: any NaN component → null target, never a NaN CSS
-//      transform on the DOM cursor.
 
-import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster, Vec3 } from 'gpu-curtains';
+import { Mesh, PlaneGeometry, MediaTexture, Sampler, Raycaster } from 'gpu-curtains';
 import { CAROUSEL_VERTEX, CAROUSEL_FRAGMENT } from '../carousel/shaders/carousel.wgsl.js';
-import { setExternalMagneticTarget } from '$lib/components/CursorDot.svelte';
+import { computeQuadGeometry } from '../carousel/quadGeometry.js';
+import { composeRotation } from '../carousel/scrollModel.js';
+import {
+	computeRingRadius,
+	computeRequiredPlanes,
+	computeRingPlan,
+	selectPlayingTeasers
+} from '../carousel/ringGeometry.js';
 
 // Hover growth factor, applied on top of the params-derived base scale in
 // layout(). Kept here rather than inline so the hover and base scale can never
 // drift apart.
 const HOVER_SCALE = 1.08;
+
+// Per-second exponential rate for the hover ease, driving BOTH the scale and
+// the glow off one weight so they can't drift apart. 8 is a ~250ms settle —
+// slower than the 12 the glow alone used, because a scale change reads as
+// jumpy at a rate the glow got away with.
+const HOVER_EASE_RATE = 8;
 
 // Elements whose clicks must never fall through to a ring navigation — see
 // handleClick. Deliberately broad: anything focusable/actionable, plus
@@ -143,13 +146,20 @@ const HOVER_SCALE = 1.08;
 const INTERACTIVE_SELECTOR = 'a, button, input, select, textarea, label, [role="button"], .tp-dfwv';
 
 export class CarouselScene {
-	constructor({ engine, teasers, onHover, onNavigate }) {
+	constructor({ engine, element, teasers, onHover, onNavigate }) {
 		this.engine = engine;
+		// The `[data-gpu-carousel]` section. Used only as the target for the
+		// hover class — see setHoverClass for why it is not <html>.
+		this.element = element ?? null;
 		this.destroyed = false;
 		this.active = false;
 		this.progress = 0; // Task 4 turns this into rotation
+		this.preRoll = 0;
 		this.rotation = 0; // Task 4
 		this.velocitySmoothed = 0; // Task 5
+		// Counts down after a runway wrap, during which incoming velocity samples
+		// are ignored so the last good value carries through the seam.
+		this._holdVelocityFrames = 0;
 
 		// Task 6 — raycast hover/click. `onHover(index|null)` drives WorkTeasers'
 		// DOM label (via +layout.svelte context); `onNavigate(href)` is supplied
@@ -163,12 +173,28 @@ export class CarouselScene {
 		// returns nearest-first (sorted by ray.origin.distance(point) in
 		// Raycaster.mjs) so hits[0] is the closest plane.
 		this.raycaster = new Raycaster(engine.curtains);
-		// Reusable Vec3 scratch for per-frame corner projection (avoid per-frame
-		// allocation in the hovered-plane screen-rect computation).
-		this._projScratch = new Vec3();
 
-		const isMobile = engine.quality.tier === 'mobile';
 		this.params = {
+			// When true (the default), the radius is DERIVED from the number of
+			// teasers so the planes always tile the ring exactly — see
+			// ringGeometry.js. `ringRadius` below is then ignored, and only used
+			// as a manual override when this is switched off in the debug panel.
+			// Without this, changing which entries are featured silently breaks
+			// the layout: at a fixed radius 4, five entries left a 23.6deg gap and
+			// eight overlapped by 3.4deg.
+			autoRadius: true,
+			// Fraction of each angular slot left EMPTY between planes. Kept as a
+			// fraction of the slot rather than a fixed angle or world distance so
+			// the gap stays proportional: the gap-to-teaser ratio is identical at
+			// any featured-entry count, where a fixed angle would look generous at
+			// 5 entries and cramped at 12.
+			ringGap: 0.1,
+			// Most of the visible frustum a single teaser may fill, once the
+			// frustum is the binding constraint (portrait/narrow viewports). On a
+			// wide desktop viewport ring tiling binds instead and this does
+			// nothing — which makes it effectively the MOBILE size control.
+			frustumFit: 0.9,
+			// Manual radius, used only when autoRadius is false.
 			ringRadius: 4,
 			// World Z of the ring CENTER, defaulting to the camera's own Z so the
 			// viewer sits at the ring's centre and only an arc is ever visible.
@@ -185,9 +211,54 @@ export class CarouselScene {
 			// previous 1.6 x 0.9 covered only ~24%, which is why teasers read as
 			// small islands with a large dead gap between them).
 			// 16:9 is preserved (3.6 / 1.7778 = 2.025) to match the source videos.
-			planeWidth: isMobile ? 2.6 : 3.6,
-			planeHeight: isMobile ? 1.46 : 2.03,
+			// No longer branched on a mobile tier. Once frustum fitting binds
+			// (any narrow viewport) the radius scales with these, so only their
+			// ASPECT reaches the screen — the absolute values cancel out. The old
+			// mobile pair differed from these by 0.5% in aspect, so dropping the
+			// branch is behaviour-neutral and removes a knob that looked like a
+			// mobile size control but was not one. frustumFit is that control.
+			planeWidth: 3.6,
+			planeHeight: 2.03,
+			// World-unit padding added around the video on every side, so the
+			// fragment shader has somewhere to draw the outer glow. Default is
+			// ~2x the 16px glow blur converted to world units (16/782 * 3.6 =
+			// 0.074), giving the falloff room to reach zero before the quad edge.
+			// 782px is the plane's on-screen width at a 1440px viewport, from
+			// its NDC half-width tan(24.2deg)/tan(39.65deg) = 0.543.
+			glowPad: 0.15,
+			// World units. Matches --border-radius: 0.2rem (3.2px) at a 1440px
+			// viewport: the plane is 54.3% of viewport width (782px) and 3.6 world
+			// units wide, so 3.2/782 * 3.6 = 0.0147. This is a fixed world value,
+			// so it cannot track rem at every viewport size — see the spec's
+			// non-goals.
+			cornerRadius: 0.015,
+			// World units, ~1px at the same reference viewport (1/782 * 3.6).
+			borderWidth: 0.004,
+			// World units. 16px outer blur at the 1440px reference viewport
+			// (16/782 * 3.6), matching .media's `box-shadow: 0 0 16px`.
+			glowRadius: 0.074,
+			// World units. 12px inner blur, matching `inset 0 0 12px`.
+			glowInset: 0.055,
+			// Base glow opacity at rest. The glow is ALWAYS on (matching the
+			// detail page's .media), not hover-only.
+			glowStrength: 0.6,
+			// Multiplier applied to glowStrength for the hovered item.
+			hoverGlowBoost: 1.8,
+			// Vertical darkening overlay, mirroring ProjectHeader's :after
+			// gradient on the work detail pages (src/lib/components/
+			// ProjectHeader.svelte): rgba(0,0,0,0.95) at both edges easing to
+			// rgba(0,0,0,0.666) at the midpoint.
+			gradientEdge: 0.95,
+			gradientMid: 0.666,
 			rotationsPerScroll: 1,
+			// Turns contributed by the approach (see the approach trigger in
+			// +layout.svelte). Chosen so the ANGULAR RATE matches the pinned
+			// section's exactly, making the handover velocity-continuous rather
+			// than just position-continuous: the pin turns 1 rotation over ~200vh
+			// (1.8deg/vh), and the approach spans 20vh, so 20 * 1.8 = 36deg =
+			// 0.1 turns. Raising this makes the ring visibly accelerate into the
+			// pin; lowering it makes it stall.
+			preRollTurns: 0.1,
 			velocityGain: 0.6,
 			velocitySmoothing: 6, // per-second lerp rate, Task 5
 			maxVelocityBoost: 1.2
@@ -195,19 +266,39 @@ export class CarouselScene {
 
 		this.ringCenter = { x: 0, y: 0, z: this.params.ringDepth };
 
-		// Mobile budget (spec: "fewer/smaller videos"): cap simultaneous
-		// decoding videos. Desktop shows every featured entry with a video.
-		// Per the brief's Interfaces section, `this.items` is built only from
-		// entries with a resolvable video — Task 1's `teaserUrl: null` entries
-		// have no video to show in 3D (their DOM link still exists via
-		// WorkTeasers.svelte, independent of this array).
-		const withVideo = teasers.filter((t) => !!t.teaserUrl);
-		const maxItems = isMobile ? Math.min(4, withVideo.length) : withVideo.length;
-		const selected = withVideo.slice(0, maxItems);
+		// Every featured entry with a resolvable video gets a source. There is no
+		// longer a mobile cap.
+		//
+		// The old `withVideo.slice(0, 4)` on mobile was framed as a decode budget,
+		// but slicing does not thin the ring — it DROPS entries 5+ outright, so
+		// mobile visitors never saw half the featured work (the .sr-only links in
+		// WorkTeasers still listed them, so only the visual ring was affected).
+		// Decode cost is now bounded by playback gating in updatePlayback()
+		// instead, which tracks the visible arc rather than the entry count — a
+		// strictly better budget, and one that does not hide content.
+		//
+		// Entries with `teaserUrl: null` have no video to show in 3D and are
+		// skipped here; their DOM link still exists via WorkTeasers.svelte.
+		this.teasers = teasers
+			.filter((t) => !!t.teaserUrl)
+			.map((teaser, index) => this.createTeaserSource(teaser, index));
 
-		this.items = selected.map((teaser, index) => this.createItem(teaser, index, selected.length));
+		// Planes are built separately from sources, because how MANY planes the
+		// ring needs is a property of the VIEWPORT, not of the content — see
+		// syncPlanes and ringGeometry.computeRequiredPlanes.
+		this.items = [];
+		// Parallel array of just the meshes, for the raycaster. Initialized here
+		// rather than only in syncPlanes, which early-returns when there are no
+		// teasers at all and would otherwise leave this undefined.
+		this.meshes = [];
+		this.planeCount = 0;
+		this.syncPlanes();
 
 		this.unsubFrame = engine.onFrame(() => this.update());
+		// A viewport change alters how many planes the ring needs (a portrait
+		// phone needs ~14 where a desktop needs ~5), so the ring is rebuilt on
+		// resize. syncPlanes no-ops unless the required count actually changed.
+		this.unsubResize = engine.onResize(() => this.syncPlanes());
 
 		// Bound so removeEventListener works in destroy(). Attached to window (not
 		// the canvas) — the canvas is `position: fixed` fullscreen behind all
@@ -220,7 +311,9 @@ export class CarouselScene {
 		window.addEventListener('click', this._onClick);
 	}
 
-	createItem(teaser, index, count) {
+	// One video source per unique teaser. Shared by every plane showing that
+	// teaser, so repeating a teaser around the ring costs meshes, not decoders.
+	createTeaserSource(teaser, index) {
 		const sampler = new Sampler(this.engine.curtains, {
 			label: `carousel-sampler-${index}`,
 			name: 'videoSampler',
@@ -233,65 +326,178 @@ export class CarouselScene {
 			name: 'videoTexture'
 		});
 
-		const item = { teaser, index, count, mesh: null, texture, sampler, playing: false };
+		const source = { teaser, index, texture, sampler, loaded: false, playing: false };
 
 		// [VERIFY-API #2] Registered before loadVideo() so the synchronous
 		// already-ready path still fires it. Callback receives the real
 		// <video> element (see header note #2) — safe to .play() directly.
-		texture.onSourceLoaded((source) => {
+		texture.onSourceLoaded(() => {
 			if (this.destroyed) return;
-			item.playing = true;
-			// Late-ready race (brief's Step 2): a video can finish loading
-			// AFTER setActive(true) has already run once (slow network, section
-			// already pinned on load). Gate on `this.active` so a video that
-			// becomes ready while the carousel is NOT pinned doesn't start
-			// playing off-screen — the next real setActive(true) picks it up.
-			// Autoplay can still reject before a user gesture on some browsers
-			// even though these videos are muted+loop (MediaTexture.mjs sets
-			// muted=true); swallow the rejection rather than throwing.
-			if (this.active) source.play?.().catch(() => {});
+			source.loaded = true;
+			// Playback is decided by updatePlayback() off the ring's rotation, so
+			// a video that finishes loading is NOT started here — doing so would
+			// start off-screen teasers decoding and defeat the gating. The next
+			// frame's updatePlayback picks it up if it belongs on screen.
 		});
 		texture.loadVideo(teaser.teaserUrl);
+		return source;
+	}
 
-		// [VERIFY-API #1] plain (non-DOM-synced) Mesh + PlaneGeometry. No
-		// `transparent: true` — [VERIFY-API #5], stays in the opaque
-		// renderOrder-only sort bucket.
+	createPlane(planeIndex, teaserIndex) {
+		const source = this.teasers[teaserIndex];
+		const geo = computeQuadGeometry(this.params);
 		const mesh = new Mesh(this.engine.curtains, {
-			label: `carousel-plane-${index}`,
+			label: `carousel-plane-${planeIndex}`,
 			geometry: new PlaneGeometry(),
+			// The quad now extends past the video (glowPad) and the shader writes
+			// alpha < 1 there, so this can no longer live in the opaque bucket.
+			// Moves the mesh from Scene.mjs's opaque PROJECTED category to the
+			// transparent PROJECTED one, which adds a per-frame Z sort. Safe for
+			// this ring: at 72deg spacing with 48.4deg-wide planes no two items
+			// ever overlap on screen, so blend order cannot produce artifacts.
+			transparent: true,
 			shaders: {
 				vertex: { code: CAROUSEL_VERTEX },
 				fragment: { code: CAROUSEL_FRAGMENT }
 			},
-			textures: [texture],
-			samplers: [sampler]
+			uniforms: {
+				params: {
+					struct: {
+						// Half-extents in world units, measured from the plane
+						// centre. quadHalf converts uv into plane-local world
+						// coordinates; videoHalf is where the video actually sits
+						// inside that quad.
+						quadHalf: { type: 'vec2f', value: [geo.quadHalfX, geo.quadHalfY] },
+						videoHalf: { type: 'vec2f', value: [geo.videoHalfX, geo.videoHalfY] },
+						cornerRadius: { type: 'f32', value: this.params.cornerRadius },
+						borderWidth: { type: 'f32', value: this.params.borderWidth },
+						glowRadius: { type: 'f32', value: this.params.glowRadius },
+						glowInset: { type: 'f32', value: this.params.glowInset },
+						glowStrength: { type: 'f32', value: this.params.glowStrength },
+						hover: { type: 'f32', value: 0 },
+						gradientEdge: { type: 'f32', value: this.params.gradientEdge },
+						gradientMid: { type: 'f32', value: this.params.gradientMid }
+					}
+				}
+			},
+			// The SAME MediaTexture and Sampler instances every other plane
+			// showing this teaser uses. This is what keeps decode cost tied to
+			// the number of unique teasers rather than the number of planes.
+			textures: [source.texture],
+			samplers: [source.sampler]
 		});
 		// [VERIFY-API #1] PlaneGeometry's native vertex range is -1..1 (2x2
-		// quad), so scale must be HALVED to get an on-screen size of exactly
-		// planeWidth x planeHeight world units — see header note.
-		mesh.scale.set(this.params.planeWidth / 2, this.params.planeHeight / 2, 1);
+		// quad), so scale is HALF the world size — computeQuadGeometry already
+		// returns it halved. See header note and quadGeometry.js.
+		mesh.scale.set(geo.meshScaleX, geo.meshScaleY, 1);
+		// Match the ring's current state at birth. A Mesh defaults to visible, so
+		// a plane built while the section is inactive — which is exactly what a
+		// resize away from the carousel does — would otherwise render over
+		// whatever the user is actually looking at until the next layout() pass
+		// corrects it. That window is one frame normally, but unbounded while the
+		// engine is hidden, since update() (and therefore layout) does not run.
+		mesh.visible = this.active;
 
-		item.mesh = mesh;
-		return item;
+		return {
+			mesh,
+			index: planeIndex,
+			teaserIndex,
+			// Eased 0..1 hover weight driving the scale and glow. Stepping it
+			// instantly makes both snap, which reads as a glitch.
+			hoverWeight: 0
+		};
 	}
 
-	layout() {
+	// Rebuilds the ring's planes when the viewport changes how many it needs.
+	// No-ops when the count is unchanged, so a resize that does not cross a
+	// threshold costs nothing.
+	syncPlanes() {
+		if (this.destroyed || !this.teasers.length) return;
+		const camera = this.engine.curtains.renderer.camera;
+		const bounds = this.engine.curtains.renderer.boundingRect;
+		const aspect = bounds?.height > 0 ? bounds.width / bounds.height : 0;
+		const required = computeRequiredPlanes({
+			fovDeg: camera.fov,
+			aspect,
+			gap: this.params.ringGap
+		});
+		const { planeCount } = computeRingPlan({
+			teaserCount: this.teasers.length,
+			requiredPlanes: required
+		});
+		if (planeCount === this.planeCount) return;
+
+		const previous = this.items;
+		// Build the replacements BEFORE tearing down the old planes. Ordering is
+		// load-bearing: mesh.remove() destroys any texture the renderer no longer
+		// references, and these textures are shared. With the new meshes already
+		// holding them, removing the old ones cannot orphan a texture and force a
+		// video reload.
+		const next = [];
+		for (let j = 0; j < planeCount; j++) {
+			// j % teaserCount, which is why planeCount must be a whole multiple of
+			// the teaser count — see computeRingPlan.
+			next.push(this.createPlane(j, j % this.teasers.length));
+		}
+		this.items = next;
+		this.planeCount = planeCount;
+		// Cached so hitTest does not rebuild it on every pointermove. Rebuilt here
+		// because this is the only place the plane set changes.
+		this.meshes = next.map((item) => item.mesh);
+
+		for (const item of previous) item.mesh.remove();
+
+		// Plane indices just changed meaning, so any hover state is stale.
+		if (this.hoveredIndex != null) {
+			this.hoveredIndex = null;
+			this.setHoverClass(false);
+			this.onHover?.(null);
+		}
+	}
+
+	layout(dt = 0) {
 		const n = this.items.length;
 		if (!n) return;
-		const radius = this.params.ringRadius + this.velocitySmoothed;
+		// Recomputed every frame off the live params so the panel's planeWidth and
+		// ringGap sliders stay honest, and so a change in featured-entry count
+		// needs no hand-tuning at all.
+		// Viewport aspect from the renderer's CSS-px rect (the same rect the
+		// raycaster uses). Guarded: a zero height would make the aspect
+		// non-finite, and computeRingRadius then falls back to ring tiling alone
+		// rather than emitting a garbage radius.
 		const camera = this.engine.curtains.renderer.camera;
+		const bounds = this.engine.curtains.renderer.boundingRect;
+		const aspect = bounds?.height > 0 ? bounds.width / bounds.height : 0;
+		const baseRadius = this.params.autoRadius
+			? computeRingRadius({
+					planeWidth: this.params.planeWidth,
+					planeHeight: this.params.planeHeight,
+					count: n,
+					gap: this.params.ringGap,
+					fovDeg: camera.fov,
+					aspect,
+					fit: this.params.frustumFit
+				})
+			: this.params.ringRadius;
+		const radius = baseRadius + this.velocitySmoothed;
+		// Hoisted out of the loop: it depends only on params, so computing it per
+		// plane allocated one object per plane per frame — 16 to 24 of them now
+		// that the plane count follows the viewport, for a value that is identical
+		// every time.
+		const geo = computeQuadGeometry(this.params);
 		for (const item of this.items) {
-			const angle = this.rotation + (item.index / item.count) * Math.PI * 2;
+			// `n` rather than the item's own captured `count`, so the angular
+			// spacing and the radius above are always derived from the same
+			// number — they would silently disagree if the two ever drifted.
+			const angle = this.rotation + (item.index / n) * Math.PI * 2;
 			const x = this.ringCenter.x + radius * Math.sin(angle);
 			const y = this.ringCenter.y;
 			const z = this.ringCenter.z - radius * Math.cos(angle);
 			// Defensive: a non-finite position must never reach the GPU
 			// transform — Phase 2's repeated machine-hang incidents trace to
 			// exactly this failure mode (see particlesRender.wgsl.js's clamp).
-			// Not reachable today (ringRadius/velocitySmoothed/rotation are all
-			// finite constants this task), but Task 4/5 wire real scroll/
-			// velocity input here, so the guard is added now rather than
-			// retrofitted later under time pressure.
+			// Live scroll and velocity both feed this now, so it is a real guard
+			// rather than a precaution.
 			if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
 				item.mesh.visible = false;
 				continue;
@@ -303,18 +509,35 @@ export class CarouselScene {
 			// next frame.
 			item.mesh.visible = this.active;
 			item.mesh.position.set(x, y, z);
-			// Re-apply scale every frame from params so the debug panel's
-			// planeWidth/planeHeight sliders actually do something. They were
-			// previously inert: scale was set once in createItem() and only ever
-			// touched again by setHoverScale, so dragging the sliders changed
-			// nothing until you happened to hover a plane. Hover is folded in here
-			// (rather than writing scale from two places) so the two can't fight.
-			const hoverScale = item.index === this.hoveredIndex ? HOVER_SCALE : 1;
-			item.mesh.scale.set(
-				(this.params.planeWidth / 2) * hoverScale,
-				(this.params.planeHeight / 2) * hoverScale,
-				1
-			);
+			// Scale is re-applied every frame from params, so the debug panel's
+			// planeWidth/planeHeight/glowPad sliders stay live. Hover is folded in
+			// here rather than written from a second place, so the two can't fight.
+			//
+			// Ease the hover weight FIRST, then derive scale from it. A hard
+			// `index === hoveredIndex ? HOVER_SCALE : 1` snapped the plane between
+			// two sizes in a single frame and read as a glitch. The glow rides the
+			// same weight, so scale and glow move together rather than one jumping
+			// ahead of the other.
+			const hoverTarget = item.index === this.hoveredIndex ? 1 : 0;
+			const hoverRate = 1 - Math.exp(-HOVER_EASE_RATE * dt);
+			item.hoverWeight += (hoverTarget - item.hoverWeight) * hoverRate;
+			const hoverScale = 1 + (HOVER_SCALE - 1) * item.hoverWeight;
+			item.mesh.scale.set(geo.meshScaleX * hoverScale, geo.meshScaleY * hoverScale, 1);
+			// The uniforms stay UNSCALED by hover: hover grows the whole plane via
+			// mesh.scale, and the shader works in the plane's own local space, so
+			// scaling these too would double-apply the hover and shrink the video
+			// inside its own quad.
+			const u = item.mesh.uniforms.params;
+			u.quadHalf.value = [geo.quadHalfX, geo.quadHalfY];
+			u.videoHalf.value = [geo.videoHalfX, geo.videoHalfY];
+			u.cornerRadius.value = this.params.cornerRadius;
+			u.borderWidth.value = this.params.borderWidth;
+			u.glowRadius.value = this.params.glowRadius;
+			u.glowInset.value = this.params.glowInset;
+			u.glowStrength.value = this.params.glowStrength;
+			u.hover.value = item.hoverWeight * this.params.hoverGlowBoost;
+			u.gradientEdge.value = this.params.gradientEdge;
+			u.gradientMid.value = this.params.gradientMid;
 			// [VERIFY-API #3] orients the plane's video-facing (+Z-normal) side
 			// toward the camera — see header note #3.
 			item.mesh.lookAt(camera.position);
@@ -334,7 +557,25 @@ export class CarouselScene {
 		// `p`'s sign/direction already encodes scroll direction via
 		// ScrollTrigger's monotonic-with-scroll-direction `progress` — no extra
 		// sign logic needed here (see brief's Interfaces note).
-		this.rotation = p * this.params.rotationsPerScroll * Math.PI * 2;
+		this.updateRotation();
+	}
+
+	// 0..1 across the section's approach, from a scrubbed ScrollTrigger that
+	// ends where the pin begins. Same finite guard as setProgress: a NaN would
+	// flow into rotation and from there into every mesh's GPU transform.
+	setPreRoll(p) {
+		if (!Number.isFinite(p)) return;
+		this.preRoll = p;
+		this.updateRotation();
+	}
+
+	updateRotation() {
+		this.rotation = composeRotation({
+			preRoll: this.preRoll,
+			progress: this.progress,
+			rotationsPerScroll: this.params.rotationsPerScroll,
+			preRollTurns: this.params.preRollTurns
+		});
 	}
 
 	setVelocity(v) {
@@ -346,7 +587,21 @@ export class CarouselScene {
 		// recovery short of a reload. Dropping the bad sample keeps the last good
 		// velocity instead.
 		if (!Number.isFinite(v)) return;
+		// Across a runway wrap Lenis's own velocity collapses to 0, because its
+		// `immediate` scrollTo calls reset(). Ignoring samples for a couple of
+		// frames HOLDS the last good value instead, so the radius boost sails
+		// through the seam. Forcing it to 0 here (as this used to) made the ring
+		// visibly spring inward and back out at exactly the moment the user was
+		// scrolling fast enough to notice.
+		if (this._holdVelocityFrames > 0) return;
 		this._targetVelocity = v; // Task 5
+	}
+
+	// Called by the layout's runway-wrap handler immediately before it teleports
+	// the scroll position, so the teleport's bogus velocity readings are ignored
+	// rather than driving the radius boost.
+	holdVelocity() {
+		this._holdVelocityFrames = 2;
 	}
 
 	// Returns the item index under the pointer, or null. Early-returns off-pin so
@@ -356,24 +611,34 @@ export class CarouselScene {
 	hitTest(e) {
 		if (!this.active || !this.items.length) return null;
 		this.raycaster.setFromMouse(e);
-		const meshes = this.items.map((item) => item.mesh);
-		const hits = this.raycaster.intersectObjects(meshes, false);
+		const hits = this.raycaster.intersectObjects(this.meshes, false);
 		if (!hits.length) return null;
 		const hitMesh = hits[0].object; // nearest-first, sorted in Raycaster.mjs
 		const index = this.items.findIndex((item) => item.mesh === hitMesh);
 		return index === -1 ? null : index;
 	}
 
+	// Drives the pointer cursor (and doubles as a DOM-inspectable QA signal, since
+	// the WebGPU canvas cannot be read back from a page-level probe).
+	//
+	// Deliberately toggled on the SECTION, not on <html>. `cursor` is inherited,
+	// so a root-level toggle invalidates styles for every element on the page —
+	// measured at 4.5ms per toggle against 2142 elements, 1001 of them SplitText
+	// character divs. That is 27% of a 16.7ms frame burned every time the hover
+	// state flipped, which is what made the rotating ring stagger. Scoped to the
+	// section the same measurement is 0ms.
+	setHoverClass(on) {
+		this.element?.classList.toggle('is-hovering', on);
+	}
+
 	handlePointerMove(e) {
 		const index = this.hitTest(e);
 		if (index === this.hoveredIndex) return;
 		this.hoveredIndex = index;
-		// hover-out: release the cursor now (scale is applied in layout()).
-		if (index == null) setExternalMagneticTarget(null);
-		// Plain CSS hook + DOM-inspectable QA signal (the WebGPU canvas can't be
-		// read back from a page-level probe).
-		document.documentElement.classList.toggle('carousel-hovering', index != null);
-		this.onHover?.(index);
+		this.setHoverClass(index != null);
+		// `index` is a PLANE index; consumers want the TEASER, since a teaser can
+		// occupy several planes around the ring.
+		this.onHover?.(index == null ? null : this.items[index].teaserIndex);
 	}
 
 	handleClick(e) {
@@ -390,7 +655,7 @@ export class CarouselScene {
 		if (e.target instanceof Element && e.target.closest(INTERACTIVE_SELECTOR)) return;
 		const index = this.hitTest(e);
 		if (index == null) return; // click on a ring gap / empty space: no-op
-		this.onNavigate?.(this.items[index].teaser.href);
+		this.onNavigate?.(this.teasers[this.items[index].teaserIndex].teaser.href);
 	}
 
 	setActive(isActive) {
@@ -405,8 +670,7 @@ export class CarouselScene {
 			// Clearing hoveredIndex is enough to drop the hover scale — layout()
 			// derives it from this field every frame.
 			this.hoveredIndex = null;
-			setExternalMagneticTarget(null);
-			document.documentElement.classList.remove('carousel-hovering');
+			this.setHoverClass(false);
 			this.onHover?.(null);
 		}
 		for (const item of this.items) {
@@ -415,13 +679,50 @@ export class CarouselScene {
 			// `this.active` so a mid-transition frame can't desync mesh
 			// visibility from the active flag.
 			item.mesh.visible = isActive;
-			const video = item.texture.sources[0]?.source;
-			if (!video) continue; // not loaded yet — onSourceLoaded's `this.active` check covers this race
-			if (isActive) {
-				video.play?.().catch(() => {}); // autoplay rejection is not fatal
-			} else {
-				video.pause?.();
-			}
+		}
+		// Leaving the section pauses everything; entering hands playback back to
+		// updatePlayback, which decides per teaser from the ring's rotation.
+		if (!isActive) {
+			for (const source of this.teasers) this.setSourcePlaying(source, false);
+		}
+	}
+
+	setSourcePlaying(source, shouldPlay) {
+		if (source.playing === shouldPlay) return;
+		const video = source.texture.sources[0]?.source;
+		if (!video) return; // not loaded yet — a later frame picks it up
+		source.playing = shouldPlay;
+		if (shouldPlay) {
+			// Autoplay can still reject before a user gesture on some browsers even
+			// though these videos are muted+loop (MediaTexture.mjs sets muted=true);
+			// swallow the rejection rather than throwing.
+			video.play?.().catch(() => {});
+		} else {
+			video.pause?.();
+		}
+	}
+
+	// Plays only the teasers with a plane near the visible arc, pausing the rest.
+	//
+	// This is what lets the plane count follow the viewport without the video
+	// count following it too. A portrait phone needs ~14 planes to close the gaps
+	// between teasers, but still only shows one at a time — so it decodes a
+	// couple of videos, fewer than the old hardcoded 4-teaser cap, while showing
+	// every featured entry instead of the first four.
+	updatePlayback() {
+		if (!this.active || !this.items.length) return;
+		const camera = this.engine.curtains.renderer.camera;
+		const bounds = this.engine.curtains.renderer.boundingRect;
+		const aspect = bounds?.height > 0 ? bounds.width / bounds.height : 0;
+		const playing = selectPlayingTeasers({
+			planeCount: this.items.length,
+			teaserCount: this.teasers.length,
+			rotation: this.rotation,
+			fovDeg: camera.fov,
+			aspect
+		});
+		for (const source of this.teasers) {
+			this.setSourcePlaying(source, playing.has(source.index));
 		}
 	}
 
@@ -440,6 +741,10 @@ export class CarouselScene {
 		// an outward radius boost. Magnitude only — direction already lives in
 		// `rotation` (setProgress) — clamped so a hard flick can't explode the
 		// ring outward past maxVelocityBoost.
+		if (this._holdVelocityFrames > 0) this._holdVelocityFrames -= 1;
+		// `_targetVelocity` is frozen at its last good value while the hold is
+		// counting down (see setVelocity), so this needs no special case — the
+		// boost simply keeps easing toward wherever it was already headed.
 		const target = Math.min(
 			Math.abs(this._targetVelocity ?? 0) * this.params.velocityGain,
 			this.params.maxVelocityBoost
@@ -450,74 +755,17 @@ export class CarouselScene {
 		const rate = 1 - Math.exp(-this.params.velocitySmoothing * dt);
 		this.velocitySmoothed += (target - this.velocitySmoothed) * rate;
 
-		this.layout();
-
-		// Track the hovered plane's projected screen rect every frame so the DOM
-		// cursor (CursorDot's magnetic mode) morphs to it and follows as the ring
-		// rotates. Only while hovered — hover-out / setActive(false) / destroy all
-		// clear the target explicitly, so we never write it when nothing's hovered
-		// (which would fight DOM magnetic elements elsewhere on the page).
-		if (this.hoveredIndex != null) {
-			const rect = this.projectMeshRect(this.items[this.hoveredIndex]?.mesh);
-			// projectMeshRect returns null on any non-finite component — a
-			// degenerate matrix must never reach the dot's CSS transform (the exact
-			// failure class behind Phase 2's hangs). Clear rather than write NaN.
-			setExternalMagneticTarget(rect);
-		}
-	}
-
-	// World → screen (CSS px) bounding rect of a plane, by projecting its four
-	// local corners through the world matrix + camera. Returns
-	// { x, y, width, height, radius } with x/y the CENTER in CSS px, or null if
-	// any projected component is non-finite or the plane is entirely behind the
-	// camera. Uses renderer.boundingRect (CSS px — the same rect setFromMouse
-	// uses, so hover ray and projected rect stay in one coordinate space; NOT
-	// getCanvasSize(), which is device px — Phase 2 note #16).
-	projectMeshRect(mesh) {
-		if (!mesh) return null;
-		const camera = this.engine.curtains.renderer.camera;
-		const bounds = this.engine.curtains.renderer.boundingRect;
-		let minX = Infinity;
-		let minY = Infinity;
-		let maxX = -Infinity;
-		let maxY = -Infinity;
-		for (let cx = -1; cx <= 1; cx += 2) {
-			for (let cy = -1; cy <= 1; cy += 2) {
-				// PlaneGeometry corners are at (±1, ±1, 0) (native 2x2 quad — see
-				// header note #1); worldMatrix carries position/lookAt/scale.
-				this._projScratch.set(cx, cy, 0);
-				this._projScratch.applyMat4(mesh.worldMatrix).project(camera);
-				const ndc = this._projScratch;
-				if (!Number.isFinite(ndc.x) || !Number.isFinite(ndc.y)) return null;
-				const sx = bounds.left + (ndc.x * 0.5 + 0.5) * bounds.width;
-				const sy = bounds.top + (0.5 - ndc.y * 0.5) * bounds.height;
-				if (sx < minX) minX = sx;
-				if (sx > maxX) maxX = sx;
-				if (sy < minY) minY = sy;
-				if (sy > maxY) maxY = sy;
-			}
-		}
-		const width = maxX - minX;
-		const height = maxY - minY;
-		if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
-		return {
-			x: (minX + maxX) / 2,
-			y: (minY + maxY) / 2,
-			width,
-			height,
-			radius: 12
-		};
+		this.layout(dt);
+		this.updatePlayback();
 	}
 
 	destroy() {
 		this.destroyed = true;
 		this.unsubFrame();
+		this.unsubResize?.();
 		window.removeEventListener('pointermove', this._onPointerMove);
 		window.removeEventListener('click', this._onClick);
-		// Never leave the DOM cursor stranded morphed around a mesh that's about
-		// to be torn down, nor the CSS hook set.
-		setExternalMagneticTarget(null);
-		document.documentElement.classList.remove('carousel-hovering');
+		this.setHoverClass(false);
 		// Mirror setActive(false)'s hover reset. Without this the consumer's
 		// hovered-index state survives the scene: on the device-lost path
 		// (+layout.svelte) the page stays mounted while the ring is destroyed, so
@@ -528,22 +776,33 @@ export class CarouselScene {
 			this.hoveredIndex = null;
 			this.onHover?.(null);
 		}
+		// Pause every <video> BEFORE tearing down the meshes: once the meshes are
+		// gone nothing samples the elements, but an un-paused video keeps
+		// decoding frames in the background. Done per SOURCE rather than per
+		// plane now that several planes can share one video.
+		for (const source of this.teasers) {
+			source.texture.sources[0]?.source?.pause?.();
+			source.playing = false;
+		}
 		for (const item of this.items) {
-			// Pause the <video> BEFORE tearing down the texture: once the mesh
-			// is gone, nothing samples the element, but an un-paused video keeps
-			// decoding frames in the background.
-			item.texture.sources[0]?.source?.pause?.();
 			// `remove()` releases the texture too — it runs removeFromScene(true)
 			// (unregistering the mesh from renderer.meshes) and then the mesh's
 			// own destroy chain, whose material.destroy() -> destroyTextures()
 			// destroys any texture the renderer no longer holds a reference to
 			// (Material.mjs:396-400, GPURenderer.mjs:725-728). An explicit
-			// item.texture.destroy() after this is therefore redundant; it used
-			// to be here and was a no-op only by luck, because Texture.destroy()
-			// nulls its own GPUTexture and tolerates a second call
-			// (Texture.mjs:258-262). Left in, it implies these textures need
-			// manual release — the mistaken model behind a real leak in Phase 2.
+			// texture.destroy() after this is therefore redundant; it used to be
+			// here and was a no-op only by luck, because Texture.destroy() nulls
+			// its own GPUTexture and tolerates a second call (Texture.mjs:258-262).
+			// Left in, it implies these textures need manual release — the
+			// mistaken model behind a real leak in Phase 2.
+			//
+			// Shared textures make the ORDER matter here in a way it did not when
+			// each plane owned its own: every plane must go before any texture can
+			// be considered unreferenced, which is exactly what this loop does.
 			item.mesh.remove();
 		}
+		this.items = [];
+		this.meshes = [];
+		this.planeCount = 0;
 	}
 }

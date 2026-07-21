@@ -1,7 +1,7 @@
 ---
 showIn:
-  featuredList: false
-  workList: false
+  featuredList: true
+  workList: true
 order: 8
 title: Verisound™ Fleet
 subtitle: Centralized Ultrasound Device Management

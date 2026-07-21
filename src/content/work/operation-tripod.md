@@ -1,7 +1,7 @@
 ---
 showIn:
-  featuredList: false
-  workList: false
+  featuredList: true
+  workList: true
 order: 6
 title: Operation Tripod
 subtitle: Centralizing Studio Intelligence via Custom AI

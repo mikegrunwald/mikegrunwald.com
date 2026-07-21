@@ -15,6 +15,7 @@
 	import { scrollProgress } from '$lib/gpu/fluid/grading.js';
 	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
 	import { CarouselScene } from '$lib/gpu/scenes/CarouselScene.js';
+	import { shouldLoopRunway, wrapScrollPosition } from '$lib/gpu/carousel/scrollModel.js';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -43,7 +44,52 @@
 	let creatingParticles = false;
 	let carouselScene;
 	let carouselTrigger;
+	let carouselPreRollTrigger;
 	let creatingCarousel = false;
+	// Re-entrancy guard for the runway wrap. Without it the programmatic scroll
+	// triggers another ScrollTrigger.update, which can re-enter onUpdate while
+	// progress is still >= 1 and wrap repeatedly in a single frame.
+	let wrappingRunway = false;
+
+	// Teleports scroll back to the start of the pinned runway, making downward
+	// scrolling loop forever. Invisible because the runway is exactly one
+	// rotation, so progress 0 and progress 1 are the same ring orientation.
+	function wrapRunway(self) {
+		if (wrappingRunway) return;
+		// `self.start`/`self.end` are document scroll positions bounding the pin.
+		// wrapScrollPosition wraps modulo the runway rather than snapping to its
+		// start, which is what keeps rotation continuous at speed — see its
+		// comment and the tests in __tests__/scrollModel.test.js.
+		const wrapped = wrapScrollPosition({
+			current: self.scroll(),
+			start: self.start,
+			end: self.end
+		});
+		if (wrapped === null) return;
+
+		wrappingRunway = true;
+		carouselScene?.holdVelocity();
+		// MUST go through Lenis, not window.scrollTo: Lenis owns the scroll
+		// position under `root: true` and would smoothly animate straight back to
+		// where it was. `immediate` skips its easing; `force` overrides any
+		// in-flight scrollTo.
+		//
+		// Known residual: Lenis's `immediate` path calls its own reset(), which
+		// zeroes velocity and stops the in-flight animation (lenis 1.3.1,
+		// dist/lenis.mjs reset()). There is no supported way to shift Lenis's
+		// position while keeping its animation — mutating animatedScroll/
+		// targetScroll directly gets overwritten on the next frame, because the
+		// running animate.fromTo still interpolates toward its captured target.
+		// A wheel/trackpad flick re-establishes velocity on the next input event
+		// (~1 frame); holdVelocity above keeps the RING steady across that blip
+		// so the seam doesn't also dip the radius boost.
+		lenis.current?.scrollTo(wrapped, { immediate: true, force: true });
+		// Release on the next frame rather than synchronously — the scrollTo
+		// above re-enters ScrollTrigger.update() before it returns.
+		requestAnimationFrame(() => {
+			wrappingRunway = false;
+		});
+	}
 
 	// Carousel raycast hover index (Task 6). Driven by CarouselScene's onHover
 	// callback, consumed by WorkTeasers.svelte's DOM label. WorkTeasers lives in
@@ -207,6 +253,7 @@
 			try {
 				carouselScene = new CarouselScene({
 					engine,
+					element: el,
 					teasers: page.data.teasers ?? [],
 					onHover: (index) => {
 						hoveredTeaserIndex = index;
@@ -224,10 +271,45 @@
 					start: 'top top',
 					end: 'bottom bottom',
 					pin: true,
-					onUpdate: (self) => carouselScene?.setProgress(self.progress),
+					onUpdate: (self) => {
+						carouselScene?.setProgress(self.progress);
+						// Fast path: catches the case where scrolling lands exactly on
+						// progress 1 without crossing the end. onLeave below is the
+						// path that actually fires most of the time.
+						if (shouldLoopRunway(self)) wrapRunway(self);
+					},
+					// THE wrap trigger. onUpdate only fires while between start and
+					// end, and under smooth scrolling its last call is typically at
+					// progress < 1 — so relying on it alone meant the wrap never ran
+					// and scrolling down simply fell off the end of the page. onLeave
+					// is guaranteed to fire when crossing the end going forward.
+					onLeave: (self) => wrapRunway(self)
+					// No setActive here. The approach trigger owns activation now:
+					// leaving the pin FORWARD wraps (so the ring must stay live), and
+					// leaving it BACKWARD lands in the approach zone where the ring
+					// is still supposed to be visible.
+				});
+				// Approach trigger: scrubs 0..1 over the last stretch before the pin
+				// engages, so the ring is already onscreen and turning by the time
+				// the pin takes over — which is what stops the first teaser popping
+				// into the centre.
+				//
+				// Starts at `top 20%`, NOT `top bottom`. A full-viewport approach
+				// made the ring fade up over AboutIntro's closing paragraph, so the
+				// teasers and the text fought each other. At 20% the About copy has
+				// essentially left the viewport before any teaser appears.
+				carouselPreRollTrigger = ScrollTrigger.create({
+					trigger: el,
+					start: 'top 20%',
+					end: 'top top',
+					scrub: true,
+					onUpdate: (self) => carouselScene?.setPreRoll(self.progress),
+					// setActive moves here from the pin trigger: the meshes have to
+					// be VISIBLE during the approach for the pre-roll to be seen at
+					// all. Side effect: the videos start decoding earlier than they
+					// used to (one viewport-height sooner), which is accepted.
 					onEnter: () => carouselScene?.setActive(true),
 					onEnterBack: () => carouselScene?.setActive(true),
-					onLeave: () => carouselScene?.setActive(false),
 					onLeaveBack: () => carouselScene?.setActive(false)
 				});
 			} finally {
@@ -236,6 +318,8 @@
 		} else if (!el && carouselScene) {
 			carouselTrigger?.kill();
 			carouselTrigger = undefined;
+			carouselPreRollTrigger?.kill();
+			carouselPreRollTrigger = undefined;
 			carouselScene.destroy();
 			carouselScene = undefined;
 		}
@@ -259,6 +343,8 @@
 			destroyParticlesScene(); // also re-shows the CSS logo
 			carouselTrigger?.kill();
 			carouselTrigger = undefined;
+			carouselPreRollTrigger?.kill();
+			carouselPreRollTrigger = undefined;
 			carouselScene?.destroy();
 			carouselScene = undefined;
 		});
@@ -336,6 +422,7 @@
 		if (typeof document !== 'undefined')
 			document.documentElement.classList.remove('gpu-particles-live');
 		carouselTrigger?.kill();
+		carouselPreRollTrigger?.kill();
 		carouselScene?.destroy();
 		fluidScene?.destroy();
 		engine?.destroy();
