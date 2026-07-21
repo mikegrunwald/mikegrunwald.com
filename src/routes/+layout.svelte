@@ -21,11 +21,34 @@
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
-	beforeNavigate(() => {});
-	afterNavigate(() => {
-		if (lenis.current) lenis.current.scrollTo(0, { immediate: true });
+	beforeNavigate((nav) => {
+		// Only the homepage carries a position worth restoring — it is the only
+		// route with the carousel.
+		if (nav.from?.url?.pathname === '/') {
+			homeScrollY = window.scrollY;
+		}
+	});
+	afterNavigate((nav) => {
+		// Returning to the homepage restores where you were, so zooming into a
+		// project and coming back does not throw you to the hero. Every other
+		// navigation still resets to the top, which is what you want when
+		// arriving somewhere new.
+		const returningHome = nav.to?.url?.pathname === '/' && homeScrollY != null;
+		if (lenis.current) {
+			lenis.current.scrollTo(returningHome ? homeScrollY : 0, { immediate: true });
+		}
+		// Deliberately NOT cleared here. beforeNavigate captures the position on
+		// the way OUT of the homepage, and this runs on that same navigation —
+		// clearing it would wipe the value that was just recorded, so back would
+		// always land at the top. It is overwritten on the next departure from
+		// home, which is the only time it can go stale.
 		syncParticlesScene();
 		syncCarouselScene();
+		// ScrollTrigger measured its positions against the previous document.
+		// Without this the restored scroll lands at the right pixel but the pin
+		// and its progress are computed from stale offsets, so the ring's
+		// rotation does not match where the scroll actually is.
+		if (returningHome) ScrollTrigger.refresh();
 	});
 
 	let { children } = $props();
@@ -52,6 +75,13 @@
 	// triggers another ScrollTrigger.update, which can re-enter onUpdate while
 	// progress is still >= 1 and wrap repeatedly in a single frame.
 	let wrappingRunway = false;
+
+	// Scroll position on the homepage when we last navigated away from it, so
+	// returning lands back at the carousel rather than the top of the page.
+	// Rotation needs no equivalent: it is derived from scroll through the pinned
+	// trigger, so restoring position restores it, and storing it separately
+	// would create a second source of truth that could disagree.
+	let homeScrollY = null;
 
 	// The in-flight zoom overlay's payload, or null. Holding the whole payload
 	// rather than a boolean keeps the component's props in one place.
@@ -491,6 +521,13 @@
 				},
 				get headerReady() {
 					return headerReady;
+				},
+				// The homepage scroll position held for the return trip. Exposed
+				// because the pane cannot scroll (Lenis owns it under root: true
+				// and the viewport is zero), so the capture/clear lifecycle is
+				// otherwise unobservable there.
+				get homeScrollY() {
+					return homeScrollY;
 				}
 			};
 		}
