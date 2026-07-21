@@ -140,8 +140,11 @@ const HOVER_EASE_RATE = 8;
 const INTERACTIVE_SELECTOR = 'a, button, input, select, textarea, label, [role="button"], .tp-dfwv';
 
 export class CarouselScene {
-	constructor({ engine, teasers, onHover, onNavigate }) {
+	constructor({ engine, element, teasers, onHover, onNavigate }) {
 		this.engine = engine;
+		// The `[data-gpu-carousel]` section. Used only as the target for the
+		// hover class — see setHoverClass for why it is not <html>.
+		this.element = element ?? null;
 		this.destroyed = false;
 		this.active = false;
 		this.progress = 0; // Task 4 turns this into rotation
@@ -493,13 +496,24 @@ export class CarouselScene {
 		return index === -1 ? null : index;
 	}
 
+	// Drives the pointer cursor (and doubles as a DOM-inspectable QA signal, since
+	// the WebGPU canvas cannot be read back from a page-level probe).
+	//
+	// Deliberately toggled on the SECTION, not on <html>. `cursor` is inherited,
+	// so a root-level toggle invalidates styles for every element on the page —
+	// measured at 4.5ms per toggle against 2142 elements, 1001 of them SplitText
+	// character divs. That is 27% of a 16.7ms frame burned every time the hover
+	// state flipped, which is what made the rotating ring stagger. Scoped to the
+	// section the same measurement is 0ms.
+	setHoverClass(on) {
+		this.element?.classList.toggle('is-hovering', on);
+	}
+
 	handlePointerMove(e) {
 		const index = this.hitTest(e);
 		if (index === this.hoveredIndex) return;
 		this.hoveredIndex = index;
-		// Plain CSS hook + DOM-inspectable QA signal (the WebGPU canvas can't be
-		// read back from a page-level probe).
-		document.documentElement.classList.toggle('carousel-hovering', index != null);
+		this.setHoverClass(index != null);
 		this.onHover?.(index);
 	}
 
@@ -532,7 +546,7 @@ export class CarouselScene {
 			// Clearing hoveredIndex is enough to drop the hover scale — layout()
 			// derives it from this field every frame.
 			this.hoveredIndex = null;
-			document.documentElement.classList.remove('carousel-hovering');
+			this.setHoverClass(false);
 			this.onHover?.(null);
 		}
 		for (const item of this.items) {
@@ -588,7 +602,7 @@ export class CarouselScene {
 		this.unsubFrame();
 		window.removeEventListener('pointermove', this._onPointerMove);
 		window.removeEventListener('click', this._onClick);
-		document.documentElement.classList.remove('carousel-hovering');
+		this.setHoverClass(false);
 		// Mirror setActive(false)'s hover reset. Without this the consumer's
 		// hovered-index state survives the scene: on the device-lost path
 		// (+layout.svelte) the page stays mounted while the ring is destroyed, so

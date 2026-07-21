@@ -1,7 +1,7 @@
 ---
 showIn:
-  featuredList: false
-  workList: false
+  featuredList: true
+  workList: true
 order: 7
 title: Dreamwave
 subtitle: Powering HubSpot’s Global Stage
@@ -91,5 +91,4 @@ awards:
       52" /></svg>
     awardType: FWA of the Day
     date: 2020-10-28T22:30:00.000-05:00
-
 ---

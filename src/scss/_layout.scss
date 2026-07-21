@@ -5,11 +5,19 @@ html {
 }
 
 // Set by CarouselScene while a ring teaser is under the pointer. The teasers
-// are WebGPU meshes, not DOM elements, so there is nothing to put a :hover
-// cursor on — the class on <html> is the only hook. Applied here rather than
-// to the canvas because the canvas sits behind all page content and is not
-// the hovered element.
-html.carousel-hovering {
+// are WebGPU meshes, not DOM elements, so there is nothing to hang a :hover
+// cursor on — a class toggled from the scene is the only hook.
+//
+// Scoped to the section, NOT to <html>. `cursor` is an INHERITED property, so
+// toggling it on the root invalidates every element on the page — measured at
+// 4.5ms per toggle against 2142 elements (1001 of them SplitText character
+// divs), i.e. 27% of a 16.7ms frame, every time the hover state changed. That
+// showed up as a stagger while scrolling the ring. Scoped here the same
+// measurement is 0ms.
+//
+// Not in WorkTeasers.svelte's own <style> because Svelte prunes selectors it
+// cannot see used in the markup, and `is-hovering` is added from JS.
+.work-teasers.is-hovering {
   cursor: pointer;
 }
 

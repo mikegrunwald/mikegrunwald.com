@@ -253,6 +253,7 @@
 			try {
 				carouselScene = new CarouselScene({
 					engine,
+					element: el,
 					teasers: page.data.teasers ?? [],
 					onHover: (index) => {
 						hoveredTeaserIndex = index;
