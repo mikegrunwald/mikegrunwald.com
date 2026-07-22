@@ -36,8 +36,14 @@ export class ScrambleEnterEffect {
 		// the previous tween happened to be displaying.
 		const original = element.dataset.scrambleOriginal ?? element.textContent;
 
-		// Nothing to resolve, and an empty scramble target throws.
-		if (!original) return;
+		// Nothing to resolve, and an empty scramble target throws. The CSS rule
+		// hides .scramble-target from first paint, so even an empty/whitespace
+		// value must still be revealed here — otherwise this early return would
+		// leave the element permanently invisible.
+		if (!original) {
+			gsap.set(element, { opacity: 1 });
+			return;
+		}
 
 		this.original = original;
 		element.dataset.scrambleOriginal = original;
@@ -45,6 +51,9 @@ export class ScrambleEnterEffect {
 		if (prefersReducedMotion()) {
 			// Already correct in the DOM — no animation, and crucially nothing to
 			// undo. This branch exists so the element is never left mid-scramble.
+			// Still must reveal it: the CSS rule hides it from first paint, and no
+			// tween is created on this path to do it for us.
+			gsap.set(element, { opacity: 1 });
 			return;
 		}
 
@@ -57,6 +66,10 @@ export class ScrambleEnterEffect {
 			},
 			duration: 0.9,
 			ease: 'none',
+			// The CSS rule hides .scramble-target from first paint; reveal it at
+			// the exact moment the scramble begins so no finished text is ever
+			// visible beforehand.
+			onStart: () => gsap.set(element, { opacity: 1 }),
 			scrollTrigger: {
 				trigger: element,
 				start: ENTER_START,
@@ -83,5 +96,9 @@ export class ScrambleEnterEffect {
 		this.element.textContent = this.original;
 		delete this.element.dataset.scrambleOriginal;
 		this.original = null;
+		// Torn down mid-animation (e.g. before its ScrollTrigger ever fired) must
+		// not leave the CSS opacity: 0 rule in place with nothing left running to
+		// clear it.
+		gsap.set(this.element, { opacity: 1 });
 	}
 }

@@ -18,9 +18,13 @@
 	     it on every no-particles path. With JS disabled none of that runs, so
 	     reveal it here. Unscoped .display still matches the Svelte-scoped
 	     element; !important beats both the base rule and the fallback rule. -->
+	<!-- Meta item values (.scramble-target) start hidden in CSS so the finished
+	     text never sits on screen before ScrambleEnterEffect reveals it. With
+	     JS disabled that effect never runs, so reveal it here instead. -->
 	<noscript>
 		<style>
 			.display::before { opacity: 1 !important; }
+			.scramble-target { opacity: 1 !important; }
 		</style>
 	</noscript>
 

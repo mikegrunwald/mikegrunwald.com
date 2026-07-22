@@ -76,4 +76,14 @@
 		white-space: nowrap;
 		border: 0;
 	}
+
+	// Server-rendered with the real text already in it, so without this the
+	// finished string sits on screen, readable, until its ScrollTrigger fires —
+	// the scramble would then "resolve" text the viewer already read.
+	// ScrambleEnterEffect reveals it at the exact moment the scramble begins.
+	// Safe to hide: this span is aria-hidden, and .visually-hidden above holds
+	// the same text for screen readers.
+	.scramble-target {
+		opacity: 0;
+	}
 </style>
