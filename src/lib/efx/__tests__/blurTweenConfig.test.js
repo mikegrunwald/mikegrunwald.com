@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { buildBlurTween, BLUR_START, BLUR_END } from '../blurTweenConfig.js';
+import {
+	buildBlurTween,
+	BLUR_START,
+	BLUR_END,
+	STAGGER_EACH,
+	ENTER_DURATION,
+	ENTER_STAGGER_AMOUNT
+} from '../blurTweenConfig.js';
 
 describe('buildBlurTween defaults (existing scrub behavior)', () => {
 	const { fromVars, toVars } = buildBlurTween({ trigger: 'EL' });
@@ -27,7 +34,7 @@ describe('buildBlurTween defaults (existing scrub behavior)', () => {
 	});
 
 	it('staggers from the start', () => {
-		expect(toVars.stagger).toEqual({ each: 0.05, from: 'start' });
+		expect(toVars.stagger).toEqual({ each: STAGGER_EACH, from: 'start' });
 	});
 
 	it('is not paused', () => {
@@ -48,7 +55,7 @@ describe('buildBlurTween enter mode', () => {
 	});
 
 	it('has a real duration and an eased curve', () => {
-		expect(toVars.duration).toBe(0.9);
+		expect(toVars.duration).toBe(ENTER_DURATION);
 		expect(toVars.ease).toBe('power2.out');
 	});
 
@@ -57,7 +64,7 @@ describe('buildBlurTween enter mode', () => {
 	});
 
 	it('staggers using a fixed total amount, not a per-character each', () => {
-		expect(toVars.stagger).toEqual({ amount: 0.35, from: 'start' });
+		expect(toVars.stagger).toEqual({ amount: ENTER_STAGGER_AMOUNT, from: 'start' });
 	});
 
 	it('does not use `each` for its stagger, so total entrance duration does not grow with character count', () => {
@@ -68,7 +75,7 @@ describe('buildBlurTween enter mode', () => {
 describe('buildBlurTween stagger direction', () => {
 	it('reverses to right-to-left when from is end', () => {
 		const { toVars } = buildBlurTween({ mode: 'enter', from: 'end', trigger: 'EL' });
-		expect(toVars.stagger).toEqual({ amount: 0.35, from: 'end' });
+		expect(toVars.stagger).toEqual({ amount: ENTER_STAGGER_AMOUNT, from: 'end' });
 	});
 });
 
@@ -88,7 +95,7 @@ describe('buildBlurTween paused', () => {
 	});
 
 	it('still carries the enter duration, so a paused tween does not silently fall back to GSAP default', () => {
-		expect(toVars.duration).toBe(0.9);
+		expect(toVars.duration).toBe(ENTER_DURATION);
 	});
 });
 

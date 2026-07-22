@@ -10,13 +10,13 @@ import { ENTER_START } from './enterTrigger.js';
 export const BLUR_START = 'blur(6px)';
 export const BLUR_END = 'blur(0px)';
 
-const STAGGER_EACH = 0.05;
-const ENTER_DURATION = 0.9;
+export const STAGGER_EACH = 0.05;
+export const ENTER_DURATION = 0.6;
 // Total stagger time, in seconds, spread across however many characters an
 // enter-mode tween has. Using `amount` instead of `each` keeps the whole
 // entrance's total duration constant regardless of text length — see the
 // `mode === 'enter'` branch below.
-const ENTER_STAGGER_AMOUNT = 0.35;
+export const ENTER_STAGGER_AMOUNT = 1.6;
 
 export function buildBlurTween({
 	mode = 'scrub',
