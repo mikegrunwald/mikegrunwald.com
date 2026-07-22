@@ -67,6 +67,19 @@ export function buildBlurTween({
 		toVars.stagger = { amount: ENTER_STAGGER_AMOUNT, from };
 		// Enter mode always gets a duration for the self-playing animation.
 		toVars.duration = ENTER_DURATION;
+		// Measured on the running app: fromVars sets willChange to promote a
+		// compositor layer for the blur, and the end state leaves an inline
+		// `filter: blur(0px)` rather than `none`, so elements never leave the
+		// filter path or the promoted layer. Enter only plays once, so clear
+		// both on completion to drop the layer and fall off the filter path.
+		// Never include `opacity` here — ProjectHeader's title/subtitle rely
+		// on a CSS `opacity: 0` rule to stay hidden pre-hydration, and clearing
+		// the inline opacity would fall back to that rule and re-hide them.
+		// Scrub is excluded entirely (see the `else` branch below): its tween
+		// replays in both directions as the user scrolls, so clearing on
+		// "completion" would strip willChange/filter and force re-promotion
+		// on every scroll-back — churn worse than the leak it would fix.
+		toVars.clearProps = 'willChange,filter';
 	} else {
 		// Scrub maps the whole tween to a scroll range anyway, so a per-character
 		// `each` is correct and must stay exactly as it was for the existing

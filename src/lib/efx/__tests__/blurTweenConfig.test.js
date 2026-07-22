@@ -40,6 +40,10 @@ describe('buildBlurTween defaults (existing scrub behavior)', () => {
 	it('is not paused', () => {
 		expect(toVars.paused).toBe(false);
 	});
+
+	it('emits no clearProps, because scrub tweens replay in both directions as the user scrolls', () => {
+		expect(toVars.clearProps).toBeUndefined();
+	});
 });
 
 describe('buildBlurTween enter mode', () => {
@@ -70,6 +74,14 @@ describe('buildBlurTween enter mode', () => {
 	it('does not use `each` for its stagger, so total entrance duration does not grow with character count', () => {
 		expect(toVars.stagger.each).toBeUndefined();
 	});
+
+	it('clears willChange and filter on completion, because the entrance must not leave elements permanently promoted to compositor layers', () => {
+		expect(toVars.clearProps).toBe('willChange,filter');
+	});
+
+	it('does not clear opacity, because that would fall back to the CSS rule that hides the headings pre-hydration', () => {
+		expect(toVars.clearProps.split(',')).not.toContain('opacity');
+	});
 });
 
 describe('buildBlurTween stagger direction', () => {
@@ -96,6 +108,10 @@ describe('buildBlurTween paused', () => {
 
 	it('still carries the enter duration, so a paused tween does not silently fall back to GSAP default', () => {
 		expect(toVars.duration).toBe(ENTER_DURATION);
+	});
+
+	it('also carries clearProps, because the h1/h2 use this paused-enter path too', () => {
+		expect(toVars.clearProps).toBe('willChange,filter');
 	});
 });
 
