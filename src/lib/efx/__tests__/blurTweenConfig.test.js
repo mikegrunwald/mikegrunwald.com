@@ -91,6 +91,29 @@ describe('buildBlurTween stagger direction', () => {
 	});
 });
 
+describe('buildBlurTween enter timing overrides', () => {
+	const { toVars } = buildBlurTween({
+		mode: 'enter',
+		duration: 0.4,
+		staggerAmount: 0.7,
+		trigger: 'EL'
+	});
+
+	it('uses the caller duration instead of the shared default', () => {
+		expect(toVars.duration).toBe(0.4);
+	});
+
+	it('uses the caller stagger amount instead of the shared default', () => {
+		expect(toVars.stagger).toEqual({ amount: 0.7, from: 'start' });
+	});
+
+	it('leaves scrub mode alone, because only enter mode has a self-driven duration', () => {
+		const scrub = buildBlurTween({ duration: 0.4, staggerAmount: 0.7, trigger: 'EL' }).toVars;
+		expect(scrub.duration).toBeUndefined();
+		expect(scrub.stagger).toEqual({ each: STAGGER_EACH, from: 'start' });
+	});
+});
+
 describe('buildBlurTween paused', () => {
 	const { toVars } = buildBlurTween({ mode: 'enter', paused: true, delay: 0.15, trigger: 'EL' });
 

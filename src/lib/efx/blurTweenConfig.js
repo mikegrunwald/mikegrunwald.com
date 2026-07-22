@@ -24,6 +24,12 @@ export function buildBlurTween({
 	delay = 0,
 	paused = false,
 	reduceMotion = false,
+	// Enter-mode timing overrides. Both default to the shared constants, so a
+	// caller that wants a quicker entrance (the work detail body h3s, which run
+	// several in a row) can speed itself up without touching the pacing of the
+	// page titles or the scrub consumers.
+	duration = ENTER_DURATION,
+	staggerAmount = ENTER_STAGGER_AMOUNT,
 	trigger
 } = {}) {
 	// Reduced motion is not "a faster animation" — it is the end state, applied
@@ -64,9 +70,9 @@ export function buildBlurTween({
 		// total time = duration + amount regardless of character count. `each`
 		// (used below for scrub) would instead grow with character count, making
 		// long subtitles take far longer to animate in than short titles.
-		toVars.stagger = { amount: ENTER_STAGGER_AMOUNT, from };
+		toVars.stagger = { amount: staggerAmount, from };
 		// Enter mode always gets a duration for the self-playing animation.
-		toVars.duration = ENTER_DURATION;
+		toVars.duration = duration;
 		// Measured on the running app: fromVars sets willChange to promote a
 		// compositor layer for the blur, and the end state leaves an inline
 		// `filter: blur(0px)` rather than `none`, so elements never leave the

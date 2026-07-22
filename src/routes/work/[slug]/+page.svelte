@@ -64,9 +64,14 @@
 			effects.push(new GlowEnterEffect(group.querySelectorAll('dd')));
 		});
 
+		// Faster than the enter-mode default: these are body subheads, several of
+		// them down the page, so the title's more deliberate pacing reads as sluggish
+		// by the time you have scrolled past the third one.
 		descriptionEl
 			.querySelectorAll('h3')
-			.forEach((h3) => effects.push(new BlurScrollEffect(h3, { mode: 'enter' })));
+			.forEach((h3) =>
+				effects.push(new BlurScrollEffect(h3, { mode: 'enter', duration: 0.3, staggerAmount: 0.5 }))
+			);
 	});
 
 	onDestroy(() => {
@@ -212,6 +217,8 @@
 			inset 0 0 12px #33c5f3;
 		overflow: hidden;
 		margin-bottom: var(--spacing-sm);
+		position: relative;
+		z-index: 1;
 	}
 
 	.project-links {
