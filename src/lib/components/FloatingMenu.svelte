@@ -1,5 +1,6 @@
 <script>
 	import { page } from '$app/state';
+	import { afterNavigate } from '$app/navigation';
 	import siteSettings from '$content/meta/site.json';
 	import { resolveMenuLink } from '$lib/nav/resolveMenuLink.js';
 
@@ -16,6 +17,17 @@
 
 	let open = $state(false);
 	let trigger;
+	let panel;
+
+	// One-shot: set immediately before the programmatic hidePopover() below, read
+	// and cleared by the `toggle` handler it causes. The popover `toggle` event is
+	// dispatched ASYNCHRONOUSLY (the spec queues it; only `beforetoggle` is
+	// synchronous), so this cannot be cleared right after hidePopover() returns —
+	// onToggle would not have run yet. Clearing it inside onToggle instead makes
+	// the lifetime exactly "one toggle", and because the flag is only ever set on
+	// a branch that definitely calls hidePopover(), that toggle is guaranteed to
+	// arrive and the flag can never be left stranded to suppress a later Escape.
+	let suppressFocusRecovery = false;
 
 	// Mirrors the panel's state onto aria-expanded and the icon, and recovers
 	// focus on dismissal.
@@ -29,12 +41,40 @@
 	//
 	// Recover ONLY if focus actually escaped to the body: refocusing
 	// unconditionally would steal focus from a menu link the user just activated.
+	//
+	// The activeElement === body test alone is NOT sufficient to tell those paths
+	// apart: clicking a menu link ALSO leaves activeElement on <body>, so the
+	// navigation close would pass the test and yank focus back to the trigger,
+	// fighting SvelteKit's own post-navigation focus reset. Hence the explicit
+	// flag — Escape and outside-click still recover, navigation does not.
 	function onToggle(event) {
 		open = event.newState === 'open';
-		if (!open && document.activeElement === document.body) {
+
+		const fromNavigation = suppressFocusRecovery;
+		suppressFocusRecovery = false;
+
+		if (!open && !fromNavigation && document.activeElement === document.body) {
 			trigger?.focus();
 		}
 	}
+
+	// The component lives in the root layout, so it survives navigation and the
+	// panel would otherwise stay open in the top layer, covering the destination:
+	// popover="auto" light-dismiss does not fire for clicks INSIDE the popover.
+	//
+	// No href inspection is needed, and none should be added: resolveMenuLink
+	// gives every external link and every document target="_blank", so those open
+	// in a new tab and produce no same-page navigation — afterNavigate simply
+	// never fires for them. The missing external-link branch is correct.
+	afterNavigate(() => {
+		// hidePopover() throws InvalidStateError when the popover is not showing,
+		// and afterNavigate also runs on the initial page load with the panel
+		// closed — so the open check is required, not defensive noise.
+		if (panel?.matches(':popover-open')) {
+			suppressFocusRecovery = true;
+			panel.hidePopover();
+		}
+	});
 
 	// External links and documents can never represent the current page.
 	function isCurrent(item) {
@@ -56,7 +96,14 @@
 			<span class="bars" aria-hidden="true"></span>
 		</button>
 
-		<nav class="panel" id={PANEL_ID} popover="auto" aria-label="Site" ontoggle={onToggle}>
+		<nav
+			bind:this={panel}
+			class="panel"
+			id={PANEL_ID}
+			popover="auto"
+			aria-label="Site"
+			ontoggle={onToggle}
+		>
 			<button
 				class="close"
 				type="button"
