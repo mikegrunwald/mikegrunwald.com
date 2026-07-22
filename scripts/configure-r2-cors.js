@@ -64,17 +64,44 @@ const s3Client = new S3Client({
   },
 });
 
+// Origins allowed to WRITE. Reads are wildcarded separately below.
+const WRITE_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://mikegrunwald.com',
+  'https://www.mikegrunwald.com',
+];
+
 const corsConfiguration = {
   CORSRules: [
+    // Public reads, deliberately wildcarded.
+    //
+    // These objects are already world-readable over the CDN, so `*` gives away
+    // nothing that a plain URL does not. What it buys is that the response no
+    // longer depends on the request's Origin — there is exactly ONE cacheable
+    // variant. With a per-origin echo, whether a browser sees the header depends
+    // on cache keys, request ordering, and edge state at whichever PoP it hits,
+    // which is a class of intermittent, unreproducible failure.
+    //
+    // This matters here specifically because the same video file is fetched two
+    // different ways: the carousel uploads it as a WebGPU texture (a CORS request,
+    // which needs this header) while the project pages play it in a plain <video>
+    // (not a CORS request, which does not). Those two shapes must never disagree
+    // about whether the asset is readable.
     {
       AllowedHeaders: ['*'],
-      AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
-      AllowedOrigins: [
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'https://mikegrunwald.com',
-        'https://www.mikegrunwald.com',
-      ],
+      AllowedMethods: ['GET', 'HEAD'],
+      AllowedOrigins: ['*'],
+      ExposeHeaders: ['ETag'],
+      MaxAgeSeconds: 3600,
+    },
+    // Writes stay pinned to known origins. CORS is not the security boundary for
+    // uploads — those are authorised by presigned URLs — but there is no reason
+    // to widen the surface, and a wildcard on DELETE reads as a mistake.
+    {
+      AllowedHeaders: ['*'],
+      AllowedMethods: ['PUT', 'POST', 'DELETE'],
+      AllowedOrigins: WRITE_ORIGINS,
       ExposeHeaders: ['ETag'],
       MaxAgeSeconds: 3600,
     },
@@ -113,8 +140,11 @@ async function configureCORS() {
     console.log('📝 New CORS rules:');
     console.log(JSON.stringify(corsConfiguration.CORSRules, null, 2));
     console.log();
-    console.log('🎉 Your R2 bucket now accepts uploads from:');
-    corsConfiguration.CORSRules[0].AllowedOrigins.forEach((origin) => {
+    console.log('🎉 Reads (GET/HEAD) are open to any origin, so a CORS fetch and a');
+    console.log('   plain fetch of the same asset can never disagree.');
+    console.log();
+    console.log('🔒 Writes (PUT/POST/DELETE) are limited to:');
+    WRITE_ORIGINS.forEach((origin) => {
       console.log(`   - ${origin}`);
     });
     console.log();

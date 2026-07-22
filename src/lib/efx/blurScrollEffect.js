@@ -1,20 +1,44 @@
 import { gsap } from 'gsap/dist/gsap';
 import { SplitText } from 'gsap/dist/SplitText';
-
+import { buildBlurTween } from './blurTweenConfig.js';
+import { prefersReducedMotion } from './reducedMotion.js';
 
 export class BlurScrollEffect {
-  constructor(textElement) {
+  // options: { mode: 'scrub'|'enter', from: 'start'|'end', delay: number,
+  //            paused: boolean }. The defaults reproduce the original
+  //            scroll-scrubbed, left-to-right behavior exactly, so the existing
+  //            callers (AboutIntro, WorkTeasers) need no change.
+  constructor(textElement, options = {}) {
     if (!textElement || !(textElement instanceof HTMLElement)) {
       throw new Error('Invalid text element provided.');
     }
 
     this.textElement = textElement;
+    this.options = options;
     this.destroyed = false;
     this.split = null;
+    // Set once the tween exists. A caller can call play() before fonts resolve
+    // — the transition overlay can be dismissed that fast — so the request has
+    // to be remembered rather than dropped.
+    this.playRequested = false;
     // onSplit fires again on every re-split (autoSplit re-splits on resize and
     // font swaps), each time creating a NEW tween + ScrollTrigger, so collect
     // them all rather than keeping only the latest.
     this.tweens = new Set();
+
+    // Without this, the element renders at full opacity for the ~25ms between
+    // mount and document.fonts.ready resolving, THEN SplitText runs and
+    // gsap.fromTo applies opacity: 0 to the characters — a visible flash of
+    // text that immediately vanishes. This has to happen synchronously, here,
+    // before the constructor returns: anything deferred (even a microtask)
+    // risks the browser painting a frame in between. Skipped under reduced
+    // motion, where buildBlurTween returns an empty fromVars — nothing would
+    // ever set the characters' opacity, so hiding the parent would just be a
+    // needless flicker, and any bug in the restore path would permanently
+    // hide content from exactly the users least able to tolerate it.
+    if (!prefersReducedMotion()) {
+      gsap.set(textElement, { opacity: 0 });
+    }
 
     document.fonts.ready.then(() => {
       // The component can unmount before fonts resolve. Without this guard the
@@ -31,32 +55,37 @@ export class BlurScrollEffect {
       type: 'words, chars',
       autoSplit: true,
       onSplit: (instance) => {
-        const tween = gsap.fromTo(instance.chars, {
-          opacity: 0,
-          // x: -20,
-          // filter: 'blur(30px) brightness(0%)',
-          filter: 'blur(6px)',
-          willChange: 'opacity, x, y, filter'
-        }, {
-          ease: 'none',
-          // filter: 'blur(0px) brightness(100%)',
-          filter: 'blur(0px)',
-          opacity: 1,
-          // x: 0,
-          stagger: 0.05,
-          scrollTrigger: {
-            trigger: this.textElement,
-            start: 'top bottom-=10%',
-            end: 'bottom center+=15%',
-            scrub: true,
-            // markers: true
-          },
+        // Rebuilt per split rather than hoisted out of this callback. GSAP takes
+        // ownership of the vars objects it is handed — including the nested
+        // scrollTrigger config — so reusing one instance across the re-splits
+        // that autoSplit performs on resize and font swap would hand GSAP an
+        // object a previous tween had already mutated.
+        const { fromVars, toVars } = buildBlurTween({
+          ...this.options,
+          reduceMotion: prefersReducedMotion(),
+          trigger: this.textElement
         });
+
+        const tween = gsap.fromTo(instance.chars, fromVars, toVars);
         this.tweens.add(tween);
+        // A play() that arrived before the split — or before a re-split — must
+        // still take effect, otherwise the text stays at opacity 0 forever.
+        if (this.playRequested) tween.play();
         // Returned so SplitText reverts it before re-splitting (GSAP contract).
         return tween;
       }
     });
+    // Restore the element now that the characters carry their own opacity: 0
+    // start state (or, under reduced motion, are already at their end state).
+    // Safe either way — this only undoes the synchronous hide above.
+    gsap.set(this.textElement, { opacity: 1 });
+  }
+
+  // Starts a tween built with `paused: true`. Safe to call at any time and any
+  // number of times, including before the split has happened.
+  play() {
+    this.playRequested = true;
+    for (const tween of this.tweens) tween.play();
   }
 
   // Callers MUST invoke this on unmount. Passing `scrollTrigger` to gsap.fromTo()
@@ -77,5 +106,9 @@ export class BlurScrollEffect {
     // Restores the original DOM and detaches SplitText's own resize handling.
     this.split?.revert();
     this.split = null;
+    // Unmounting before document.fonts.ready resolves would otherwise leave
+    // the synchronous pre-hide above in place forever, since initializeEffect
+    // — the only other place that restores opacity — never runs.
+    gsap.set(this.textElement, { opacity: 1 });
   }
 }

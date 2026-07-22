@@ -120,6 +120,11 @@
 		transitionArrived = false;
 		headerReady = false;
 		transition = payload;
+		// Announced explicitly rather than letting the detail page infer it from
+		// the handoff record: setHandoff() refuses records with a non-finite
+		// currentTime or missing srcUrl, but the overlay still goes up in those
+		// cases, so absence of a record does NOT mean absence of a transition.
+		window.dispatchEvent(new CustomEvent('project-transition-started'));
 		// Navigate IN PARALLEL with the animation so SvelteKit loads route data
 		// while the zoom plays. The detail page mounting underneath the overlay
 		// mid-zoom is the point, not a glitch.
@@ -153,6 +158,12 @@
 		transitionArrived = false;
 		headerReady = false;
 		carouselScene?.clearSuppressed();
+		// The mirror of `project-header-ready`, which ProjectHeader dispatches up
+		// to us. The detail page's heading entrance has to start HERE rather than
+		// on its own mount: on a carousel arrival the overlay covers the page
+		// while it mounts, so a mount-triggered animation would play out of sight
+		// and be over by the time the overlay lifts.
+		window.dispatchEvent(new CustomEvent('project-transition-dismissed'));
 	}
 
 	// Teleports scroll back to the start of the pinned runway, making downward

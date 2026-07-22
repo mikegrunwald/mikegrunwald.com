@@ -1,6 +1,7 @@
 // Dev-only. Callers must gate on shouldShowPanel() before importing anything heavy.
 export function shouldShowPanel() {
-	return import.meta.env.DEV || new URLSearchParams(location.search).has('debug');
+	// return import.meta.env.DEV || new URLSearchParams(location.search).has('debug');
+	return new URLSearchParams(location.search).has('debug');
 }
 
 export async function maybeCreatePanel({

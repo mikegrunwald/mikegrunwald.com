@@ -1,10 +1,15 @@
 <script>
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { tilt } from '$lib/actions/tilt';
 	import AwardLink from '$lib/components/AwardLink.svelte';
 	import MediaItem from '$lib/components/MediaItem.svelte';
 	import MetaItem from '$lib/components/MetaItem.svelte';
 	import ProjectHeader from '$lib/components/ProjectHeader.svelte';
 	import Tag from '$lib/components/Tag.svelte';
+	import { BlurScrollEffect } from '$lib/efx/blurScrollEffect.js';
+	import { GlowEnterEffect } from '$lib/efx/glowEnterEffect.js';
+	import { ScrambleEnterEffect } from '$lib/efx/scrambleEnterEffect.js';
+	import { StaggerEnterEffect } from '$lib/efx/staggerEnterEffect.js';
 
 	const itemTiltOptions = { maxTilt: 8.2, perspective: 670, ease: 0.067 };
 
@@ -18,6 +23,57 @@
 		if (!content.media || !content.media[0]) return null;
 		return content.media[0];
 	});
+
+	let metaEl;
+	let descriptionEl;
+	// One array for every effect on the page. These pages are reached by
+	// client-side navigation from the carousel, so anything not destroyed here
+	// survives the round trip holding scroll positions measured against a
+	// document that no longer exists.
+	let effects = [];
+	// Guards against unmounting during the tick() await below: without it,
+	// onDestroy would run first against an empty effects array, then the
+	// resumed microtask would query a torn-down metaEl and build effects that
+	// never make it into the teardown array.
+	let live = true;
+
+	onMount(async () => {
+		// The h3s arrive through {@html descriptionHtml}, so they are not in the
+		// DOM until Svelte has flushed. Same reason AboutIntro awaits a tick.
+		await tick();
+		if (!live) return;
+
+		// Non-full-width values scramble. The `.scramble-target` span is the
+		// aria-hidden copy — never the visually-hidden one, which must keep its
+		// real text for screen readers.
+		metaEl
+			.querySelectorAll('.meta-item:not(.full-width) .scramble-target')
+			.forEach((el) => effects.push(new ScrambleEnterEffect(el)));
+
+		// Full-width groups (Tech, Awards) enter together, one group per row so
+		// each keeps its own stagger rather than sharing one across the page.
+		// Every full-width group gets the rise-and-fade stagger; Awards
+		// additionally get GlowEnterEffect for their logo glow. Both effects
+		// share duration, ease, stagger and ScrollTrigger start, so the two
+		// stay visually in sync on the awards row.
+		metaEl.querySelectorAll('.meta-item.full-width').forEach((group) => {
+			effects.push(new StaggerEnterEffect(group.querySelectorAll('dd')));
+		});
+
+		metaEl.querySelectorAll('.meta-item.full-width.awards').forEach((group) => {
+			effects.push(new GlowEnterEffect(group.querySelectorAll('dd')));
+		});
+
+		descriptionEl
+			.querySelectorAll('h3')
+			.forEach((h3) => effects.push(new BlurScrollEffect(h3, { mode: 'enter' })));
+	});
+
+	onDestroy(() => {
+		live = false;
+		for (const effect of effects) effect.destroy();
+		effects = [];
+	});
 </script>
 
 <article class="project">
@@ -28,7 +84,7 @@
 		slug={data.slug}
 	/>
 	<div class="content">
-		<div class="meta">
+		<div class="meta" bind:this={metaEl}>
 			<dl>
 				{#if content.agency}
 					<MetaItem label="Agency" value={content.agency} />
@@ -71,7 +127,7 @@
 			</dl>
 		</div>
 
-		<div class="description bullets">
+		<div class="description bullets" bind:this={descriptionEl}>
 			{@html content.descriptionHtml || content.description}
 		</div>
 
@@ -104,6 +160,11 @@
 			</section>
 		{/if}
 
+		<!-- Re-enabling this needs the entrance effects re-keyed on data.slug first:
+		     SvelteKit reuses this component across /work/a -> /work/b, so onMount and
+		     onDestroy do not re-run. Project A's effects would survive with stale
+		     positions, project B would get no entrance, and the scramble originals
+		     cached on the reused spans would resolve B's values to A's text. -->
 		<!-- <NextProjectLink nextProject={data.nextProject} /> -->
 	</div>
 </article>
