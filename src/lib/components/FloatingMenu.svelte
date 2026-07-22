@@ -130,6 +130,9 @@
 		height: var(--menu-button-size);
 		display: grid;
 		place-items: center;
+		/* _buttons.scss sets `transition: all 0.5s` on every <button>; left as
+		   inherited, that would delay the `visibility: hidden` below by 500ms. */
+		transition: none;
 	}
 
 	/* Hidden — not merely transparent — while the panel is open, so it leaves
@@ -206,6 +209,9 @@
 		height: var(--menu-button-size);
 		display: grid;
 		place-items: center;
+		/* Same global `transition: all 0.5s` from _buttons.scss; pointless here
+		   since only the .bars pseudo-elements should animate, not this button. */
+		transition: none;
 	}
 
 	/* --- Bars ---------------------------------------------------------------
