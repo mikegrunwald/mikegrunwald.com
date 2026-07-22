@@ -7,6 +7,7 @@
 	import { SplitText } from 'gsap/dist/SplitText';
 	import { gsap } from 'gsap/dist/gsap';
 	import CursorDot from '$lib/components/CursorDot.svelte';
+	import FloatingMenu from '$lib/components/FloatingMenu.svelte';
 	import { beforeNavigate, afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { createEngine } from '$lib/gpu/engine.js';
@@ -225,6 +226,13 @@
 	// routes and hide the layout's fixed canvas so it doesn't sit behind the
 	// dev route's own panes.
 	let isDevRoute = $derived(page.url.pathname.startsWith('/dev/'));
+
+	// The floating menu is site chrome for the public site only. /dev/* routes
+	// boot their own engine and debug panes, and /admin is the Decap shell —
+	// neither wants a site nav floating over it.
+	let showFloatingMenu = $derived(
+		!page.url.pathname.startsWith('/dev/') && !page.url.pathname.startsWith('/admin')
+	);
 
 	let lenis = useLenis((lenis) => {
 		if (!engine || !fluidScene) return;
@@ -582,6 +590,9 @@
 		<canvas class="canvas" bind:this={canvas}></canvas>
 	{/if}
 	<CursorDot class="dot" />
+	{#if showFloatingMenu}
+		<FloatingMenu />
+	{/if}
 	{#if transition}
 		<TransitionVideo
 			sourceVideo={transition.video}
