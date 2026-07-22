@@ -47,13 +47,33 @@
 	// navigation close would pass the test and yank focus back to the trigger,
 	// fighting SvelteKit's own post-navigation focus reset. Hence the explicit
 	// flag — Escape and outside-click still recover, navigation does not.
+	//
+	// The inPanel test covers a third path: closing via the panel's OWN close
+	// button — the primary keyboard route, since the close button is the first
+	// tabbable element in the panel.
+	//
+	// Chrome does NOT actually need it: its popover focus restoration moves focus
+	// from the close button back to the invoker synchronously inside
+	// hidePopover(), so by the time this (async) toggle handler runs activeElement
+	// is already the trigger and inPanel is false — verified in Chrome 148 with an
+	// isolated popover carrying no focus JS at all. The clause is defence in depth
+	// for engines that do not restore invoker focus, where activeElement would
+	// still be the close button here and the body test alone would skip recovery,
+	// stranding the next Tab at the top of the document (WCAG 2.4.3).
+	//
+	// It is safe precisely because anything focused inside a panel that is closing
+	// is about to be blurred, so recovering focus is never wrong there. Note the
+	// fromNavigation short-circuit still runs first, so this cannot re-steal focus
+	// after a menu-link navigation.
 	function onToggle(event) {
 		open = event.newState === 'open';
 
 		const fromNavigation = suppressFocusRecovery;
 		suppressFocusRecovery = false;
 
-		if (!open && !fromNavigation && document.activeElement === document.body) {
+		const inPanel = panel?.contains(document.activeElement);
+
+		if (!open && !fromNavigation && (document.activeElement === document.body || inPanel)) {
 			trigger?.focus();
 		}
 	}
@@ -115,7 +135,13 @@
 			</button>
 
 			<ul class="list">
-				{#each items as item, i (item.href + item.label)}
+				<!-- Keyed by index deliberately: the list is derived once at module
+				     evaluation, never reorders and is never mutated, so index keys are
+				     stable. A content key is not safe here — the items are CMS-authored,
+				     so a duplicated label+url is a plausible typo, and a duplicate key
+				     THROWS in Svelte's client-side each block, which would survive
+				     prerender and blank the page on hydration. -->
+				{#each items as item, i (i)}
 					<li class="item" style="--i: {i}">
 						<a
 							class="link"
@@ -156,6 +182,9 @@
 		--menu-panel-color: var(--color-text-primary);
 		--menu-panel-radius: var(--border-radius);
 		--menu-panel-min-width: 10rem;
+		/* Bounds an unbounded, CMS-editable item list to the viewport, leaving the
+		   panel's own offset as breathing room at top and bottom. */
+		--menu-panel-max-height: calc(100dvh - var(--menu-offset) * 2);
 
 		--menu-item-gap: var(--spacing-xxs);
 		--menu-item-shift: 8px;
@@ -222,6 +251,13 @@
 		border-radius: var(--menu-panel-radius);
 		min-width: var(--menu-panel-min-width);
 		width: max-content;
+
+		/* Required, not merely nice-to-have: the clip-path below clips to the
+		   border box, so items overflowing an unbounded panel would be neither
+		   visible nor reachable. Capping the height and scrolling keeps every
+		   item inside the clipped box. */
+		max-height: var(--menu-panel-max-height);
+		overflow-y: auto;
 
 		/* No z-index: an open popover is in the top layer, above the fixed
 		   canvas and the cursor dot without one. */
