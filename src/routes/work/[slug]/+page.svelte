@@ -52,15 +52,16 @@
 
 		// Full-width groups (Tech, Awards) enter together, one group per row so
 		// each keeps its own stagger rather than sharing one across the page.
-		// Awards stay fully visible and unmoved — only their logo glow blooms in
-		// — so they get GlowEnterEffect instead of the rise-and-fade used by Tech
-		// and any other full-width group.
-		metaEl.querySelectorAll('.meta-item.full-width.awards').forEach((group) => {
-			effects.push(new GlowEnterEffect(group.querySelectorAll('dd')));
+		// Every full-width group gets the rise-and-fade stagger; Awards
+		// additionally get GlowEnterEffect for their logo glow. Both effects
+		// share duration, ease, stagger and ScrollTrigger start, so the two
+		// stay visually in sync on the awards row.
+		metaEl.querySelectorAll('.meta-item.full-width').forEach((group) => {
+			effects.push(new StaggerEnterEffect(group.querySelectorAll('dd')));
 		});
 
-		metaEl.querySelectorAll('.meta-item.full-width:not(.awards)').forEach((group) => {
-			effects.push(new StaggerEnterEffect(group.querySelectorAll('dd')));
+		metaEl.querySelectorAll('.meta-item.full-width.awards').forEach((group) => {
+			effects.push(new GlowEnterEffect(group.querySelectorAll('dd')));
 		});
 
 		descriptionEl
