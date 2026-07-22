@@ -15,12 +15,25 @@
 		.map(resolveMenuLink);
 
 	let open = $state(false);
+	let trigger;
 
-	// The ONLY custom behaviour. popover="auto" already provides light-dismiss,
-	// Escape, focus return, and Tab-into-panel ordering; this listener exists
-	// purely to mirror the panel's state onto aria-expanded and the icon.
+	// Mirrors the panel's state onto aria-expanded and the icon, and recovers
+	// focus on dismissal.
+	//
+	// popover="auto" provides light-dismiss, Escape, and Tab-into-panel ordering
+	// for free, but NOT focus return here: opening hides the trigger
+	// (visibility: hidden), which forces the browser to blur it, so focus falls
+	// to <body> while the panel is open. There is then no invoker focus left for
+	// the UA to restore, and Escape / outside-click both leave focus stranded on
+	// <body> — verified in Chrome 148 on both paths.
+	//
+	// Recover ONLY if focus actually escaped to the body: refocusing
+	// unconditionally would steal focus from a menu link the user just activated.
 	function onToggle(event) {
 		open = event.newState === 'open';
+		if (!open && document.activeElement === document.body) {
+			trigger?.focus();
+		}
 	}
 
 	// External links and documents can never represent the current page.
@@ -32,6 +45,7 @@
 {#if items.length > 0}
 	<div class="floating-menu">
 		<button
+			bind:this={trigger}
 			class="trigger"
 			type="button"
 			popovertarget={PANEL_ID}
