@@ -197,12 +197,19 @@
 		}
 	}
 
+	// These pages are server-rendered, so .title/.subtitle would otherwise paint
+	// with their real text before hydration — a JS-side hide, even a synchronous
+	// one in BlurScrollEffect's constructor, necessarily runs after that first
+	// paint. Starting hidden in CSS closes the gap; BlurScrollEffect's
+	// initializeEffect() restores opacity: 1 (inline, so it overrides this rule)
+	// once the entrance is wired up, on both the normal and reduced-motion paths.
 	.title {
 		position: absolute;
 		top: 0.051em;
 		right: 0.025em;
 		z-index: 3;
 		text-align: right;
+		opacity: 0;
 	}
 
 	.subtitle {
@@ -210,6 +217,7 @@
 		bottom: -0.047em;
 		z-index: 4;
 		margin-bottom: 0;
+		opacity: 0;
 	}
 
 	.title,
