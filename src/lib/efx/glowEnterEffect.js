@@ -37,7 +37,8 @@ export class GlowEnterEffect {
 				'--award-glow': '14px',
 				duration: 0.6,
 				ease: 'power2.out',
-				stagger: 0.06,
+				stagger: 0.15,
+				delay: 0.3,
 				scrollTrigger: {
 					// Triggered off the first element rather than each individually:
 					// these sit on one row, so per-element triggers would fire at

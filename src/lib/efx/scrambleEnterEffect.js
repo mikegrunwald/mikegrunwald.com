@@ -64,7 +64,7 @@ export class ScrambleEnterEffect {
 				speed: 0.4,
 				revealDelay: 0.15
 			},
-			duration: 0.9,
+			duration: 2,
 			ease: 'none',
 			// The CSS rule hides .scramble-target from first paint; reveal it at
 			// the exact moment the scramble begins so no finished text is ever
