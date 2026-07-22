@@ -1,5 +1,10 @@
 {
   "title": "Michael Grunwald | Senior Design Engineer",
   "tagline": "Senior Design Engineer | Creative Frontend Developer",
-  "description": "Personal website of Michael Grunwald—a seasoned creative UI/UX designer and developer who specializes in breathing life into complex user experiences."
+  "description": "Personal website of Michael Grunwald—a seasoned creative UI/UX designer and developer who specializes in breathing life into complex user experiences.",
+  "menu": [
+    { "label": "Home", "url": "/" },
+    { "label": "Work", "url": "/work" },
+    { "label": "About", "url": "/about" }
+  ]
 }

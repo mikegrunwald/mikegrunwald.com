@@ -181,3 +181,17 @@ collections:
               widget: "text",
               required: false,
             }
+          - {
+              label: "Menu",
+              name: "menu",
+              widget: "list",
+              required: false,
+              collapsed: true,
+              summary: "{{fields.label}}",
+              field:
+                { label: "Menu Item", name: "menuItem", widget: "link" },
+              hint:
+                "Top-left floating menu. Behaviour is derived from the URL — a
+                path like /work navigates in place, an http(s) URL opens in a new
+                tab, and a .pdf/.doc/.xlsx/.zip downloads.",
+            }
