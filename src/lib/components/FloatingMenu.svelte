@@ -100,6 +100,18 @@
 	function isCurrent(item) {
 		return item.isInternal && item.href === page.url.pathname;
 	}
+
+	// Home should always land at the top. The layout normally RESTORES the
+	// homepage scroll position on return (so a carousel zoom-out lands where you
+	// left off), but an explicit "Home" click should override that and go to the
+	// top. The layout owns Lenis and that restoration state, so signal it rather
+	// than scrolling from here. This also covers the same-URL case — already on
+	// '/', where no navigation, and therefore no afterNavigate, fires.
+	function onLinkClick(item) {
+		if (item.isInternal && item.href === '/') {
+			window.dispatchEvent(new CustomEvent('menu-home-reset'));
+		}
+	}
 </script>
 
 {#if items.length > 0}
@@ -150,6 +162,7 @@
 							rel={item.rel}
 							download={item.download}
 							aria-current={isCurrent(item) ? 'page' : undefined}
+							onclick={() => onLinkClick(item)}
 						>
 							{item.label}
 						</a>
@@ -165,20 +178,20 @@
 		/* Every value here is intended to be hand-tuned. */
 		--menu-offset: var(--spacing-xs);
 
-		--menu-button-size: 2.5rem;
+		--menu-button-size: 2.25rem;
 		/* transparent, NOT the panel bg — an opaque trigger would paint over the
 		   magnetic cursor dot (CursorDot sits at z-index 100 in normal flow).
 		   The panel fades its own background in instead; see .panel below. */
 		--menu-button-bg: transparent;
 		--menu-button-radius: var(--border-radius);
 
-		--menu-bar-width: 1.25rem;
-		--menu-bar-thickness: 2px;
-		--menu-bar-gap: 0.375rem;
+		--menu-bar-width: 1rem;
+		--menu-bar-thickness: 1px;
+		--menu-bar-gap: 0.15rem;
 		--menu-bar-color: var(--color-text-primary);
 
-		--menu-panel-padding: var(--spacing-xs);
-		--menu-panel-bg: var(--color-neutral-10);
+		--menu-panel-padding: calc(var(--spacing-xxs) * 1.5);
+		--menu-panel-bg: rgba(0, 0, 0, 0.4);
 		--menu-panel-color: var(--color-text-primary);
 		--menu-panel-radius: var(--border-radius);
 		--menu-panel-min-width: 10rem;
@@ -187,11 +200,11 @@
 		--menu-panel-max-height: calc(100dvh - var(--menu-offset) * 2);
 
 		--menu-item-gap: var(--spacing-xxs);
-		--menu-item-shift: 8px;
+		--menu-item-shift: 22px;
 
 		--menu-duration: var(--animation-duration-fast);
 		--menu-ease: var(--ease-out-cubic);
-		--menu-item-stagger: 40ms;
+		--menu-item-stagger: 110ms;
 
 		/* The closed clip: a button-sized square pinned to the top-left corner
 		   of the (full-size) panel. */
@@ -368,9 +381,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--menu-item-gap);
+		font-size: 20px;
+		text-transform: uppercase;
+		letter-spacing: 0.015em;
 	}
 
 	.item {
+		margin-bottom: 0;
 		opacity: 1;
 		transform: translateX(0);
 		transition:
