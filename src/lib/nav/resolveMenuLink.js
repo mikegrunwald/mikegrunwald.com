@@ -3,9 +3,9 @@
 // express internal / external / document behaviour.
 //
 // Returns ATTRIBUTE-READY values, not semantic flags: `undefined` means "omit
-// this attribute", which is exactly how Svelte treats it. `download` is `''`
-// rather than `true` because the empty string is the valid HTML form meaning
-// "use the server-provided filename".
+// this attribute", which is exactly how Svelte treats it. Documents open in a
+// new tab like external links rather than downloading, so `download` is always
+// `undefined`.
 
 const DOCUMENT_EXTENSION = /\.(pdf|docx?|xlsx?|zip)$/i;
 const ABSOLUTE_URL = /^https?:\/\//i;
@@ -28,7 +28,7 @@ export function resolveMenuLink(item) {
 			label,
 			target: '_blank',
 			rel: EXTERNAL_REL,
-			download: '',
+			download: undefined,
 			isInternal: false
 		};
 	}
