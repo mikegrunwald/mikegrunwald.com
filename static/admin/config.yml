@@ -109,14 +109,20 @@ collections:
           widget: "markdown",
           required: false,
         }
-      - {
-          label: "Links",
-          name: "links",
-          widget: "list",
-          required: false,
-          collapsed: true,
-          field: { label: "Link", name: "linkItem", widget: "link" },
-        }
+      - label: "Links"
+        name: "links"
+        widget: "list"
+        required: false
+        collapsed: true
+        summary: "{{fields.label}}"
+        # Two native string fields, NOT the custom `link` widget as a single
+        # `field:` — that shape binds each item's value by the field name, but
+        # the items are stored as bare {label, url} objects, so the widget renders
+        # empty in the editor (Decap 3.x). `fields:` (plural) maps each named
+        # subfield onto the bare object keys. Same on-disk JSON.
+        fields:
+          - { label: "Label", name: "label", widget: "string" }
+          - { label: "URL", name: "url", widget: "string" }
       - {
           label: "Tech List",
           name: "techList",
@@ -181,17 +187,26 @@ collections:
               widget: "text",
               required: false,
             }
-          - {
-              label: "Menu",
-              name: "menu",
-              widget: "list",
-              required: false,
-              collapsed: true,
-              summary: "{{fields.label}}",
-              field:
-                { label: "Menu Item", name: "menuItem", widget: "link" },
-              hint:
-                "Top-left floating menu. Behaviour is derived from the URL — a
-                path like /work navigates in place, an http(s) URL opens in a new
-                tab, and a .pdf/.doc/.xlsx/.zip downloads.",
-            }
+          - label: "Menu"
+            name: "menu"
+            widget: "list"
+            required: false
+            collapsed: true
+            summary: "{{fields.label}}"
+            # Two native string fields, NOT the custom `link` widget as a single
+            # `field:`. A list with one named `field:` binds each item's value by
+            # that field's name, but this list's items are stored as bare
+            # {label, url} objects — so the lookup misses and the widget renders
+            # empty (Decap 3.x). `fields:` (plural) maps each named subfield onto
+            # the bare object keys, which is what the Awards list already relies
+            # on. Same on-disk JSON; front-end resolveMenuLink still gets {label, url}.
+            fields:
+              - { label: "Label", name: "label", widget: "string" }
+              - {
+                  label: "URL",
+                  name: "url",
+                  widget: "string",
+                  hint:
+                    "A path like /work navigates in place; an http(s) URL opens
+                    in a new tab; a .pdf/.doc/.xlsx/.zip downloads.",
+                }
