@@ -116,7 +116,7 @@
 
 				{#if content.techList}
 					<MetaItem label="Tech" fullWidth>
-						{#each content.techList as tech}
+						{#each content.techList as tech (tech)}
 							<dd><Tag>{tech}</Tag></dd>
 						{/each}
 					</MetaItem>
@@ -124,7 +124,7 @@
 
 				{#if content.awards && content.awards.length > 0}
 					<MetaItem label="Awards" fullWidth awards>
-						{#each content.awards as award}
+						{#each content.awards as award (award.url || award.label || award)}
 							<dd><AwardLink {award} /></dd>
 						{/each}
 					</MetaItem>
@@ -133,12 +133,13 @@
 		</div>
 
 		<div class="description bullets" bind:this={descriptionEl}>
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html content.descriptionHtml || content.description}
 		</div>
 
 		{#if content.media && content.media.length > 0}
 			<div class="media-container">
-				{#each content.media.slice(1) as media}
+				{#each content.media.slice(1) as media (media.src || media.url || media.alt || JSON.stringify(media))}
 					<figure class="media">
 						<MediaItem {media} alt={content.title} />
 					</figure>
@@ -149,7 +150,7 @@
 		{#if content.links && content.links.length > 0}
 			<section class="project-links">
 				<ul class="link-list">
-					{#each content.links as link}
+					{#each content.links as link (link.url || link.label || JSON.stringify(link))}
 						<li>
 							<a
 								use:tilt={itemTiltOptions}
@@ -166,10 +167,10 @@
 		{/if}
 
 		<!-- Re-enabling this needs the entrance effects re-keyed on data.slug first:
-		     SvelteKit reuses this component across /work/a -> /work/b, so onMount and
-		     onDestroy do not re-run. Project A's effects would survive with stale
-		     positions, project B would get no entrance, and the scramble originals
-		     cached on the reused spans would resolve B's values to A's text. -->
+          SvelteKit reuses this component across /work/a -> /work/b, so onMount and
+          onDestroy do not re-run. Project A's effects would survive with stale
+          positions, project B would get no entrance, and the scramble originals
+          cached on the reused spans would resolve B's values to A's text. -->
 		<!-- <NextProjectLink nextProject={data.nextProject} /> -->
 	</div>
 </article>

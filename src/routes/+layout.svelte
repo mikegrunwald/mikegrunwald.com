@@ -7,6 +7,7 @@
 	import { SplitText } from 'gsap/dist/SplitText';
 	import { gsap } from 'gsap/dist/gsap';
 	import CursorDot from '$lib/components/CursorDot.svelte';
+	import FloatingMenu from '$lib/components/FloatingMenu.svelte';
 	import { beforeNavigate, afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { createEngine } from '$lib/gpu/engine.js';
@@ -94,6 +95,7 @@
 	let headerReady = false;
 	let transitionTimeout;
 	let transitionCleanup;
+	let menuHomeResetCleanup;
 
 	// Starts the zoom. Falls back to a plain goto when there is no usable rect —
 	// which happens if the plane projected to something degenerate, e.g. a
@@ -225,6 +227,13 @@
 	// routes and hide the layout's fixed canvas so it doesn't sit behind the
 	// dev route's own panes.
 	let isDevRoute = $derived(page.url.pathname.startsWith('/dev/'));
+
+	// The floating menu is site chrome for the public site only. /dev/* routes
+	// boot their own engine and debug panes, and /admin is the Decap shell —
+	// neither wants a site nav floating over it.
+	let showFloatingMenu = $derived(
+		!page.url.pathname.startsWith('/dev/') && !page.url.pathname.startsWith('/admin')
+	);
 
 	let lenis = useLenis((lenis) => {
 		if (!engine || !fluidScene) return;
@@ -442,6 +451,21 @@
 
 	onMount(async () => {
 		if (page.url.pathname.startsWith('/dev/')) return; // dev routes boot their own engine
+
+		// The floating menu asks for a hard scroll reset when navigating Home,
+		// overriding the homeScrollY restoration below (which exists so a carousel
+		// zoom-out lands where you left off). Registered before the engine boot so
+		// it works even when WebGPU is unavailable and the early return above the
+		// engine-null case is taken. Nulling homeScrollY makes the afterNavigate
+		// that follows a Home nav take its scrollTo(0) branch; the direct scroll
+		// covers the same-URL case (already on '/'), where no navigation fires.
+		const handleMenuHomeReset = () => {
+			homeScrollY = null;
+			if (page.url.pathname === '/') lenis.current?.scrollTo(0, { immediate: true });
+		};
+		window.addEventListener('menu-home-reset', handleMenuHomeReset);
+		menuHomeResetCleanup = () => window.removeEventListener('menu-home-reset', handleMenuHomeReset);
+
 		engine = await createEngine({ canvas });
 		if (!engine) {
 			showCssLogo(); // no WebGPU / reduced motion → DOM-only experience
@@ -563,6 +587,7 @@
 		// Both are only ever set inside onMount, so they are undefined during the
 		// prerender pass and the optional calls are the guard.
 		transitionCleanup?.();
+		menuHomeResetCleanup?.();
 		clearTimeout(transitionTimeout);
 		debugPanel?.destroy();
 		grainPass?.destroy();
@@ -582,6 +607,9 @@
 		<canvas class="canvas" bind:this={canvas}></canvas>
 	{/if}
 	<CursorDot class="dot" />
+	{#if showFloatingMenu}
+		<FloatingMenu />
+	{/if}
 	{#if transition}
 		<TransitionVideo
 			sourceVideo={transition.video}

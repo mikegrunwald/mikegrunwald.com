@@ -60,11 +60,11 @@ export class ScrambleEnterEffect {
 		this.tween = gsap.to(element, {
 			scrambleText: {
 				text: original,
-				chars: 'upperCase',
-				speed: 0.4,
-				revealDelay: 0.15
+				chars: 'lowerCase',
+				speed: 0.6,
+				revealDelay: 0.2
 			},
-			duration: 2,
+			duration: 2.4,
 			ease: 'none',
 			// The CSS rule hides .scramble-target from first paint; reveal it at
 			// the exact moment the scramble begins so no finished text is ever
