@@ -19,6 +19,7 @@
 	import { shouldLoopRunway, wrapScrollPosition } from '$lib/gpu/carousel/scrollModel.js';
 	import TransitionVideo from '$lib/components/TransitionVideo.svelte';
 	import { setHandoff } from '$lib/transitionHandoff.js';
+	import { trackFeaturedWorkClick } from '$lib/track';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -101,6 +102,14 @@
 	// which happens if the plane projected to something degenerate, e.g. a
 	// zero-sized canvas. A missing transition is fine; a NaN one is not.
 	function startTransition(payload) {
+		// GA click-through for the featured-work carousel. Fired here, before the
+		// rect/no-rect branch, so both the animated zoom and the plain-goto
+		// fallback are counted — and once per navigation, not per render path.
+		// payload carries only the slug; resolve the authored title from the
+		// teaser data so the event label is the readable project name, not a slug.
+		const teaser = (page.data.teasers ?? []).find((t) => t.slug === payload.slug);
+		trackFeaturedWorkClick(teaser?.title ?? payload.slug);
+
 		// Without a rect there is nowhere to start from, and without the carousel's
 		// live video element there is nothing to paint — a fresh <video> cannot
 		// decode a frame inside the 450ms zoom. Either way a plain navigation is
