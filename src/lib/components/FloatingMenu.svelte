@@ -3,6 +3,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import siteSettings from '$content/meta/site.json';
 	import { resolveMenuLink } from '$lib/nav/resolveMenuLink.js';
+	import { trackClick } from '$lib/track';
 
 	// Shared by popovertarget on both buttons and the panel's own id.
 	const PANEL_ID = 'site-menu';
@@ -108,6 +109,12 @@
 	// than scrolling from here. This also covers the same-URL case — already on
 	// '/', where no navigation, and therefore no afterNavigate, fires.
 	function onLinkClick(item) {
+		// GA click-through for the floating menu. Fired on every item (internal,
+		// external, and document links alike) — the label is the CMS-authored menu
+		// label, matching what the user sees. Runs before the home-reset branch so
+		// the same-URL "Home" click, which triggers no navigation, is still counted.
+		trackClick('Floating Menu', item.label);
+
 		if (item.isInternal && item.href === '/') {
 			window.dispatchEvent(new CustomEvent('menu-home-reset'));
 		}

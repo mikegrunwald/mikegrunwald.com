@@ -1,5 +1,5 @@
 <script>
-	import { trackLink } from '$lib/track';
+	import { trackClick } from '$lib/track';
 	import { tilt } from '$lib/actions/tilt';
 
 	let { nextProject } = $props();
@@ -14,7 +14,7 @@
 		href="/work/{nextProject.slug}"
 		use:tilt={tiltOptions}
 		data-cursor="magnetic"
-		onclick={() => trackLink(`Next Project: ${nextProject.meta.title}`)}
+		onclick={() => trackClick('Links', `Next Project: ${nextProject.meta.title}`)}
 	>
 		{nextProject.meta.title}
 	</a>

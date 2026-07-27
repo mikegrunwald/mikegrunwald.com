@@ -1,5 +1,5 @@
 <script>
-	import { trackLink } from '$lib/track';
+	import { trackClick } from '$lib/track';
 	import { tilt } from '$lib/actions/tilt';
 
 	const listTiltOptions = { maxTilt: 4.1, perspective: 1340, ease: 0.067 };
@@ -17,7 +17,7 @@
 					href="/documents/Michael-Grunwald-Resume.pdf"
 					target="_blank"
 					rel="noopener noreferrer"
-					on:click={() => trackLink('Resume')}>Resume</a
+					on:click={() => trackClick('Links', 'Resume')}>Resume</a
 				>
 			</li>
 			<li class="nav-item">
@@ -27,7 +27,7 @@
 					href="https://www.figma.com/deck/fijb1PSnc74AcqqcZrWqwM/grunwald-work-samples-2024?node-id=1-538&t=eBwKyVrmTTjryIgI-1"
 					target="_blank"
 					rel="noopener noreferrer"
-					on:click={() => trackLink('Work Samples')}>Work Samples</a
+					on:click={() => trackClick('Links', 'Work Samples')}>Work Samples</a
 				>
 			</li>
 			<li class="nav-item">
@@ -38,7 +38,7 @@
 					href="https://www.linkedin.com/in/mikegrunwald/"
 					target="_blank"
 					rel="noopener noreferrer"
-					on:click={() => trackLink('Linkedin')}>LinkedIn</a
+					on:click={() => trackClick('Links', 'Linkedin')}>LinkedIn</a
 				>
 			</li>
 		</ul>

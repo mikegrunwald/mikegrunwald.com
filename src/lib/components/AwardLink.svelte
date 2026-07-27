@@ -1,5 +1,5 @@
 <script>
-	import { trackLink } from '$lib/track';
+	import { trackClick } from '$lib/track';
 	import MediaItem from './MediaItem.svelte';
 
 	let { award } = $props();
@@ -16,7 +16,7 @@
 
 <a
 	href={award.link.url}
-	onclick={() => trackLink(award.link.label)}
+	onclick={() => trackClick('Links', award.link.label)}
 	target="_blank"
 	rel="noopener noreferrer"
 >
