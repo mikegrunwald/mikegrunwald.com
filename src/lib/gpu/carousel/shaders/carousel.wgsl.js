@@ -128,6 +128,12 @@ fn main(fsInput: VSOutput) -> @location(0) vec4f {
   // PREMULTIPLIED alpha — the convention every transparent surface in this
   // codebase uses (FluidScene, LogoParticlesScene, GrainPass). Returning
   // straight alpha here produces a bright fringe where the video meets the pad.
-  return vec4f(rgbOut * alpha, alpha);
+  //
+  // params.reveal (0..1) is the plane's staggered slide-in weight, driven
+  // per-plane by the scene (setActive replays it left-to-right on entry). Folded
+  // into BOTH channels so it stays premultiplied: a plane at reveal 0 is fully
+  // transparent, so it waits invisibly until its turn rather than sitting
+  // parked at its slide-start offset.
+  return vec4f(rgbOut * alpha * params.reveal, alpha * params.reveal);
 }
 `;

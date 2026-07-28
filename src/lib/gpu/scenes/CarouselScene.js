@@ -140,6 +140,12 @@ const HOVER_SCALE = 1.08;
 // jumpy at a rate the glow got away with.
 const HOVER_EASE_RATE = 8;
 
+// easeOutCubic — the settle curve for the staggered slide-in. Decelerating so
+// each plane arrives softly at its ring position rather than sliding in at a
+// constant speed and stopping dead. Time-normalized (t in 0..1), not
+// per-second, because the entrance is a fixed-duration clip, not a lerp-to-rest.
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
 // Elements whose clicks must never fall through to a ring navigation — see
 // handleClick. Deliberately broad: anything focusable/actionable, plus
 // Tweakpane's wrapper (`.tp-dfwv`), whose sliders are plain divs and so match
@@ -161,6 +167,10 @@ export class CarouselScene {
 		// Counts down after a runway wrap, during which incoming velocity samples
 		// are ignored so the last good value carries through the seam.
 		this._holdVelocityFrames = 0;
+		// Seconds elapsed since the section last activated, advanced by update()
+		// while active. Drives each plane's staggered slide-in past its own delay;
+		// reset to 0 in setActive so re-entering the section replays the cascade.
+		this._entranceClock = 0;
 
 		// Task 6 — raycast hover/click. `onHover(index|null)` drives WorkTeasers'
 		// DOM label (via +layout.svelte context); `onNavigate(href)` is supplied
@@ -217,7 +227,9 @@ export class CarouselScene {
 			// 3.6 x 2.03 covers ~54% of the width and ~54% of the height (the
 			// previous 1.6 x 0.9 covered only ~24%, which is why teasers read as
 			// small islands with a large dead gap between them).
-			// 16:9 is preserved (3.6 / 1.7778 = 2.025) to match the source videos.
+			// planeHeight was tuned UP to 2.2 in the debug panel (from the 16:9
+			// value 2.025 = 3.6 / 1.7778), so the plane is now slightly taller than
+			// the 16:9 source videos — cover-fit crops a little off top/bottom.
 			// No longer branched on a mobile tier. Once frustum fitting binds
 			// (any narrow viewport) the radius scales with these, so only their
 			// ASPECT reaches the screen — the absolute values cancel out. The old
@@ -225,7 +237,7 @@ export class CarouselScene {
 			// branch is behaviour-neutral and removes a knob that looked like a
 			// mobile size control but was not one. frustumFit is that control.
 			planeWidth: 3.6,
-			planeHeight: 2.03,
+			planeHeight: 2.2,
 			// World-unit padding added around the video on every side, so the
 			// fragment shader has somewhere to draw the outer glow. Default is
 			// ~2x the 16px glow blur converted to world units (16/782 * 3.6 =
@@ -233,30 +245,32 @@ export class CarouselScene {
 			// 782px is the plane's on-screen width at a 1440px viewport, from
 			// its NDC half-width tan(24.2deg)/tan(39.65deg) = 0.543.
 			glowPad: 0.15,
-			// World units. Matches --border-radius: 0.2rem (3.2px) at a 1440px
-			// viewport: the plane is 54.3% of viewport width (782px) and 3.6 world
-			// units wide, so 3.2/782 * 3.6 = 0.0147. This is a fixed world value,
-			// so it cannot track rem at every viewport size — see the spec's
-			// non-goals.
-			cornerRadius: 0.015,
-			// World units, ~1px at the same reference viewport (1/782 * 3.6).
-			borderWidth: 0.004,
-			// World units. 16px outer blur at the 1440px reference viewport
-			// (16/782 * 3.6), matching .media's `box-shadow: 0 0 16px`.
-			glowRadius: 0.074,
-			// World units. 12px inner blur, matching `inset 0 0 12px`.
-			glowInset: 0.055,
+			// World units. Started from --border-radius: 0.2rem (3.2px → 0.0147 at
+			// the 1440px reference viewport), then tuned to 0.02 in the debug panel
+			// for slightly rounder corners. Fixed world value — cannot track rem at
+			// every viewport size (see the spec's non-goals).
+			cornerRadius: 0.02,
+			// World units. ~0.5px at the 1440px reference viewport (1/782 * 3.6 is
+			// ~1px); tuned down to a thinner border in the debug panel.
+			borderWidth: 0.002,
+			// World units. Started from a 16px outer blur at the 1440px reference
+			// viewport (16/782 * 3.6 = 0.074, matching .media's `box-shadow: 0 0
+			// 16px`); tuned up to 0.142 (~31px) in the debug panel for a broader
+			// glow.
+			glowRadius: 0.142,
+			// World units. Started from 12px inner blur (`inset 0 0 12px` ≈ 0.055),
+			// tuned down to 0.032 in the debug panel for a tighter inset glow.
+			glowInset: 0.032,
 			// Base glow opacity at rest. The glow is ALWAYS on (matching the
-			// detail page's .media), not hover-only.
-			glowStrength: 0.6,
-			// Multiplier applied to glowStrength for the hovered item.
-			hoverGlowBoost: 1.8,
-			// Vertical darkening overlay, mirroring ProjectHeader's :after
-			// gradient on the work detail pages (src/lib/components/
-			// ProjectHeader.svelte): rgba(0,0,0,0.95) at both edges easing to
-			// rgba(0,0,0,0.666) at the midpoint.
-			gradientEdge: 0.95,
-			gradientMid: 0.666,
+			// detail page's .media), not hover-only. Tuned down from 0.6 to 0.26.
+			glowStrength: 0.26,
+			// Multiplier applied to glowStrength for the hovered item. Tuned from 1.8.
+			hoverGlowBoost: 1.5,
+			// Vertical darkening overlay, originally mirroring ProjectHeader's
+			// :after gradient (rgba(0,0,0,0.95) edges → 0.666 midpoint); softened to
+			// 0.85 / 0.5 in the debug panel so the teaser video reads brighter.
+			gradientEdge: 0.85,
+			gradientMid: 0.5,
 			rotationsPerScroll: 1,
 			// Turns contributed by the approach (see the approach trigger in
 			// +layout.svelte). Chosen so the ANGULAR RATE matches the pinned
@@ -266,9 +280,28 @@ export class CarouselScene {
 			// 0.1 turns. Raising this makes the ring visibly accelerate into the
 			// pin; lowering it makes it stall.
 			preRollTurns: 0.1,
-			velocityGain: 0.6,
-			velocitySmoothing: 6, // per-second lerp rate, Task 5
-			maxVelocityBoost: 1.2
+			// All three tuned in the debug panel. velocityGain/maxVelocityBoost are
+			// rounded from the raw slider floats (0.16304…, 2.28260…).
+			velocityGain: 0.163,
+			velocitySmoothing: 3, // per-second lerp rate, Task 5
+			maxVelocityBoost: 2.28,
+
+			// --- Staggered slide-in entrance ---
+			// When the section activates, the planes no longer pop in all at once;
+			// each slides in from the left and fades up, one after the next, ordered
+			// left→right by on-screen position. Only the front arc is visible at a
+			// time, so what reads is a single item arriving, then the next.
+			//
+			// Seconds between consecutive planes starting their slide. The total
+			// intro time is count * this, but back-of-ring planes reveal off-screen,
+			// so only the visible sweep is perceived.
+			entranceStagger: 0.15,
+			// Seconds each plane takes to slide+fade from its offset to home.
+			entranceDuration: 0.6,
+			// World units a plane starts to the LEFT of its ring position, easing to
+			// 0. Tuned down to 0.2 in the debug panel — a small, subtle drift-in
+			// rather than the original ~half-plane-width (2.0) slide.
+			entranceSlide: 0.2
 		};
 
 		this.ringCenter = { x: 0, y: 0, z: this.params.ringDepth };
@@ -383,7 +416,13 @@ export class CarouselScene {
 						glowStrength: { type: 'f32', value: this.params.glowStrength },
 						hover: { type: 'f32', value: 0 },
 						gradientEdge: { type: 'f32', value: this.params.gradientEdge },
-						gradientMid: { type: 'f32', value: this.params.gradientMid }
+						gradientMid: { type: 'f32', value: this.params.gradientMid },
+						// Staggered slide-in weight (0..1), multiplied into the shader's
+						// output alpha. Born fully revealed when the ring is already
+						// active (a resize rebuilds planes mid-view — see below — and it
+						// must NOT replay the intro), otherwise 0 so setActive can play
+						// the cascade from a clean transparent start.
+						reveal: { type: 'f32', value: this.active ? 1 : 0 }
 					}
 				}
 			},
@@ -411,7 +450,14 @@ export class CarouselScene {
 			teaserIndex,
 			// Eased 0..1 hover weight driving the scale and glow. Stepping it
 			// instantly makes both snap, which reads as a glitch.
-			hoverWeight: 0
+			hoverWeight: 0,
+			// Staggered slide-in entrance. `entranceDelay` (seconds) is assigned in
+			// setActive by on-screen x so the ring builds up left→right; layout
+			// derives `entranceWeight` (eased 0..1) from `_entranceClock` past that
+			// delay. Mirrors the reveal uniform's birth state so a plane created
+			// while the ring is already onscreen doesn't re-run the intro.
+			entranceDelay: 0,
+			entranceWeight: this.active ? 1 : 0
 		};
 	}
 
@@ -497,7 +543,16 @@ export class CarouselScene {
 			// spacing and the radius above are always derived from the same
 			// number — they would silently disagree if the two ever drifted.
 			const angle = this.rotation + (item.index / n) * Math.PI * 2;
-			const x = this.ringCenter.x + radius * Math.sin(angle);
+			// Staggered slide-in: eased 0..1 weight for THIS plane, advancing once
+			// the shared clock passes the plane's own delay (assigned left→right in
+			// setActive). At weight 0 the plane sits `entranceSlide` to the left and
+			// is fully transparent (reveal uniform), so it waits invisibly until its
+			// turn rather than parked at the offset; at 1 it's home at full opacity.
+			const eDur = this.params.entranceDuration;
+			const eT = eDur > 0 ? (this._entranceClock - item.entranceDelay) / eDur : 1;
+			item.entranceWeight = easeOutCubic(Math.max(0, Math.min(1, eT)));
+			const slideX = (item.entranceWeight - 1) * this.params.entranceSlide;
+			const x = this.ringCenter.x + radius * Math.sin(angle) + slideX;
 			const y = this.ringCenter.y;
 			const z = this.ringCenter.z - radius * Math.cos(angle);
 			// Defensive: a non-finite position must never reach the GPU
@@ -545,6 +600,7 @@ export class CarouselScene {
 			u.hover.value = item.hoverWeight * this.params.hoverGlowBoost;
 			u.gradientEdge.value = this.params.gradientEdge;
 			u.gradientMid.value = this.params.gradientMid;
+			u.reveal.value = item.entranceWeight;
 			// [VERIFY-API #3] orients the plane's video-facing (+Z-normal) side
 			// toward the camera — see header note #3.
 			item.mesh.lookAt(camera.position);
@@ -776,6 +832,24 @@ export class CarouselScene {
 			this.setHoverClass(false);
 			this.onHover?.(null);
 		}
+		if (isActive) {
+			// (Re)arm the staggered slide-in. The clock restarts at 0 and each plane
+			// gets a delay by its on-screen x at THIS rotation, so the ring builds up
+			// left→right — one item slides in, then the next. Ordering by sin(angle)
+			// is enough: radius is common to every plane this frame, so sin alone
+			// ranks them left→right without needing the (viewport-dependent) radius.
+			// Only the visible front arc reads; back-of-ring planes take the later
+			// delays but reveal off-screen.
+			this._entranceClock = 0;
+			const n = this.items.length;
+			const ordered = this.items
+				.map((item) => ({ item, x: Math.sin(this.rotation + (item.index / n) * Math.PI * 2) }))
+				.sort((a, b) => a.x - b.x);
+			ordered.forEach(({ item }, order) => {
+				item.entranceDelay = order * this.params.entranceStagger;
+				item.entranceWeight = 0;
+			});
+		}
 		for (const item of this.items) {
 			// [VERIFY-API #4] `visible` fully skips per-frame work when false —
 			// see header note #4. layout() also re-applies this every frame off
@@ -857,6 +931,11 @@ export class CarouselScene {
 		// separate "return to rest" branch needed.
 		const rate = 1 - Math.exp(-this.params.velocitySmoothing * dt);
 		this.velocitySmoothed += (target - this.velocitySmoothed) * rate;
+
+		// Advance the entrance clock only while active. Frozen when inactive so the
+		// cascade always starts from 0 on the NEXT activation (setActive resets it
+		// too — this just stops it drifting forward while the ring is offscreen).
+		if (this.active) this._entranceClock += dt;
 
 		this.layout(dt);
 		this.updatePlayback();

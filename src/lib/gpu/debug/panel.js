@@ -4,6 +4,45 @@ export function shouldShowPanel() {
 	return new URLSearchParams(location.search).has('debug');
 }
 
+// A Tweakpane binding target for a scene whose lifetime is shorter than the
+// panel's (not-yet-created on `/`, absent on non-home routes, destroyed when its
+// section unmounts). The panel outlives the scene, so binding straight to
+// `scene.params` is impossible and the old approach was a Proxy that answered
+// `?? 0` on every miss.
+//
+// That `?? 0` is exactly what made "Copy preset JSON" emit zeros: `pane.
+// exportState()` RE-READS every binding, so exporting while the scene was absent
+// snapshotted 0 for the whole folder even though the sliders still displayed the
+// real (last-refreshed) values. This backs the proxy with a persistent `store`
+// that stays warm with the last value seen from the live scene, so reads — and
+// therefore exports — keep returning real values across the scene's absences.
+//
+// `fallbacks` supplies a right-typed seed for params Tweakpane must type-infer
+// before the scene exists (e.g. a color's {r,g,b}); a bare 0 would build the
+// wrong control. Numbers can keep the plain 0 fallback.
+export function createLiveProxy(getScene, fallbacks = {}) {
+	const store = {};
+	return new Proxy(
+		{},
+		{
+			get: (_, key) => {
+				const params = getScene()?.params;
+				// Warm the cache whenever the scene is live. Guard on `!== undefined`
+				// so a legitimate 0/false overwrites the store but a missing key does
+				// not wipe a previously-warmed value.
+				if (params && params[key] !== undefined) store[key] = params[key];
+				return store[key] ?? fallbacks[key] ?? 0;
+			},
+			set: (_, key, value) => {
+				store[key] = value;
+				const params = getScene()?.params;
+				if (params) params[key] = value;
+				return true;
+			}
+		}
+	);
+}
+
 export async function maybeCreatePanel({
 	fluidScene,
 	grainPass,
@@ -27,9 +66,29 @@ export async function maybeCreatePanel({
 	const paneRoot = pane.element.closest('.tp-dfwv') ?? pane.element;
 	paneRoot.style.position = 'fixed';
 	paneRoot.style.zIndex = '1000';
+	// Font: bind to the site's mono stack (Roboto Mono, loaded from Google Fonts
+	// in app.html) instead of Tweakpane's built-in fallback list, which names the
+	// same face but only as an unloaded local() lookup. `--tp-base-font-family` is
+	// the variable Tweakpane's own `.tp-rotv` reads for `--bs-ff`; setting it on
+	// the root lets it inherit down to every blade, input, and button (their CSS
+	// is `font-family: inherit`). `--font-family-mono` resolves via :root.
+	paneRoot.style.setProperty('--tp-base-font-family', 'var(--font-family-mono)');
+	// Reset letter-spacing to normal. The site sets a tight global tracking
+	// (letter-spacing: -0.066em, ~-2.1px at the 32px root) on :root/body that
+	// otherwise inherits straight into every panel label and value, squishing the
+	// mono text. `normal` here stops that inheritance for the whole panel;
+	// Tweakpane's own folder-title spacing is set on its elements directly and so
+	// is unaffected.
+	paneRoot.style.letterSpacing = 'normal';
+	// 80px wider than Tweakpane's 256px default (→ 336px): the longer binding
+	// labels (DENSITY_DISSIPATION, PRESSURE_ITERATIONS) were truncated at the
+	// default width.
+	paneRoot.style.width = '336px';
 
 	const sim = fluidScene.params;
-	const fluid = pane.addFolder({ title: 'Fluid' });
+	// Every folder starts collapsed (expanded: false) — the full panel is several
+	// screens tall, so opening only the one being tuned keeps it manageable.
+	const fluid = pane.addFolder({ title: 'Fluid', expanded: false });
 	fluid.addBinding(sim, 'DENSITY_DISSIPATION', { min: 0, max: 8 });
 	fluid.addBinding(sim, 'VELOCITY_DISSIPATION', { min: 0, max: 4 });
 	fluid.addBinding(sim, 'PRESSURE', { min: 0, max: 1 });
@@ -44,7 +103,7 @@ export async function maybeCreatePanel({
 		.addButton({ title: 'Random splats' })
 		.on('click', () => fluidScene.sim.multipleSplats(Math.floor(Math.random() * 20) + 5));
 
-	const bloom = pane.addFolder({ title: 'Bloom + Sunrays' });
+	const bloom = pane.addFolder({ title: 'Bloom + Sunrays', expanded: false });
 	bloom.addBinding(sim, 'BLOOM');
 	bloom.addBinding(sim, 'BLOOM_INTENSITY', { min: 0, max: 2 });
 	bloom.addBinding(sim, 'BLOOM_THRESHOLD', { min: 0, max: 2 });
@@ -61,7 +120,7 @@ export async function maybeCreatePanel({
 	const rebuildTargets = () => {
 		fluidScene.resizeSim();
 	};
-	const res = pane.addFolder({ title: 'Resolutions (rebuilds targets)' });
+	const res = pane.addFolder({ title: 'Resolutions (rebuilds targets)', expanded: false });
 	res
 		.addBinding(sim, 'SIM_RESOLUTION', { options: { 32: 32, 64: 64, 128: 128, 256: 256 } })
 		.on('change', rebuildTargets);
@@ -69,7 +128,7 @@ export async function maybeCreatePanel({
 		.addBinding(sim, 'DYE_RESOLUTION', { options: { high: 1024, medium: 512, low: 256 } })
 		.on('change', rebuildTargets);
 
-	const grading = pane.addFolder({ title: 'Scroll grading' });
+	const grading = pane.addFolder({ title: 'Scroll grading', expanded: false });
 	const gradingState = { override: false, progress: 0 };
 	grading.addBinding(gradingState, 'override').on('change', () => {
 		forceProgress(gradingState.override ? gradingState.progress : null);
@@ -79,7 +138,7 @@ export async function maybeCreatePanel({
 	});
 
 	if (grainPass) {
-		const grain = pane.addFolder({ title: 'Grain' });
+		const grain = pane.addFolder({ title: 'Grain', expanded: false });
 		grain.addBinding(grainPass.params, 'intensity', { min: 0, max: 1 });
 		grain.addBinding(grainPass.params, 'scale', { min: 0.25, max: 4 });
 	}
@@ -89,34 +148,19 @@ export async function maybeCreatePanel({
 	let carouselWatchRafId = null;
 
 	if (getLogoScene) {
-		const particles = pane.addFolder({ title: 'Particles' });
+		const particles = pane.addFolder({ title: 'Particles', expanded: false });
 		// The scene may not exist yet (not-yet-created on `/`, or non-home route)
-		// — bind through a proxy object that reads/writes the live scene's
-		// params when present. Verified against Tweakpane v4's BindingTarget
+		// — bind through a cache-backed proxy that reads/writes the live scene's
+		// params when present and retains the last real values when it is absent
+		// (see createLiveProxy). Verified against Tweakpane v4's BindingTarget
 		// (node_modules/tweakpane/dist/tweakpane.js): simple number bindings
 		// call `read()`/`write()`, which are plain `obj[key]` / `obj[key] = v`
 		// property accesses — no `in`/`ownKeys` checks — so the Proxy's get/set
-		// traps are sufficient; no plain-object-with-refresh fallback needed.
-		// `count` is intentionally NOT a live binding — it requires buffer
-		// rebuilds; changing it stays a code-level decision.
-		// Panel construction can precede scene creation (see the identity watcher
-		// below), so the proxy has to answer with something of the RIGHT TYPE
-		// before the scene exists — Tweakpane infers the control type from the
-		// value present at addBinding() time, so handing a color binding the
-		// scalar `0` fallback would build the wrong control (or throw) and no
-		// later refresh would repair it. Numbers can keep the plain 0 fallback.
-		const PARAM_FALLBACKS = { color: { r: 1, g: 1, b: 1 } };
-		const proxy = new Proxy(
-			{},
-			{
-				get: (_, key) => getLogoScene()?.params?.[key] ?? PARAM_FALLBACKS[key] ?? 0,
-				set: (_, key, value) => {
-					const scene = getLogoScene();
-					if (scene) scene.params[key] = value;
-					return true;
-				}
-			}
-		);
+		// traps are sufficient. `count` is intentionally NOT a live binding — it
+		// requires buffer rebuilds; changing it stays a code-level decision.
+		// `color` needs a right-typed fallback so Tweakpane infers a color control
+		// before the scene exists (a scalar 0 would build the wrong control).
+		const proxy = createLiveProxy(getLogoScene, { color: { r: 1, g: 1, b: 1 } });
 		// Safety-valve (2026-07-17): count is resolved once at scene creation
 		// (conservative default, or the `?pcount=N` URL override — see
 		// LogoParticlesScene.js) and rebuilding the particle buffers live isn't
@@ -171,30 +215,15 @@ export async function maybeCreatePanel({
 	}
 
 	if (getCarouselScene) {
-		const carousel = pane.addFolder({ title: 'Carousel' });
-		// Same proxy-through-a-maybe-missing-scene pattern as Particles above.
-		// Tweakpane v4's number read()/write() are plain obj[key] access, so the
-		// Proxy traps are sufficient — no plain-object refresh fallback needed
-		// (resolved for Particles, holds identically here).
+		const carousel = pane.addFolder({ title: 'Carousel', expanded: false });
+		// Same cache-backed proxy as Particles above (see createLiveProxy): reads
+		// warm from the live scene and survive its absence, so "Copy preset JSON"
+		// round-trips the real values instead of the old `?? 0` miss.
 		//
-		// Tweakpane infers the control TYPE from the value present at
-		// addBinding() time, and the panel can be built before the scene exists.
-		// A bare `?? 0` would hand `autoRadius` the number 0 and build a slider
-		// for a boolean, which no later refresh repairs — the same trap the
-		// Particles folder hit with its color binding. Non-number params need a
-		// fallback of the right type here.
-		const CAROUSEL_FALLBACKS = { autoRadius: true };
-		const proxy = new Proxy(
-			{},
-			{
-				get: (_, key) => getCarouselScene()?.params?.[key] ?? CAROUSEL_FALLBACKS[key] ?? 0,
-				set: (_, key, value) => {
-					const scene = getCarouselScene();
-					if (scene) scene.params[key] = value;
-					return true;
-				}
-			}
-		);
+		// `autoRadius` needs a boolean fallback so Tweakpane infers a checkbox
+		// before the scene exists — a bare 0 would build a slider for it, which no
+		// later refresh repairs (same trap the Particles color binding avoided).
+		const proxy = createLiveProxy(getCarouselScene, { autoRadius: true });
 		// Radius is derived from the teaser count by default (ringGeometry.js), so
 		// adding or removing featured entries needs no retuning. `ringRadius`
 		// below only takes effect once this is off.
@@ -233,11 +262,24 @@ export async function maybeCreatePanel({
 		carousel.addBinding(proxy, 'velocityGain', { min: 0, max: 3 });
 		carousel.addBinding(proxy, 'velocitySmoothing', { min: 0.5, max: 20 });
 		carousel.addBinding(proxy, 'maxVelocityBoost', { min: 0, max: 5 });
+		// Staggered slide-in entrance. Seconds between consecutive planes, seconds
+		// per plane's slide, and the world-unit leftward offset it slides from.
+		carousel.addBinding(proxy, 'entranceStagger', { min: 0, max: 0.5, step: 0.01 });
+		carousel.addBinding(proxy, 'entranceDuration', { min: 0.1, max: 2, step: 0.05 });
+		carousel.addBinding(proxy, 'entranceSlide', { min: 0, max: 6, step: 0.1 });
 		// Bypass the ScrollTrigger pin for isolated tuning — forces the ring
 		// visible + videos playing without scrolling into the pinned section.
 		carousel
 			.addButton({ title: 'Force active (bypass pin)' })
 			.on('click', () => getCarouselScene()?.setActive(true));
+		// Re-arm the entrance without leaving the section: toggle inactive→active so
+		// setActive resets the clock and re-assigns the left→right delays.
+		carousel.addButton({ title: 'Replay entrance' }).on('click', () => {
+			const scene = getCarouselScene();
+			if (!scene) return;
+			scene.setActive(false);
+			scene.setActive(true);
+		});
 
 		// Same panel-created-before-scene race as Particles: the layout builds the
 		// panel before syncCarouselScene() runs, so seed the real param values once
@@ -256,7 +298,7 @@ export async function maybeCreatePanel({
 		watchCarouselIdentity();
 	}
 
-	const eng = pane.addFolder({ title: 'Engine' });
+	const eng = pane.addFolder({ title: 'Engine', expanded: false });
 	eng.addBinding(engine.quality, 'tier', { readonly: true });
 	eng.addBinding(engine.quality, 'dpr', { readonly: true });
 	const stats = { fps: 0 };
