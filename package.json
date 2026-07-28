@@ -43,6 +43,7 @@
 	"dependencies": {
 		"@aws-sdk/s3-request-presigner": "^3.948.0",
 		"@sveltejs/adapter-cloudflare": "^7.2.4",
+		"@web-kits/audio": "0.1.0",
 		"bowser": "^2.12.1",
 		"decap-cms": "^3.9.0",
 		"detect-touch-device": "^1.1.6",
