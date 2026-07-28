@@ -1,3 +1,7 @@
+import { soundConfig, EVENTS, NONE } from '$lib/audio/config.js';
+import { SOUND_NAMES } from '$lib/audio/core/index.js';
+import { play, unlock } from '$lib/audio/engine.js';
+
 // Dev-only. Callers must gate on shouldShowPanel() before importing anything heavy.
 export function shouldShowPanel() {
 	// return import.meta.env.DEV || new URLSearchParams(location.search).has('debug');
@@ -142,6 +146,28 @@ export async function maybeCreatePanel({
 		grain.addBinding(grainPass.params, 'intensity', { min: 0, max: 1 });
 		grain.addBinding(grainPass.params, 'scale', { min: 0.25, max: 4 });
 	}
+
+	// Dev-only sound auditioning. Binds to the same soundConfig object CursorDot
+	// reads, so changes here are heard on the very next hover — no reload.
+	const sounds = pane.addFolder({ title: 'Sounds', expanded: false });
+	// Dropdown options: None + every core sound, e.g. { None: 'none', 'modal-open': 'modal-open', … }
+	const soundOptions = {
+		None: NONE,
+		...Object.fromEntries(SOUND_NAMES.map((n) => [n, n]))
+	};
+	for (const event of EVENTS) {
+		sounds.addBinding(soundConfig, event, { label: event, options: soundOptions });
+		sounds.addButton({ title: `test ${event}` }).on('click', async () => {
+			await unlock();
+			play(soundConfig[event]);
+		});
+	}
+	sounds.addBinding(soundConfig, 'volume', { min: 0, max: 1, step: 0.01 });
+	sounds.addBinding(soundConfig, 'muted');
+	sounds.addButton({ title: 'Copy sound config' }).on('click', () => {
+		const { enter, leave, click, volume, muted } = soundConfig;
+		navigator.clipboard.writeText(JSON.stringify({ enter, leave, click, volume, muted }, null, 2));
+	});
 
 	let disposed = false;
 	let sceneWatchRafId = null;
