@@ -48,6 +48,10 @@
 		&.awards {
 			gap: var(--spacing-sm);
 			margin-top: var(--spacing-xxs);
+
+			.h4 {
+				margin-block-end: calc(var(--spacing-xxs) / 2.5);
+			}
 		}
 	}
 

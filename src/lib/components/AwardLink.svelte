@@ -71,6 +71,10 @@
 		line-height: 0;
 	}
 
+	.award-type {
+		font-weight: bold;
+	}
+
 	.award-type,
 	.date {
 		margin: 0;
