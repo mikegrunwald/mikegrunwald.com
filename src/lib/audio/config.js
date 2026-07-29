@@ -12,6 +12,6 @@ export const soundConfig = {
 	enter: 'scroll-snap',
 	leave: 'blur',
 	click: 'sync',
-	volume: 0.5,
+	volume: 1,
 	muted: false
 };
