@@ -1,22 +1,22 @@
-@use "fonts";
-@use "vars";
+@use 'fonts';
+@use 'vars';
 
-@use "../../node_modules/normalize.css/normalize";
-@use "../../node_modules/normalize-opentype.css/normalize-opentype";
+@use '../../node_modules/normalize.css/normalize';
+@use '../../node_modules/normalize-opentype.css/normalize-opentype';
 
-@use "reset";
+@use 'reset';
 
-@use "buttons";
+@use 'buttons';
 // @use "forms";
-@use "layout";
-@use "lists";
-@use "media";
+@use 'layout';
+@use 'lists';
+@use 'media';
 // @use "tables";
-@use "typography";
+@use 'typography';
 
-@use "scrollbars";
+@use 'scrollbars';
 // @use "toggle";
 
-@use "utils";
+@use 'utils';
 
-@use "pages/case-study"
+@use 'pages/case-study';

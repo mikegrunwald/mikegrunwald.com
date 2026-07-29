@@ -26,10 +26,11 @@
 // }
 
 @font-face {
-    font-family: 'Tusker';
-    src: url('/fonts/TuskerGrotesk-3600Semibold.woff2') format('woff2'),
-        url('/fonts/TuskerGrotesk-3600Semibold.otf') format('opentype');
-    font-weight: 700;
-    font-style: normal;
-    text-rendering: optimizeLegibility;
+	font-family: 'Tusker';
+	src:
+		url('/fonts/TuskerGrotesk-3600Semibold.woff2') format('woff2'),
+		url('/fonts/TuskerGrotesk-3600Semibold.otf') format('opentype');
+	font-weight: 700;
+	font-style: normal;
+	text-rendering: optimizeLegibility;
 }

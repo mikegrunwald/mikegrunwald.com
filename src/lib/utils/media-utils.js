@@ -91,10 +91,7 @@ export function sanitizeSVG(svgCode) {
 	sanitized = sanitized.replace(/<foreignObject\b[^>]*>.*?<\/foreignObject>/gis, '');
 
 	// Remove <use> with external references (potential security issue)
-	sanitized = sanitized.replace(
-		/<use[^>]*xlink:href\s*=\s*["']https?:\/\/[^"']*["'][^>]*>/gi,
-		''
-	);
+	sanitized = sanitized.replace(/<use[^>]*xlink:href\s*=\s*["']https?:\/\/[^"']*["'][^>]*>/gi, '');
 
 	return sanitized;
 }

@@ -1,7 +1,7 @@
 html {
-  background-color: var(--color-viewport-background);
-  box-sizing: border-box;
-  scroll-behavior: smooth;
+	background-color: var(--color-viewport-background);
+	box-sizing: border-box;
+	scroll-behavior: smooth;
 }
 
 // Set by CarouselScene while a ring teaser is under the pointer. The teasers
@@ -18,13 +18,12 @@ html {
 // Not in WorkTeasers.svelte's own <style> because Svelte prunes selectors it
 // cannot see used in the markup, and `is-hovering` is added from JS.
 .work-teasers.is-hovering {
-  cursor: pointer;
+	cursor: pointer;
 }
 
-
 body {
-  // background-image: url("/images/noise.png");
-  min-height: 100vh;
-  min-height: 100dvh;
-  text-rendering: optimizeSpeed;
+	// background-image: url("/images/noise.png");
+	min-height: 100vh;
+	min-height: 100dvh;
+	text-rendering: optimizeSpeed;
 }

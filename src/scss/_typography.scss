@@ -1,21 +1,21 @@
 html {
-  accent-color: var(--color-action);
-  color: var(--color-text-primary);
-  font-family: var(--font-family);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-text);
-  letter-spacing: -0.066em;
+	accent-color: var(--color-action);
+	color: var(--color-text-primary);
+	font-family: var(--font-family);
+	font-size: var(--font-size-base);
+	line-height: var(--line-height-text);
+	letter-spacing: -0.066em;
 
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
 }
 
 body {
-  ::selection {
-    background-color: var(--color-action);
-    color: var(--color-action-contrast);
-  }
+	::selection {
+		background-color: var(--color-action);
+		color: var(--color-action-contrast);
+	}
 }
 
 h1,
@@ -30,112 +30,111 @@ h5,
 .h5,
 h6,
 .h6 {
-  font-family: var(--font-family-heading);
-  font-size: 1.25rem;
-  line-height: var(--line-height-heading);
-  margin: 0 0 var(--spacing-xs);
-  overflow-wrap: break-word;
-  hyphens: auto;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: -0.03em;
-  text-wrap: balance;
+	font-family: var(--font-family-heading);
+	font-size: 1.25rem;
+	line-height: var(--line-height-heading);
+	margin: 0 0 var(--spacing-xs);
+	overflow-wrap: break-word;
+	hyphens: auto;
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: -0.03em;
+	text-wrap: balance;
 }
 
 .super {
-  font-size: var(--font-size-super);
-  font-weight: 600;
+	font-size: var(--font-size-super);
+	font-weight: 600;
 }
 
 .display {
-  font-size: var(--font-size-display);
-  font-weight: 600;
+	font-size: var(--font-size-display);
+	font-weight: 600;
 }
 
 .h1 {
-  font-size: var(--font-size-h1);
+	font-size: var(--font-size-h1);
 }
 
 .h2 {
-  font-size: var(--font-size-h2);
+	font-size: var(--font-size-h2);
 }
 
 .h3 {
-  font-size: var(--font-size-h3);
+	font-size: var(--font-size-h3);
 }
 
 .h4 {
-  font-size: var(--font-size-h4);
-  letter-spacing: 0.03em;
+	font-size: var(--font-size-h4);
+	letter-spacing: 0.03em;
 }
 
 .h5 {
-  font-size: var(--font-size-h5);
+	font-size: var(--font-size-h5);
 }
 
 .h6 {
-  font-size: var(--font-size-h6);
+	font-size: var(--font-size-h6);
 }
 
 p,
 li {
-  margin: 0 0 var(--spacing-sm);
-  hyphens: auto;
-  line-height: var(--line-height-text);
-  text-wrap: pretty;
-  overflow-wrap: break-word;
+	margin: 0 0 var(--spacing-sm);
+	hyphens: auto;
+	line-height: var(--line-height-text);
+	text-wrap: pretty;
+	overflow-wrap: break-word;
 }
 
 [href] {
-  color: var(--color-action);
-  text-decoration-skip-ink: auto;
-  transition: color var(--animation-duration) var(--animation-timing);
+	color: var(--color-action);
+	text-decoration-skip-ink: auto;
+	transition: color var(--animation-duration) var(--animation-timing);
 
-  &:hover {
-    color: var(--color-action-light);
-  }
+	&:hover {
+		color: var(--color-action-light);
+	}
 
-  &:focus {
-    outline: var(--focus-outline);
-    outline-offset: var(--focus-outline-offset);
-  }
+	&:focus {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+	}
 }
 
 hr {
-  border-bottom: var(--border);
-  border-left: 0;
-  border-right: 0;
-  border-top: 0;
-  margin: var(--spacing-base) 0;
+	border-bottom: var(--border);
+	border-left: 0;
+	border-right: 0;
+	border-top: 0;
+	margin: var(--spacing-base) 0;
 }
 
 pre {
-  max-width: 100%;
-  overflow-x: auto;
+	max-width: 100%;
+	overflow-x: auto;
 }
 
-
 .blockquote {
-  border-left: 0.3rem solid var(--border-color);
-  margin: var(--spacing-base) 0;
-  padding: var(--spacing-sm) var(--spacing-base);
-  font-style: italic;
+	border-left: 0.3rem solid var(--border-color);
+	margin: var(--spacing-base) 0;
+	padding: var(--spacing-sm) var(--spacing-base);
+	font-style: italic;
 
-  &:before {
-    color: #ccc;
-    font-size: 4em;
-    line-height: .1em;
-    margin-right: .25em;
-    vertical-align: -.4em;
-  }
+	&:before {
+		color: #ccc;
+		font-size: 4em;
+		line-height: 0.1em;
+		margin-right: 0.25em;
+		vertical-align: -0.4em;
+	}
 
-  .cite,
-  footer {
-    display: block;
-    font-size: 85%;
+	.cite,
+	footer {
+		display: block;
+		font-size: 85%;
 
-    &:before {
-      content: '\2014 \00A0';
-    }
-  }
+		&:before {
+			content: '\2014 \00A0';
+		}
+	}
 }

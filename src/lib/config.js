@@ -11,16 +11,16 @@ export const ASSET_BASE_URL = IS_DEV ? '' : R2_URL;
 // For local development, returns the path as-is
 // For production, uses R2 for all videos
 export function getAssetUrl(path) {
-  // In development, always use local paths
-  if (IS_DEV) {
-    return path;
-  }
+	// In development, always use local paths
+	if (IS_DEV) {
+		return path;
+	}
 
-  // In production, use R2 for all videos and project images
-  if (path.startsWith('/video/') || path.startsWith('/images/projects/')) {
-    return `${ASSET_BASE_URL}${path}`;
-  }
+	// In production, use R2 for all videos and project images
+	if (path.startsWith('/video/') || path.startsWith('/images/projects/')) {
+		return `${ASSET_BASE_URL}${path}`;
+	}
 
-  // Use relative path for everything else
-  return path;
+	// Use relative path for everything else
+	return path;
 }

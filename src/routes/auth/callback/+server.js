@@ -4,35 +4,35 @@
 import { env } from '$env/dynamic/private';
 
 export async function GET({ url }) {
-  // Get the authorization code from GitHub
-  const code = url.searchParams.get('code');
+	// Get the authorization code from GitHub
+	const code = url.searchParams.get('code');
 
-  if (!code) {
-    return new Response('No code provided', { status: 400 });
-  }
+	if (!code) {
+		return new Response('No code provided', { status: 400 });
+	}
 
-  // Exchange code for access token
-  const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({
-      client_id: env.OAUTH_CLIENT_ID,
-      client_secret: env.OAUTH_CLIENT_SECRET,
-      code: code,
-    }),
-  });
+	// Exchange code for access token
+	const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Accept: 'application/json'
+		},
+		body: JSON.stringify({
+			client_id: env.OAUTH_CLIENT_ID,
+			client_secret: env.OAUTH_CLIENT_SECRET,
+			code: code
+		})
+	});
 
-  const data = await tokenResponse.json();
+	const data = await tokenResponse.json();
 
-  if (data.error) {
-    return new Response(`OAuth error: ${data.error_description}`, { status: 400 });
-  }
+	if (data.error) {
+		return new Response(`OAuth error: ${data.error_description}`, { status: 400 });
+	}
 
-  // Return the token to the CMS
-  const htmlResponse = `
+	// Return the token to the CMS
+	const htmlResponse = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -45,9 +45,9 @@ export async function GET({ url }) {
         console.log("receiveMessage %o", e);
         window.opener.postMessage(
           'authorization:github:success:${JSON.stringify({
-            token: data.access_token,
-            provider: 'github'
-          })}',
+						token: data.access_token,
+						provider: 'github'
+					})}',
           e.origin
         );
         window.removeEventListener("message", receiveMessage, false);
@@ -61,7 +61,7 @@ export async function GET({ url }) {
 </html>
   `;
 
-  return new Response(htmlResponse, {
-    headers: { 'Content-Type': 'text/html' },
-  });
+	return new Response(htmlResponse, {
+		headers: { 'Content-Type': 'text/html' }
+	});
 }

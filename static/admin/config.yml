@@ -7,260 +7,236 @@ backend:
   base_url: https://mikegrunwald.com
   auth_endpoint: auth
 
-media_folder: "static/uploads"
-public_folder: "/uploads"
+media_folder: 'static/uploads'
+public_folder: '/uploads'
 
-locale: "en"
+locale: 'en'
 
 collections:
-  - name: "work"
-    label: "Work"
-    folder: "src/content/work"
+  - name: 'work'
+    label: 'Work'
+    folder: 'src/content/work'
     create: true
-    slug: "{{slug}}"
-    sortable_fields: ["order", "title", "year"]
+    slug: '{{slug}}'
+    sortable_fields: ['order', 'title', 'year']
     fields:
       - {
-          label: "Show In",
-          name: "showIn",
-          widget: "object",
+          label: 'Show In',
+          name: 'showIn',
+          widget: 'object',
           collapsed: true,
           required: false,
           fields:
             [
               {
-                label: "Featured List",
-                name: "featuredList",
-                widget: "boolean",
+                label: 'Featured List',
+                name: 'featuredList',
+                widget: 'boolean',
                 default: true,
-                required: false,
+                required: false
               },
               {
-                label: "Work List",
-                name: "workList",
-                widget: "boolean",
+                label: 'Work List',
+                name: 'workList',
+                widget: 'boolean',
                 default: true,
-                required: false,
-              },
-            ],
+                required: false
+              }
+            ]
         }
       - {
-          label: "Order",
-          name: "order",
-          widget: "number",
-          value_type: "int",
+          label: 'Order',
+          name: 'order',
+          widget: 'number',
+          value_type: 'int',
           min: 1,
           step: 1,
           default: 99,
           required: false,
-          hint:
-            "Lowest number appears first. Drives BOTH the Work index page and
+          hint: 'Lowest number appears first. Drives BOTH the Work index page and
             the order teasers orbit past you in the homepage carousel ring.
             Featured work currently uses 1-5, everything else 6-8. New entries
             default to 99 so they land at the end until you place them
-            deliberately.",
+            deliberately.'
         }
-      - { label: "Title", name: "title", widget: "string" }
+      - { label: 'Title', name: 'title', widget: 'string' }
+      - { label: 'Subtitle', name: 'subtitle', widget: 'string', required: false }
+      - { label: 'Agency', name: 'agency', widget: 'string', required: false }
       - {
-          label: "Subtitle",
-          name: "subtitle",
-          widget: "string",
-          required: false,
-        }
-      - { label: "Agency", name: "agency", widget: "string", required: false }
-      - {
-          label: "Partners",
-          name: "partners",
-          widget: "list",
+          label: 'Partners',
+          name: 'partners',
+          widget: 'list',
           allow_add: true,
           allow_remove: true,
           allow_reorder: true,
-          field: { label: "Partner", name: "partner", widget: "string" },
+          field: { label: 'Partner', name: 'partner', widget: 'string' },
           collapsed: true,
-          summary: "{{field}}",
-          minimize_collapsed: true,
+          summary: '{{field}}',
+          minimize_collapsed: true
         }
-      - { label: "Client", name: "client", widget: "string", required: false }
+      - { label: 'Client', name: 'client', widget: 'string', required: false }
       - {
-          label: "Role",
-          name: "role",
-          widget: "string",
+          label: 'Role',
+          name: 'role',
+          widget: 'string',
           required: true,
-          default: "Frontend Developer",
+          default: 'Frontend Developer'
         }
-      - { label: "Year", name: "year", widget: "number", required: false }
+      - { label: 'Year', name: 'year', widget: 'number', required: false }
       - {
-          label: "Media",
-          name: "media",
-          widget: "list",
+          label: 'Media',
+          name: 'media',
+          widget: 'list',
           required: false,
-          field: { label: "Media URL", name: "url", widget: "smart-media" },
-        }
-      - {
-          label: "Teaser Video",
-          name: "teaser",
-          widget: "smart-media",
-          required: false,
-          hint: "Optional short ~540p clip for the homepage carousel ring. Falls back to the first video in Media if left empty.",
+          field: { label: 'Media URL', name: 'url', widget: 'smart-media' }
         }
       - {
-          label: "Description",
-          name: "description",
-          widget: "markdown",
+          label: 'Teaser Video',
+          name: 'teaser',
+          widget: 'smart-media',
           required: false,
+          hint: 'Optional short ~540p clip for the homepage carousel ring. Falls back to the first video in Media if left empty.'
         }
-      - label: "Links"
-        name: "links"
-        widget: "list"
+      - { label: 'Description', name: 'description', widget: 'markdown', required: false }
+      - label: 'Links'
+        name: 'links'
+        widget: 'list'
         required: false
         collapsed: true
-        summary: "{{fields.label}}"
+        summary: '{{fields.label}}'
         # Two native string fields, NOT the custom `link` widget as a single
         # `field:` — that shape binds each item's value by the field name, but
         # the items are stored as bare {label, url} objects, so the widget renders
         # empty in the editor (Decap 3.x). `fields:` (plural) maps each named
         # subfield onto the bare object keys. Same on-disk JSON.
         fields:
-          - { label: "Label", name: "label", widget: "string" }
-          - { label: "URL", name: "url", widget: "string" }
+          - { label: 'Label', name: 'label', widget: 'string' }
+          - { label: 'URL', name: 'url', widget: 'string' }
       - {
-          label: "Tech List",
-          name: "techList",
-          widget: "list",
+          label: 'Tech List',
+          name: 'techList',
+          widget: 'list',
           allow_add: true,
           allow_remove: true,
           allow_reorder: true,
-          field: { label: "Tech", name: "tech", widget: "string" },
+          field: { label: 'Tech', name: 'tech', widget: 'string' },
           collapsed: true,
-          summary: "{{field}}",
-          minimize_collapsed: true,
+          summary: '{{field}}',
+          minimize_collapsed: true
         }
       # SEO overrides. All optional — leaving them blank is the normal case, in
       # which case work/[slug]/+page.server.ts derives metadata from the fields
       # above: Title for the page title, Subtitle (then Description) for the
       # meta description, and the first still image in Media for the share card.
       - {
-          label: "SEO Title",
-          name: "seoTitle",
-          widget: "string",
+          label: 'SEO Title',
+          name: 'seoTitle',
+          widget: 'string',
           required: false,
-          hint: "Overrides Title in the browser tab and search results. The site name is added automatically, so just the page part.",
+          hint: 'Overrides Title in the browser tab and search results. The site name is added automatically, so just the page part.'
         }
       - {
-          label: "SEO Description",
-          name: "seoDescription",
-          widget: "text",
+          label: 'SEO Description',
+          name: 'seoDescription',
+          widget: 'text',
           required: false,
-          hint: "Plain text, ~155 characters. Defaults to Subtitle, then the start of Description.",
+          hint: 'Plain text, ~155 characters. Defaults to Subtitle, then the start of Description.'
         }
       - {
-          label: "SEO Share Image",
-          name: "seoImage",
-          widget: "smart-media",
+          label: 'SEO Share Image',
+          name: 'seoImage',
+          widget: 'smart-media',
           required: false,
-          hint: "Image shown when this page is shared on social. Defaults to the first still image in Media, then the site-wide default in Site Settings.",
+          hint: 'Image shown when this page is shared on social. Defaults to the first still image in Media, then the site-wide default in Site Settings.'
         }
       - {
-          label: "Awards",
-          name: "awards",
-          widget: "list",
+          label: 'Awards',
+          name: 'awards',
+          widget: 'list',
           required: false,
           collapsed: true,
-          summary: "{{fields.awardType}} - {{fields.date}}",
+          summary: '{{fields.awardType}} - {{fields.date}}',
           fields:
             [
-              { label: "Link", name: "link", widget: "link" },
-              { label: "Logo", name: "logo", widget: "smart-media" },
-              { label: "Award Type", name: "awardType", widget: "string" },
-              { label: "Date", name: "date", widget: "datetime" },
-            ],
+              { label: 'Link', name: 'link', widget: 'link' },
+              { label: 'Logo', name: 'logo', widget: 'smart-media' },
+              { label: 'Award Type', name: 'awardType', widget: 'string' },
+              { label: 'Date', name: 'date', widget: 'datetime' }
+            ]
         }
 
-  - name: "pages"
-    label: "Pages"
+  - name: 'pages'
+    label: 'Pages'
     files:
-      - file: "src/content/pages/about.md"
-        label: "About Page"
-        name: "about"
+      - file: 'src/content/pages/about.md'
+        label: 'About Page'
+        name: 'about'
         fields:
-          - { label: "Title", name: "title", widget: "string" }
+          - { label: 'Title', name: 'title', widget: 'string' }
           - {
-              label: "SEO Description",
-              name: "seoDescription",
-              widget: "text",
+              label: 'SEO Description',
+              name: 'seoDescription',
+              widget: 'text',
               required: false,
-              hint: "Plain text, ~155 characters. Defaults to the start of Body.",
+              hint: 'Plain text, ~155 characters. Defaults to the start of Body.'
             }
-          - { label: "Body", name: "body", widget: "markdown" }
-      - file: "src/content/pages/uses.md"
-        label: "Uses Page"
-        name: "uses"
+          - { label: 'Body', name: 'body', widget: 'markdown' }
+      - file: 'src/content/pages/uses.md'
+        label: 'Uses Page'
+        name: 'uses'
         fields:
-          - { label: "Title", name: "title", widget: "string" }
-          - { label: "Body", name: "body", widget: "markdown" }
+          - { label: 'Title', name: 'title', widget: 'string' }
+          - { label: 'Body', name: 'body', widget: 'markdown' }
 
-  - name: "meta"
-    label: "Site Settings"
+  - name: 'meta'
+    label: 'Site Settings'
     files:
-      - file: "src/content/meta/site.json"
-        label: "Global Site Settings"
-        name: "site"
+      - file: 'src/content/meta/site.json'
+        label: 'Global Site Settings'
+        name: 'site'
         fields:
           - {
-              label: "Site Title",
-              name: "title",
-              widget: "string",
-              hint: "The homepage's full <title>, and the fallback title for any page without one of its own.",
+              label: 'Site Title',
+              name: 'title',
+              widget: 'string',
+              hint: "The homepage's full <title>, and the fallback title for any page without one of its own."
             }
           - {
-              label: "Site Name",
-              name: "siteName",
-              widget: "string",
+              label: 'Site Name',
+              name: 'siteName',
+              widget: 'string',
               required: false,
-              hint:
-                "Brand prefix added to every other page's title, e.g. 'Michael
+              hint: "Brand prefix added to every other page's title, e.g. 'Michael
                 Grunwald' produces 'Michael Grunwald | Dreamwave'. Falls back to
-                Site Title when blank.",
+                Site Title when blank."
             }
           - {
-              label: "Site URL",
-              name: "url",
-              widget: "string",
+              label: 'Site URL',
+              name: 'url',
+              widget: 'string',
               required: false,
-              hint:
-                "Production origin, no trailing slash. Used to build canonical
+              hint: 'Production origin, no trailing slash. Used to build canonical
                 and og:url, and to absolutise relative share images — social
                 scrapers reject relative URLs. The site prerenders, so this
-                cannot be detected at build time and must be set here.",
+                cannot be detected at build time and must be set here.'
             }
           - {
-              label: "Default Share Image",
-              name: "ogImage",
-              widget: "smart-media",
+              label: 'Default Share Image',
+              name: 'ogImage',
+              widget: 'smart-media',
               required: false,
-              hint:
-                "Fallback social card image for pages with none of their own.
+              hint: 'Fallback social card image for pages with none of their own.
                 1200x630 works everywhere. Left blank, those pages share as a
-                text-only card.",
+                text-only card.'
             }
-          - {
-              label: "Tagline",
-              name: "tagline",
-              widget: "string",
-              required: false,
-            }
-          - {
-              label: "Description",
-              name: "description",
-              widget: "text",
-              required: false,
-            }
-          - label: "Menu"
-            name: "menu"
-            widget: "list"
+          - { label: 'Tagline', name: 'tagline', widget: 'string', required: false }
+          - { label: 'Description', name: 'description', widget: 'text', required: false }
+          - label: 'Menu'
+            name: 'menu'
+            widget: 'list'
             required: false
             collapsed: true
-            summary: "{{fields.label}}"
+            summary: '{{fields.label}}'
             # Two native string fields, NOT the custom `link` widget as a single
             # `field:`. A list with one named `field:` binds each item's value by
             # that field's name, but this list's items are stored as bare
@@ -269,12 +245,11 @@ collections:
             # the bare object keys, which is what the Awards list already relies
             # on. Same on-disk JSON; front-end resolveMenuLink still gets {label, url}.
             fields:
-              - { label: "Label", name: "label", widget: "string" }
+              - { label: 'Label', name: 'label', widget: 'string' }
               - {
-                  label: "URL",
-                  name: "url",
-                  widget: "string",
-                  hint:
-                    "A path like /work navigates in place; an http(s) URL opens
-                    in a new tab; a .pdf/.doc/.xlsx/.zip downloads.",
+                  label: 'URL',
+                  name: 'url',
+                  widget: 'string',
+                  hint: 'A path like /work navigates in place; an http(s) URL opens
+                    in a new tab; a .pdf/.doc/.xlsx/.zip downloads.'
                 }

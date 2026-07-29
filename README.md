@@ -12,9 +12,9 @@ This project uses [Decap CMS](https://decapcms.org/) with a smart media upload s
 
 ### Upload Routing
 
-* **Videos** (all sizes) → Cloudflare R2 storage
-* **Large images** (>25MB) → Cloudflare R2 storage
-* **Small images** (<25MB) → Git repository (`static/uploads/`)
+- **Videos** (all sizes) → Cloudflare R2 storage
+- **Large images** (>25MB) → Cloudflare R2 storage
+- **Small images** (<25MB) → Git repository (`static/uploads/`)
 
 <!-- ### Storage Locations
 * **Cloudflare R2:** `https://assets.mikegrunwald.com/`
@@ -51,6 +51,7 @@ For detailed R2 setup instructions, see [static/admin/R2_MEDIA_SETUP.md](static/
 ---
 
 # todos/notes:
-* [ ] logo preloader inspiration: https://www.gentlerain.ai/
-* [ ] use this effect on the video/placeholder: https://codepen.io/jh3y/pen/WNmQXyE
-* [ ] add sound effects to hovers, clicks and other interactions 
+
+- [ ] logo preloader inspiration: https://www.gentlerain.ai/
+- [ ] use this effect on the video/placeholder: https://codepen.io/jh3y/pen/WNmQXyE
+- [ ] add sound effects to hovers, clicks and other interactions

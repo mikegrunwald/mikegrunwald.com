@@ -1,62 +1,75 @@
 <!doctype html>
 <html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<head>
-	<meta charset="utf-8" />
-	<link rel="icon" href="%sveltekit.assets%/favicon.png" />
-	<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap"
+			rel="stylesheet"
+		/>
 
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet">
-	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+		%sveltekit.head%
 
-	%sveltekit.head%
-
-	<!-- The hero logo (HeroHeader's .display::before) starts hidden so the GPU
+		<!-- The hero logo (HeroHeader's .display::before) starts hidden so the GPU
 	     particle handoff never flashes the CSS original; +layout.svelte reveals
 	     it on every no-particles path. With JS disabled none of that runs, so
 	     reveal it here. Unscoped .display still matches the Svelte-scoped
 	     element; !important beats both the base rule and the fallback rule. -->
-	<!-- Meta item values (.scramble-target) start hidden in CSS so the finished
+		<!-- Meta item values (.scramble-target) start hidden in CSS so the finished
 	     text never sits on screen before ScrambleEnterEffect reveals it. With
 	     JS disabled that effect never runs, so reveal it here instead. -->
-	<!-- ProjectHeader's .title/.subtitle start hidden in CSS since these pages
+		<!-- ProjectHeader's .title/.subtitle start hidden in CSS since these pages
 	     are server-rendered and would otherwise paint before hydration. With JS
 	     disabled BlurScrollEffect never runs to restore them, so reveal them
 	     here instead. Scoped under .project-header because .title/.subtitle are
 	     generic names — unscoped would risk hitting unrelated elements. (As
 	     above, an unscoped selector would still match this Svelte-scoped markup
 	     regardless — scoping here is about not overreaching, not about reach.) -->
-	<noscript>
-		<style>
-			.display::before { opacity: 1 !important; }
-			.scramble-target { opacity: 1 !important; }
-			.project-header .title, .project-header .subtitle { opacity: 1 !important; }
-		</style>
-	</noscript>
+		<noscript>
+			<style>
+				.display::before {
+					opacity: 1 !important;
+				}
+				.scramble-target {
+					opacity: 1 !important;
+				}
+				.project-header .title,
+				.project-header .subtitle {
+					opacity: 1 !important;
+				}
+			</style>
+		</noscript>
 
-	<!-- Google tag (gtag.js) -->
-	<script async src="https://www.googletagmanager.com/gtag/js?id=G-MCCZ67G8YT"></script>
-	<script>
-		window.dataLayer = window.dataLayer || [];
-		function gtag() { dataLayer.push(arguments); }
-		gtag('js', new Date());
-		// send_page_view: false — this is a SvelteKit SPA, so gtag's automatic
-		// page_view would only ever fire for the first document load. Views are
-		// sent from +layout.svelte's afterNavigate instead (see trackPageView in
-		// $lib/track.js), which covers the initial load AND every client-side
-		// navigation with one code path and the correct, already-applied title.
-		//
-		// Requires "Page changes based on browser history events" to be OFF in the
-		// GA4 data stream's Enhanced measurement settings — left on, GA4 would fire
-		// its own page_view per History API call on top of ours and double-count.
-		gtag('config', 'G-MCCZ67G8YT', { send_page_view: false });
-	</script>
-</head>
+		<!-- Google tag (gtag.js) -->
+		<script async src="https://www.googletagmanager.com/gtag/js?id=G-MCCZ67G8YT"></script>
+		<script>
+			window.dataLayer = window.dataLayer || [];
+			function gtag() {
+				dataLayer.push(arguments);
+			}
+			gtag('js', new Date());
+			// send_page_view: false — this is a SvelteKit SPA, so gtag's automatic
+			// page_view would only ever fire for the first document load. Views are
+			// sent from +layout.svelte's afterNavigate instead (see trackPageView in
+			// $lib/track.js), which covers the initial load AND every client-side
+			// navigation with one code path and the correct, already-applied title.
+			//
+			// Requires "Page changes based on browser history events" to be OFF in the
+			// GA4 data stream's Enhanced measurement settings — left on, GA4 would fire
+			// its own page_view per History API call on top of ours and double-count.
+			gtag('config', 'G-MCCZ67G8YT', { send_page_view: false });
+		</script>
+	</head>
 
-<body data-sveltekit-preload-data="hover">
-	<div style="display: contents">%sveltekit.body%</div>
-</body>
-
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
 </html>

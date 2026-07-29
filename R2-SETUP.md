@@ -126,6 +126,7 @@ This will:
 ### Build Process
 
 The `npm run build` command now:
+
 1. Runs `vite build` to create your production build
 2. Runs `upload-assets` script that scans for large files
 3. Uploads files >25MB to R2
@@ -134,15 +135,16 @@ The `npm run build` command now:
 ### URL Resolution
 
 The `getAssetUrl()` helper in `src/lib/config.js` :
-* **Development**: Returns local paths (e.g.,  `/video/file.mp4`)
-* **Production with R2**: Returns R2 URLs (e.g., `https://assets.mikegrunwald.com/video/file.mp4`)
-* **Production without R2**: Falls back to local paths
+
+- **Development**: Returns local paths (e.g., `/video/file.mp4`)
+- **Production with R2**: Returns R2 URLs (e.g., `https://assets.mikegrunwald.com/video/file.mp4`)
+- **Production without R2**: Falls back to local paths
 
 ### Usage in Components
 
 ```svelte
 <script>
-  import { getAssetUrl } from '$lib/config.js';
+	import { getAssetUrl } from '$lib/config.js';
 </script>
 
 <video src={getAssetUrl('/video/operation-tripod.mp4')} />
@@ -154,13 +156,10 @@ To use R2 URLs on other pages with videos, update them like this:
 
 ```svelte
 <script>
-  import { getAssetUrl } from '$lib/config.js';
+	import { getAssetUrl } from '$lib/config.js';
 </script>
 
-<video
-  src={getAssetUrl('/video/your-video.mp4')}
-  poster={getAssetUrl('/images/poster.png')}
-/>
+<video src={getAssetUrl('/video/your-video.mp4')} poster={getAssetUrl('/images/poster.png')} />
 ```
 
 ## Local Development
@@ -169,26 +168,26 @@ For local development, you can:
 
 **Option 1**: Don't set `PUBLIC_R2_URL` in your `.env`
 
-* Assets will be served locally from `static/`
+- Assets will be served locally from `static/`
 
 **Option 2**: Use `npm run build:local`
 
-* Builds without uploading to R2
-* Useful for testing the build locally
+- Builds without uploading to R2
+- Useful for testing the build locally
 
 ## Troubleshooting
 
 ### Files still 404ing?
 
-* Check that environment variables are set in Cloudflare Pages
-* Verify R2 bucket is publicly accessible
-* Check browser network tab for the actual URL being requested
+- Check that environment variables are set in Cloudflare Pages
+- Verify R2 bucket is publicly accessible
+- Check browser network tab for the actual URL being requested
 
 ### Upload script failing?
 
-* Verify your R2 credentials are correct
-* Check that the bucket exists
-* Ensure you have write permissions
+- Verify your R2 credentials are correct
+- Check that the bucket exists
+- Ensure you have write permissions
 
 ### Want to skip R2 upload?
 
@@ -213,16 +212,19 @@ const SIZE_THRESHOLD = 25 * 1024 * 1024; // 25MB in bytes
 **Purpose:** Uploads video and image assets from `static/video` and `static/images` to Cloudflare R2.
 
 **When it runs:**
+
 - Automatically during `npm run build` (after Vite build)
 - Manually via `npm run upload-assets`
 
 **What it does:**
+
 - Recursively scans `static/video` and `static/images` directories
 - Uploads all files to R2 with appropriate MIME types
 - Maintains directory structure in R2
 - Logs upload progress and summary
 
 **Required environment variables:**
+
 - `R2_ACCOUNT_ID`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
@@ -234,23 +236,27 @@ const SIZE_THRESHOLD = 25 * 1024 * 1024; // 25MB in bytes
 **Purpose:** Configures Cross-Origin Resource Sharing (CORS) settings for your R2 bucket to allow Decap CMS uploads.
 
 **When to run:**
+
 - Once during initial R2 bucket setup
 - If you get CORS errors when uploading through Decap CMS
 - After creating a new R2 bucket
 - When modifying allowed origins
 
 **How to run:**
+
 ```bash
 npm run configure-r2-cors
 ```
 
 **What it does:**
+
 - Checks existing CORS configuration (if any)
 - Applies new CORS rules allowing uploads from configured domains
 - Configures allowed methods: GET, PUT, POST, DELETE, HEAD
 - Sets allowed origins for localhost and production domains
 
 **Required environment variables:**
+
 - `R2_ACCOUNT_ID`
 - `R2_ACCESS_KEY_ID` (must have "Edit" permissions)
 - `R2_SECRET_ACCESS_KEY`

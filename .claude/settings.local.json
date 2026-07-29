@@ -1,12 +1,12 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(cat:*)",
-      "Bash(npm run upload-assets:*)",
-      "Bash(npm run build:local:*)",
-      "Bash(npm install:*)",
-      "Bash(ls:*)",
-      "Bash(curl:*)"
-    ]
-  }
+	"permissions": {
+		"allow": [
+			"Bash(cat:*)",
+			"Bash(npm run upload-assets:*)",
+			"Bash(npm run build:local:*)",
+			"Bash(npm install:*)",
+			"Bash(ls:*)",
+			"Bash(curl:*)"
+		]
+	}
 }

@@ -1,36 +1,36 @@
 ul,
 ol {
-  list-style-type: none;
-  margin: 0;
-  padding: 0;
+	list-style-type: none;
+	margin: 0;
+	padding: 0;
 }
 
 .bullets {
-  list-style-type: revert;
-  // padding-inline-start: var(--spacing-sm);
+	list-style-type: revert;
+	// padding-inline-start: var(--spacing-sm);
 
-  :where(li, ul, ol) {
-    list-style-type: revert;
-  }
+	:where(li, ul, ol) {
+		list-style-type: revert;
+	}
 
-  :where(ul, ol) {
-    padding-inline-start: var(--spacing-xs);
-  }
+	:where(ul, ol) {
+		padding-inline-start: var(--spacing-xs);
+	}
 
-  :where(li) {
-    margin-bottom: calc(var(--spacing-xs) / 2);
-  }
+	:where(li) {
+		margin-bottom: calc(var(--spacing-xs) / 2);
+	}
 }
 
 dl {
-  margin: 0;
+	margin: 0;
 }
 
 dt {
-  font-weight: 600;
-  margin: 0;
+	font-weight: 600;
+	margin: 0;
 }
 
 dd {
-  margin: 0;
+	margin: 0;
 }

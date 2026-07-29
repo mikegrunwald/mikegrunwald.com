@@ -1,21 +1,19 @@
 <!doctype html>
 <html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="../admin-favicon.png" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Mike G's CMS</title>
+		<meta name="robots" content="noindex" />
+	</head>
 
-<head>
-  <meta charset="utf-8">
-  <link rel="icon" href="../admin-favicon.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mike G's CMS</title>
-  <meta name="robots" content="noindex" />
-</head>
-
-<body>
-  <!-- Pinned, not @latest: the CMS bundle is a floating CDN dependency, and an
+	<body>
+		<!-- Pinned, not @latest: the CMS bundle is a floating CDN dependency, and an
        auto-bumped major has silently broken the admin before (React 18 render
        crashes). Bump this deliberately after testing, rather than riding latest. -->
-  <script src="https://unpkg.com/decap-cms@3.15.0/dist/decap-cms.js"></script>
-  <script src="./widgets/link-widget.js?v=2"></script>
-  <script type="module" src="./widgets/smart-media-widget.js?v=6"></script>
-</body>
-
+		<script src="https://unpkg.com/decap-cms@3.15.0/dist/decap-cms.js"></script>
+		<script src="./widgets/link-widget.js?v=2"></script>
+		<script type="module" src="./widgets/smart-media-widget.js?v=6"></script>
+	</body>
 </html>
