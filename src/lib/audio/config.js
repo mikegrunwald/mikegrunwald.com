@@ -5,13 +5,13 @@ export const NONE = 'none';
 
 export const EVENTS = ['enter', 'leave', 'click'];
 
-// Starting points only — audition and finalize in the panel (Task 6).
-// NOTE: these strings MUST be IDs that exist in SOUND_NAMES (Task 1 Step 2);
-// if the patch names them camelCase, use that spelling instead.
+// Tuned via the ?debug "Sounds" panel. Each event value must be an id in
+// SOUND_NAMES (see core/core-patch.json) or the NONE sentinel. Re-tune anytime
+// in the panel and paste "Copy sound config" back over these values.
 export const soundConfig = {
-	enter: 'modal-open',
-	leave: 'modal-close',
-	click: 'click',
+	enter: 'scroll-snap',
+	leave: 'blur',
+	click: 'sync',
 	volume: 0.5,
 	muted: false
 };
