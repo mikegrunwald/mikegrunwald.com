@@ -37,11 +37,18 @@
 		display: inline-block;
 		text-decoration: none;
 		pointer-events: auto;
+		padding: calc(var(--spacing-xxs) / 2);
+		border-radius: var(--border-radius);
 
 		&:hover {
 			.logo {
 				color: var(--color-primary-light);
 			}
+		}
+
+		&:focus-visible {
+			outline: var(--focus-outline);
+			outline-offset: var(--focus-outline-offset);
 		}
 	}
 
@@ -52,12 +59,16 @@
 	}
 
 	.logo {
-		color: var(--color-white);
-		display: block;
-		filter: drop-shadow(0px 0px var(--award-glow, 14px) color-mix(in srgb, currentColor 67%, transparent));
-		margin: 0;
 		--media-height: 40px;
 		--media-width: auto;
+
+		color: var(--color-white);
+		display: block;
+		filter: drop-shadow(
+			0px 0px var(--award-glow, 14px) color-mix(in srgb, currentColor 67%, transparent)
+		);
+		margin: 0;
+		line-height: 0;
 	}
 
 	.award-type,
