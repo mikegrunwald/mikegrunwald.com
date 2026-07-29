@@ -1,5 +1,7 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
+	import { play, unlock } from '$lib/audio/engine.js';
+	import { soundConfig } from '$lib/audio/config.js';
 
 	let dot;
 	let mouseX = 0;
@@ -133,6 +135,11 @@
 		animationFrame = requestAnimationFrame(animate);
 	}
 
+	// Which elements make sound on hover. Magnetic-only today; broaden here later.
+	function soundEligible(el) {
+		return el.dataset.cursor === 'magnetic';
+	}
+
 	function bindHoverState() {
 		const selector = "a, button, input, textarea, select, [role='button'], [data-cursor]";
 		const els = document.querySelectorAll(selector);
@@ -149,6 +156,8 @@
 					dot.dataset.magnetic = 'true';
 					dot.classList.add('cursor-dot--magnetic');
 				}
+
+				if (soundEligible(el)) play(soundConfig.enter);
 			});
 
 			el.addEventListener('mouseleave', () => {
@@ -161,6 +170,12 @@
 
 				currentMagneticElement = null;
 				delete dot.dataset.magnetic;
+
+				if (soundEligible(el)) play(soundConfig.leave);
+			});
+
+			el.addEventListener('click', () => {
+				if (soundEligible(el)) play(soundConfig.click);
 			});
 		});
 	}
@@ -180,6 +195,10 @@
 		};
 
 		window.addEventListener('mousemove', moveHandler, { passive: true });
+
+		const unlockAudio = () => unlock();
+		window.addEventListener('pointerdown', unlockAudio, { once: true });
+		window.addEventListener('keydown', unlockAudio, { once: true });
 
 		const mo = new MutationObserver(() => bindHoverState());
 		mo.observe(document.body, { childList: true, subtree: true });
