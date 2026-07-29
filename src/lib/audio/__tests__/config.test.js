@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { soundConfig, EVENTS, NONE } from '../config.js';
+import { SOUND_NAMES } from '../core/index.js';
 
 describe('soundConfig', () => {
 	it('exposes the three cursor events in order', () => {
@@ -20,5 +21,11 @@ describe('soundConfig', () => {
 
 	it('exports the none sentinel', () => {
 		expect(NONE).toBe('none');
+	});
+
+	it('every event default is a known sound or none', () => {
+		for (const e of EVENTS) {
+			expect([...SOUND_NAMES, NONE]).toContain(soundConfig[e]);
+		}
 	});
 });
