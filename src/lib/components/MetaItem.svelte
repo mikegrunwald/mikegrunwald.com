@@ -22,7 +22,11 @@
 	{#if hasSlot}
 		{@render children()}
 	{:else if hasValues}
-		{#each values as val}
+		<!-- Keyed on index, not on `val`. These are bare frontmatter strings
+		     (partners, tech) with no per-item state to preserve, and two entries
+		     could legitimately repeat — a value key would then throw Svelte's
+		     duplicate-key error on real content. -->
+		{#each values as val, i (i)}
 			{@render metaValue(val)}
 		{/each}
 	{:else if value}

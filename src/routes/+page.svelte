@@ -2,16 +2,14 @@
 	import AboutIntro from '../lib/components/AboutIntro.svelte';
 	import HeroHeader from '../lib/components/HeroHeader.svelte';
 	import WorkTeasers from '../lib/components/WorkTeasers.svelte';
-	import siteSettings from '$content/meta/site.json';
+	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
 </script>
 
-<svelte:head>
-	<!-- <title>Michael Grunwald | Creative Frontend Developer</title> -->
-	<title>{siteSettings.title}</title>
-	<meta name="description" content={siteSettings.description} />
-</svelte:head>
+<!-- No title/description props: the homepage IS the site, so it takes the site
+     title and description from src/content/meta/site.json verbatim. -->
+<Seo />
 
 <section class="page">
 	<HeroHeader />

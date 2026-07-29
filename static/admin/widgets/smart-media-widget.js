@@ -149,78 +149,66 @@ const SmartMediaControl = window.createClass({
     }
   },
 
+  // Resolves to the public path of the persisted file, or throws — the caller
+  // (handleFileSelect) catches and falls back to R2.
+  //
+  // The body used to be wrapped in `new Promise(async (resolve, reject) => …)`,
+  // which eslint's no-async-promise-executor flags: a throw inside an async
+  // executor becomes an unhandled rejection instead of rejecting the promise.
+  // The wrapper was redundant anyway — this method is already async, so each
+  // `resolve(x); return;` is just `return x` and each `reject(e)` is `throw e`.
   async uploadToGit(file) {
     // Use Decap's onPersistMedia method - this is the correct prop for uploading media
-    return new Promise(async (resolve, reject) => {
-      try {
-        // onPersistMedia is the correct prop for handling media uploads
-        if (this.props.onPersistMedia) {
-          const result = await this.props.onPersistMedia(file);
+    if (this.props.onPersistMedia) {
+      const result = await this.props.onPersistMedia(file);
 
-          // onPersistMedia returns a Redux action with payload
-          if (result && result.payload) {
-            const payload = result.payload;
+      // onPersistMedia returns a Redux action with payload
+      if (result && result.payload) {
+        const payload = result.payload;
 
-            // The payload should contain the file info with path
-            if (payload.path) {
-              // Transform static/uploads/file.jpg -> /uploads/file.jpg
-              const publicPath = payload.path.replace(/^static/, '');
-              resolve(publicPath);
-              return;
-            }
-
-            // Some backends return public_path
-            if (payload.public_path) {
-              const publicPath = payload.public_path.replace(/^static/, '');
-              resolve(publicPath);
-              return;
-            }
-
-            // If payload is the file object itself, it might have file property
-            if (payload.file && payload.file.path) {
-              const publicPath = payload.file.path.replace(/^static/, '');
-              resolve(publicPath);
-              return;
-            }
-          }
-
-          // Result should be a media file object with path (direct format)
-          if (result && result.path) {
-            const publicPath = result.path.replace(/^static/, '');
-            resolve(publicPath);
-            return;
-          }
-          if (typeof result === 'string') {
-            // Also transform if it's a string path
-            const publicPath = result.replace(/^static/, '');
-            resolve(publicPath);
-            return;
-          }
+        // The payload should contain the file info with path
+        if (payload.path) {
+          // Transform static/uploads/file.jpg -> /uploads/file.jpg
+          return payload.path.replace(/^static/, '');
         }
 
-        // Fallback: Try the backend directly
-        const backend = window.CMS?.getBackend?.();
-
-        if (backend && backend.persistMedia) {
-          const persistedMedia = await backend.persistMedia(file);
-
-          if (persistedMedia && persistedMedia.path) {
-            resolve(persistedMedia.path);
-            return;
-          }
-          if (typeof persistedMedia === 'string') {
-            resolve(persistedMedia);
-            return;
-          }
+        // Some backends return public_path
+        if (payload.public_path) {
+          return payload.public_path.replace(/^static/, '');
         }
 
-        // If we get here, none of the methods worked
-        const error = new Error('Git backend integration not available. Falling back to R2.');
-        reject(error);
-      } catch (error) {
-        reject(error);
+        // If payload is the file object itself, it might have file property
+        if (payload.file && payload.file.path) {
+          return payload.file.path.replace(/^static/, '');
+        }
       }
-    });
+
+      // Result should be a media file object with path (direct format)
+      if (result && result.path) {
+        return result.path.replace(/^static/, '');
+      }
+      if (typeof result === 'string') {
+        // Also transform if it's a string path
+        return result.replace(/^static/, '');
+      }
+    }
+
+    // Fallback: Try the backend directly
+    const backend = window.CMS?.getBackend?.();
+
+    if (backend && backend.persistMedia) {
+      const persistedMedia = await backend.persistMedia(file);
+
+      if (persistedMedia && persistedMedia.path) {
+        return persistedMedia.path;
+      }
+      if (typeof persistedMedia === 'string') {
+        return persistedMedia;
+      }
+    }
+
+    // If we get here, none of the methods worked
+    throw new Error('Git backend integration not available. Falling back to R2.');
   },
 
   async handleFileSelect(e) {
@@ -280,7 +268,7 @@ const SmartMediaControl = window.createClass({
       } else {
         try {
           finalValue = await this.uploadToGit(file);
-        } catch (gitError) {
+        } catch {
           // Fallback to R2 if Git upload fails
           finalValue = await this.uploadToR2(file);
           setTimeout(() => this.loadExistingFiles(), 1000);
@@ -456,7 +444,9 @@ const SmartMediaControl = window.createClass({
   },
 
   renderBrowseTab() {
-    const { existingFiles, loadingFiles, searchQuery } = this.state;
+    // `existingFiles` is deliberately not destructured here — getFilteredFiles()
+    // reads it off state itself, so pulling it out just left an unused binding.
+    const { loadingFiles, searchQuery } = this.state;
     const filteredFiles = this.getFilteredFiles();
 
     return window.h(

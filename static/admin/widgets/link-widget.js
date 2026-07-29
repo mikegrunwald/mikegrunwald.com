@@ -56,7 +56,7 @@ const LinkControl = window.createClass({
     try {
       new URL(string);
       return true;
-    } catch (_) {
+    } catch {
       // Check if it's a relative URL
       if (string.startsWith('/') || string.startsWith('./') || string.startsWith('../')) {
         return true;

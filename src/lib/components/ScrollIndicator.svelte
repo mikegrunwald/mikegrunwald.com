@@ -1,7 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { blur, fade } from 'svelte/transition';
-  import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
+  import { blur } from 'svelte/transition';
 
   let visible = $state(false);
   

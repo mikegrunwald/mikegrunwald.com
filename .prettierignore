@@ -4,3 +4,9 @@ pnpm-lock.yaml
 yarn.lock
 bun.lock
 bun.lockb
+
+# Agent git worktrees — separate checkouts of other branches that happen to live
+# inside this repo. Formatting them from here is meaningless and drowns this
+# tree's own results (213 of 289 --check failures came from three worktrees).
+# Mirrors the same ignore in eslint.config.js.
+.claude/worktrees

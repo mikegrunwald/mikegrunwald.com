@@ -5,6 +5,7 @@
 	import MediaItem from '$lib/components/MediaItem.svelte';
 	import MetaItem from '$lib/components/MetaItem.svelte';
 	import ProjectHeader from '$lib/components/ProjectHeader.svelte';
+	import Seo from '$lib/components/Seo.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import { BlurScrollEffect } from '$lib/efx/blurScrollEffect.js';
 	import { GlowEnterEffect } from '$lib/efx/glowEnterEffect.js';
@@ -80,6 +81,8 @@
 		effects = [];
 	});
 </script>
+
+<Seo {...data.seo} />
 
 <article class="project">
 	<ProjectHeader

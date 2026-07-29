@@ -19,6 +19,10 @@
 		{#if mediaInfo.type === 'video'}
 			<video src={mediaInfo.src} autoplay muted loop playsinline></video>
 		{:else if mediaInfo.type === 'svg-inline'}
+			<!-- Already run through sanitizeSVG above — inlining the markup is the
+			     only way to get styleable/animatable SVG, and this is the sanitised
+			     value, not the raw source. -->
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html sanitizedSVG}
 		{:else if mediaInfo.type === 'svg-path' || mediaInfo.type === 'image'}
 			<img src={mediaInfo.src} {alt} />

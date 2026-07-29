@@ -42,7 +42,16 @@
 		window.dataLayer = window.dataLayer || [];
 		function gtag() { dataLayer.push(arguments); }
 		gtag('js', new Date());
-		gtag('config', 'G-MCCZ67G8YT');
+		// send_page_view: false — this is a SvelteKit SPA, so gtag's automatic
+		// page_view would only ever fire for the first document load. Views are
+		// sent from +layout.svelte's afterNavigate instead (see trackPageView in
+		// $lib/track.js), which covers the initial load AND every client-side
+		// navigation with one code path and the correct, already-applied title.
+		//
+		// Requires "Page changes based on browser history events" to be OFF in the
+		// GA4 data stream's Enhanced measurement settings — left on, GA4 would fire
+		// its own page_view per History API call on top of ours and double-count.
+		gtag('config', 'G-MCCZ67G8YT', { send_page_view: false });
 	</script>
 </head>
 

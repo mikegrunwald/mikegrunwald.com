@@ -152,7 +152,11 @@
 	}
 </script>
 
-<svelte:head><title>Fluid dev — WebGPU</title></svelte:head>
+<!-- noindex: a development harness, not public content. -->
+<svelte:head>
+	<title>Fluid dev — WebGPU</title>
+	<meta name="robots" content="noindex, nofollow" />
+</svelte:head>
 
 <div class="parity">
 	<div class="pane">

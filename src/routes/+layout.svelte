@@ -2,7 +2,7 @@
 	import '../app.scss';
 	import 'lenis/dist/lenis.css';
 	import { SvelteLenis, useLenis } from 'lenis/svelte';
-	import { onMount, onDestroy, setContext } from 'svelte';
+	import { onMount, onDestroy, setContext, tick } from 'svelte';
 	import { ScrollTrigger } from 'gsap/ScrollTrigger';
 	import { SplitText } from 'gsap/dist/SplitText';
 	import { gsap } from 'gsap/dist/gsap';
@@ -19,7 +19,7 @@
 	import { shouldLoopRunway, wrapScrollPosition } from '$lib/gpu/carousel/scrollModel.js';
 	import TransitionVideo from '$lib/components/TransitionVideo.svelte';
 	import { setHandoff } from '$lib/transitionHandoff.js';
-	import { trackClick } from '$lib/track';
+	import { trackClick, trackPageView } from '$lib/track';
 
 	gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -31,6 +31,14 @@
 		}
 	});
 	afterNavigate((nav) => {
+		// GA4 page view for every route, including the first document load
+		// (nav.type === 'enter') — app.html sets send_page_view: false precisely so
+		// this one path owns all of them. Awaiting tick() lets the new page's
+		// <svelte:head> flush first, so trackPageView reads the route's own
+		// document.title rather than the previous page's. Not awaited by the
+		// caller: analytics must not sit in front of the scroll restore below.
+		tick().then(trackPageView);
+
 		// Returning to the homepage restores where you were, so zooming into a
 		// project and coming back does not throw you to the hero. Every other
 		// navigation still resets to the top, which is what you want when

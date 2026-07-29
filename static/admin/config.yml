@@ -135,6 +135,31 @@ collections:
           summary: "{{field}}",
           minimize_collapsed: true,
         }
+      # SEO overrides. All optional — leaving them blank is the normal case, in
+      # which case work/[slug]/+page.server.ts derives metadata from the fields
+      # above: Title for the page title, Subtitle (then Description) for the
+      # meta description, and the first still image in Media for the share card.
+      - {
+          label: "SEO Title",
+          name: "seoTitle",
+          widget: "string",
+          required: false,
+          hint: "Overrides Title in the browser tab and search results. The site name is added automatically, so just the page part.",
+        }
+      - {
+          label: "SEO Description",
+          name: "seoDescription",
+          widget: "text",
+          required: false,
+          hint: "Plain text, ~155 characters. Defaults to Subtitle, then the start of Description.",
+        }
+      - {
+          label: "SEO Share Image",
+          name: "seoImage",
+          widget: "smart-media",
+          required: false,
+          hint: "Image shown when this page is shared on social. Defaults to the first still image in Media, then the site-wide default in Site Settings.",
+        }
       - {
           label: "Awards",
           name: "awards",
@@ -159,6 +184,13 @@ collections:
         name: "about"
         fields:
           - { label: "Title", name: "title", widget: "string" }
+          - {
+              label: "SEO Description",
+              name: "seoDescription",
+              widget: "text",
+              required: false,
+              hint: "Plain text, ~155 characters. Defaults to the start of Body.",
+            }
           - { label: "Body", name: "body", widget: "markdown" }
       - file: "src/content/pages/uses.md"
         label: "Uses Page"
@@ -174,7 +206,43 @@ collections:
         label: "Global Site Settings"
         name: "site"
         fields:
-          - { label: "Site Title", name: "title", widget: "string" }
+          - {
+              label: "Site Title",
+              name: "title",
+              widget: "string",
+              hint: "The homepage's full <title>, and the fallback title for any page without one of its own.",
+            }
+          - {
+              label: "Site Name",
+              name: "siteName",
+              widget: "string",
+              required: false,
+              hint:
+                "Brand prefix added to every other page's title, e.g. 'Michael
+                Grunwald' produces 'Michael Grunwald | Dreamwave'. Falls back to
+                Site Title when blank.",
+            }
+          - {
+              label: "Site URL",
+              name: "url",
+              widget: "string",
+              required: false,
+              hint:
+                "Production origin, no trailing slash. Used to build canonical
+                and og:url, and to absolutise relative share images — social
+                scrapers reject relative URLs. The site prerenders, so this
+                cannot be detected at build time and must be set here.",
+            }
+          - {
+              label: "Default Share Image",
+              name: "ogImage",
+              widget: "smart-media",
+              required: false,
+              hint:
+                "Fallback social card image for pages with none of their own.
+                1200x630 works everywhere. Left blank, those pages share as a
+                text-only card.",
+            }
           - {
               label: "Tagline",
               name: "tagline",
