@@ -1,6 +1,8 @@
-import { soundConfig, EVENTS, NONE } from '$lib/audio/config.js';
-import { SOUND_NAMES } from '$lib/audio/core/index.js';
-import { play, unlock } from '$lib/audio/engine.js';
+// Relative (not $lib) so createLiveProxy.test.js — which imports this file — can
+// resolve them under the standalone vitest config, matching the rest of src/lib/gpu.
+import { soundConfig, EVENTS, NONE } from '../../audio/config.js';
+import { SOUND_NAMES } from '../../audio/core/index.js';
+import { play, unlock } from '../../audio/engine.js';
 
 // Dev-only. Callers must gate on shouldShowPanel() before importing anything heavy.
 export function shouldShowPanel() {
