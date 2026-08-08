@@ -9,6 +9,7 @@ agency: Buttermax
 client: Spotify
 role: Frontend Developer
 year: 2023
+teaser: /video/teasers/spotify-reniassance.mp4
 media:
   - https://assets.mikegrunwald.com/video/1769308893626-Renaissance_Shareables_v1_anubis-ezgif.com-gif-to-mp4-converter.mp4
   - https://assets.mikegrunwald.com/video/1769308905970-Renaissance_Shareables_v2_anubis-ezgif.com-gif-to-mp4-converter.mp4

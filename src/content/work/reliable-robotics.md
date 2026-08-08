@@ -9,6 +9,7 @@ agency: Buttermax
 client: Reliable Robotics
 role: Frontend Developer
 year: 2022
+teaser: /video/teasers/reliable-robotics.mp4
 media:
   - https://assets.mikegrunwald.com/video/1769311803955-Reliable_Robotics.mp4
   - /uploads/641cbb7a021af858997046.jpg

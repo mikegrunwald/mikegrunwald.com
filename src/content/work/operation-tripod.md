@@ -9,6 +9,7 @@ agency: Active Theory
 client: Internal
 role: Lead UX Engineer
 year: 2023
+teaser: /video/teasers/operation-tripod.mp4
 media:
   - https://assets.mikegrunwald.com/video/operation-tripod.mp4
   - https://assets.mikegrunwald.com/video/operation-tripod.mp4

@@ -28,15 +28,19 @@ export function clearHandoff() {
 //
 // All three checks earn their place:
 // - slug: a record from one project must not seed another's page.
-// - srcUrl: the carousel and the header play the same file for every entry
-//   today, but a `teaser:` field in the CMS makes them different videos, and
-//   seeking to a foreign timestamp is worse than not seeking.
+// - srcUrl: the carousel and the header must be the same clip. Either the exact
+//   same file, OR a `/teasers/` re-encode of it — the ring now plays a smaller,
+//   ≤16s teaser (encode-teasers.js) while the header plays full-res media[0].
+//   A teaser is the same clip from t=0, so the carousel currentTime maps to the
+//   same frame in the header; slug already proved they're the same project.
+//   A foreign NON-teaser url is still refused — seeking to it would be nonsense.
 // - age: a record left behind by an abandoned navigation must not seed a
 //   direct visit minutes later.
 export function shouldSeed({ record, slug, srcUrl, now, maxAgeMs = 5000 }) {
 	if (!record) return false;
 	if (!Number.isFinite(now) || !Number.isFinite(record.at)) return false;
 	if (record.slug !== slug) return false;
-	if (record.srcUrl !== srcUrl) return false;
+	const fromTeaser = /\/teasers?\//.test(record.srcUrl);
+	if (record.srcUrl !== srcUrl && !fromTeaser) return false;
 	return now - record.at <= maxAgeMs;
 }

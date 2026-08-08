@@ -51,10 +51,17 @@ describe('shouldSeed', () => {
 		expect(shouldSeed({ ...base, slug: 'spotify-menu' })).toBe(false);
 	});
 
-	it('refuses a different video even on the right page', () => {
-		// A `teaser:` field in the CMS makes the carousel and the header play
-		// different files; seeking one to the other's timestamp is nonsense.
+	it('refuses a different NON-teaser video even on the right page', () => {
+		// A foreign file that is not a /teasers/ re-encode: seeking one to the
+		// other's timestamp is nonsense.
 		expect(shouldSeed({ ...base, srcUrl: 'https://x/DIFFERENT.mp4' })).toBe(false);
+	});
+
+	it('seeds across a /teasers/ re-encode of the same project', () => {
+		// Ring played the teaser encode; header plays full-res media[0]. Same slug
+		// + teaser dir → seed (currentTime maps to the same frame).
+		const teaserRecord = { ...record, srcUrl: '/video/teasers/patreon-com.mp4' };
+		expect(shouldSeed({ ...base, record: teaserRecord, srcUrl: 'https://x/a.mp4' })).toBe(true);
 	});
 
 	it('refuses a stale record', () => {

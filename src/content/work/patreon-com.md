@@ -10,6 +10,7 @@ partners: []
 client: Patreon
 role: Frontend Developer
 year: 2022
+teaser: /video/teasers/patreon-com.mp4
 media:
   - https://assets.mikegrunwald.com/video/1765733273535-Patreon_CaseStudy_Rough1.mp4
   - https://assets.mikegrunwald.com/video/1765859618469-Screen_Recording_2025-11-05_at_2.30.37_PM.mov

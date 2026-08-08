@@ -9,6 +9,7 @@ agency: Active Theory
 client: Hubspot
 role: Core Dreamwave Engineer
 year: 2021
+teaser: /video/teasers/dreamwave.mp4
 media:
   - https://assets.mikegrunwald.com/video/inbound-22.mp4
   - https://assets.mikegrunwald.com/video/inbound-22.mp4

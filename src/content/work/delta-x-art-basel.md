@@ -11,6 +11,7 @@ partners:
 client: Delta Airlines
 role: Lead Design Technologist
 year: 2022
+teaser: /video/teasers/delta-x-art-basel.mp4
 media:
   - https://assets.mikegrunwald.com/video/1769309792515-Delta_Air_Basel.mp4
   - https://assets.mikegrunwald.com/video/1769309792515-Delta_Air_Basel.mp4

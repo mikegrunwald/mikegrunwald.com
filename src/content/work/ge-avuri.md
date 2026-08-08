@@ -10,6 +10,7 @@ partners: []
 client: GE Healthcare
 role: Lead UX Engineer
 year: 2019
+teaser: /video/teasers/ge-avuri.mp4
 media:
   - https://assets.mikegrunwald.com/video/avuri-demo.mp4
   - https://assets.mikegrunwald.com/images/projects/avuri-poster.png

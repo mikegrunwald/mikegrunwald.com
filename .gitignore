@@ -22,7 +22,9 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# big files
+# big files (served from R2, uploaded via `npm run upload-assets`) — includes
+# the carousel teaser encodes in static/video/teasers/, which are generated
+# locally (npm run teasers) and pushed to R2, never committed.
 *.mov
 *.mp4
 .superpowers/
