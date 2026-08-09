@@ -1,11 +1,13 @@
 <!-- src/lib/components/CaseStudiesSection.svelte -->
 <script>
+	import { spotlight } from '$lib/actions/spotlight.js';
+	import { playInView } from '$lib/actions/playInView.js';
 	let { caseStudies = [] } = $props();
 </script>
 
 <section class="case-studies" aria-label="Case Studies">
 	<h1 class="case-studies__title h1">Case Studies</h1>
-	<ul class="case-studies__grid">
+	<ul class="case-studies__grid" use:spotlight>
 		{#each caseStudies as item (item.slug)}
 			<li class="case-studies__cell">
 				<a class="cs-card" href={item.href} data-cursor="magnetic" data-spotlight-card>
@@ -19,6 +21,7 @@
 							playsinline
 							preload="metadata"
 							aria-hidden="true"
+							use:playInView
 						></video>
 					{/if}
 					<span class="cs-card__glow" aria-hidden="true"></span>
@@ -78,5 +81,28 @@
 		bottom: var(--spacing-xs);
 		transform: translateX(-50%);
 		z-index: 2;
+	}
+	.cs-card__glow {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		padding: var(--cs-glow-width, 1.5px);
+		pointer-events: none;
+		z-index: 1;
+		background: radial-gradient(
+			var(--cs-glow-radius, 220px) circle at var(--mx, -1000px) var(--my, -1000px),
+			rgba(var(--color-primary-rgb), var(--cs-glow-intensity, 0.9)),
+			transparent 45%
+		);
+		/* Gradient-border trick: mask keeps only the padding ring, so the glow reads
+		   as a lit border rather than a filled panel. */
+		-webkit-mask:
+			linear-gradient(#000 0 0) content-box,
+			linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor;
+		mask:
+			linear-gradient(#000 0 0) content-box,
+			linear-gradient(#000 0 0);
+		mask-composite: exclude;
 	}
 </style>
