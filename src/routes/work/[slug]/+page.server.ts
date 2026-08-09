@@ -1,13 +1,16 @@
 import { loadMarkdown, loadCollection } from '$lib/server/markdown';
 import { firstImage } from '$lib/seo.js';
+import { orderWork } from '$lib/work/order.js';
+import workOrder from '$content/meta/work-order.json';
 
 export async function load({ params }) {
 	const { slug } = params;
 	const project = loadMarkdown(`src/content/work/${slug}.md`);
 
 	// Load all projects in the same order as the work index page
-	const allProjects = loadCollection('src/content/work').sort(
-		(a, b) => (a.meta.order || 0) - (b.meta.order || 0)
+	const allProjects = orderWork(
+		loadCollection('src/content/work'),
+		workOrder.order.map((e) => e.project)
 	);
 
 	// Find the current project index
