@@ -171,6 +171,33 @@ export async function maybeCreatePanel({
 		navigator.clipboard.writeText(JSON.stringify({ enter, leave, click, volume, muted }, null, 2));
 	});
 
+	// Case Studies grid + glow — live CSS-var tuning. These override the component
+	// defaults via the :root cascade; leaving the panel closed keeps the defaults.
+	const csParams = {
+		gap: 20,
+		minTrack: 352,
+		glowWidth: 1.5,
+		glowRadius: 220,
+		glowIntensity: 0.9
+	};
+	const setVar = (name, value) => document.documentElement.style.setProperty(name, value);
+	const cs = pane.addFolder({ title: 'Case Studies', expanded: false });
+	cs.addBinding(csParams, 'gap', { min: 0, max: 80, step: 1 }).on('change', (e) =>
+		setVar('--cs-gap', `${e.value}px`)
+	);
+	cs.addBinding(csParams, 'minTrack', { min: 200, max: 600, step: 4 }).on('change', (e) =>
+		setVar('--cs-min-track', `${e.value}px`)
+	);
+	cs.addBinding(csParams, 'glowWidth', { min: 0, max: 8, step: 0.5 }).on('change', (e) =>
+		setVar('--cs-glow-width', `${e.value}px`)
+	);
+	cs.addBinding(csParams, 'glowRadius', { min: 40, max: 500, step: 10 }).on('change', (e) =>
+		setVar('--cs-glow-radius', `${e.value}px`)
+	);
+	cs.addBinding(csParams, 'glowIntensity', { min: 0, max: 1, step: 0.05 }).on('change', (e) =>
+		setVar('--cs-glow-intensity', `${e.value}`)
+	);
+
 	let disposed = false;
 	let sceneWatchRafId = null;
 	let carouselWatchRafId = null;
