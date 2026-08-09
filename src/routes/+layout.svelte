@@ -16,6 +16,7 @@
 	import { scrollProgress } from '$lib/gpu/fluid/grading.js';
 	import { LogoParticlesScene } from '$lib/gpu/scenes/LogoParticlesScene.js';
 	import { CarouselScene } from '$lib/gpu/scenes/CarouselScene.js';
+	import { ArchiveRevealScene } from '$lib/gpu/scenes/ArchiveRevealScene.js';
 	import { shouldLoopRunway, wrapScrollPosition } from '$lib/gpu/carousel/scrollModel.js';
 	import TransitionVideo from '$lib/components/TransitionVideo.svelte';
 	import { setHandoff } from '$lib/transitionHandoff.js';
@@ -54,6 +55,7 @@
 		// home, which is the only time it can go stale.
 		syncParticlesScene();
 		syncCarouselScene();
+		syncArchiveScene();
 		// ScrollTrigger measured its positions against the previous document.
 		// Without this the restored scroll lands at the right pixel but the pin
 		// and its progress are computed from stale offsets, so the ring's
@@ -81,6 +83,7 @@
 	let carouselTrigger;
 	let carouselPreRollTrigger;
 	let creatingCarousel = false;
+	let archiveScene;
 	// Re-entrancy guard for the runway wrap. Without it the programmatic scroll
 	// triggers another ScrollTrigger.update, which can re-enter onUpdate while
 	// progress is still >= 1 and wrap repeatedly in a single frame.
@@ -466,6 +469,39 @@
 		}
 	}
 
+	// Keys the Project Archive's decorative image reveal off the presence of
+	// ProjectArchive's `[data-gpu-archive]` canvas (present only on /work), same
+	// marker pattern as syncCarouselScene. The scene is a SECOND gpu-curtains
+	// renderer sharing the engine's device (see ArchiveRevealScene.js). Only ever
+	// created when the engine exists — createEngine returns null under no-WebGPU
+	// or reduced motion, so the table degrades to no-reveal automatically.
+	function syncArchiveScene() {
+		if (!engine) return;
+		const el = document.querySelector('[data-gpu-archive]');
+		if (el && !archiveScene) {
+			archiveScene = new ArchiveRevealScene({ engine, canvas: el });
+			archiveScene._onEnter = (e) => archiveScene.setImage(e.detail.image);
+			archiveScene._onMove = (e) => {
+				archiveScene.setPointer(e.detail.x, e.detail.y);
+				archiveScene.setActive(true);
+			};
+			archiveScene._onLeave = () => archiveScene.setActive(false);
+			window.addEventListener('archive-reveal-enter', archiveScene._onEnter);
+			window.addEventListener('archive-reveal-move', archiveScene._onMove);
+			window.addEventListener('archive-reveal-leave', archiveScene._onLeave);
+		} else if (!el && archiveScene) {
+			destroyArchiveScene();
+		}
+	}
+	function destroyArchiveScene() {
+		if (!archiveScene) return;
+		window.removeEventListener('archive-reveal-enter', archiveScene._onEnter);
+		window.removeEventListener('archive-reveal-move', archiveScene._onMove);
+		window.removeEventListener('archive-reveal-leave', archiveScene._onLeave);
+		archiveScene.destroy();
+		archiveScene = undefined;
+	}
+
 	onMount(async () => {
 		if (page.url.pathname.startsWith('/dev/')) return; // dev routes boot their own engine
 
@@ -503,6 +539,7 @@
 			carouselPreRollTrigger = undefined;
 			carouselScene?.destroy();
 			carouselScene = undefined;
+			destroyArchiveScene();
 		});
 
 		// ProjectHeader dispatches this once its header video has data, which is
@@ -541,6 +578,7 @@
 
 		await syncParticlesScene();
 		syncCarouselScene();
+		syncArchiveScene();
 
 		// Dev-only inspection handle. The WebGPU canvas cannot be read back from
 		// a page-level probe (screenshots of it come back blank), and in a hidden
@@ -614,6 +652,7 @@
 		carouselTrigger?.kill();
 		carouselPreRollTrigger?.kill();
 		carouselScene?.destroy();
+		destroyArchiveScene();
 		fluidScene?.destroy();
 		engine?.destroy();
 	});

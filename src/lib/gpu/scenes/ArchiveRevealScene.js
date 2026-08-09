@@ -120,6 +120,11 @@ export class ArchiveRevealScene {
 		this.mesh.visible = false;
 
 		this._unframe = engine.onFrame(() => this._tick());
+		// autoResize:false, so keep the second renderer's drawing buffer in sync
+		// with its (viewport-sized) canvas off the engine's resize fan-out.
+		this._unresize = engine.onResize(() => {
+			if (!this.destroyed) this.renderer.resize();
+		});
 	}
 
 	setImage(url) {
@@ -178,6 +183,7 @@ export class ArchiveRevealScene {
 	destroy() {
 		this.destroyed = true;
 		this._unframe?.();
+		this._unresize?.();
 		this.mesh?.remove?.();
 		this.texture?.destroy?.();
 		this.renderer?.destroy?.();

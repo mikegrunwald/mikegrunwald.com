@@ -4,10 +4,38 @@
 
 	// External links open in a new tab; internal paths navigate in place.
 	const isExternal = (url) => /^https?:\/\//i.test(url ?? '');
+
+	// The decorative WebGPU reveal is owned by the layout scene, which listens for
+	// these window events (keeps this component free of any GPU dependency). Rows
+	// with no still image emit nothing, so they light up (CSS) without a reveal.
+	const emit = (name, detail) => window.dispatchEvent(new CustomEvent(name, { detail }));
+
+	function rowEnter(e, row) {
+		if (!row.image) return;
+		emit('archive-reveal-enter', { image: row.image });
+		emit('archive-reveal-move', { x: e.clientX, y: e.clientY });
+	}
+	function rowMove(e, row) {
+		if (!row.image) return;
+		emit('archive-reveal-move', { x: e.clientX, y: e.clientY });
+	}
+	function rowLeave() {
+		emit('archive-reveal-leave');
+	}
+	// Keyboard: no pointer, so anchor the reveal at the focused row's center.
+	function rowFocus(e, row) {
+		if (!row.image) return;
+		const r = e.currentTarget.getBoundingClientRect();
+		emit('archive-reveal-enter', { image: row.image });
+		emit('archive-reveal-move', { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+	}
 </script>
 
 <section class="project-archive" aria-label="Project Archive">
 	<h2 class="project-archive__title h1">Project Archive</h2>
+	<!-- Decorative reveal surface: fixed, full-viewport, non-interactive; above
+	     the table, below CursorDot. The layout scene binds a renderer to it. -->
+	<canvas class="archive-reveal" data-gpu-archive aria-hidden="true"></canvas>
 	<table class="archive">
 		<thead>
 			<tr>
@@ -19,7 +47,17 @@
 		</thead>
 		<tbody>
 			{#each archive as row, i (row.slug)}
-				<tr class="archive__row" class:is-link={!!row.link} data-archive-row data-index={i}>
+				<tr
+					class="archive__row"
+					class:is-link={!!row.link}
+					data-archive-row
+					data-index={i}
+					onpointerenter={(e) => rowEnter(e, row)}
+					onpointermove={(e) => rowMove(e, row)}
+					onpointerleave={rowLeave}
+					onfocusin={(e) => rowFocus(e, row)}
+					onfocusout={rowLeave}
+				>
 					<td class="archive__title">
 						{#if row.link}
 							<a
@@ -45,6 +83,14 @@
 <style lang="scss">
 	.project-archive__title {
 		margin: var(--spacing-base) 0 var(--spacing-sm);
+	}
+	.archive-reveal {
+		position: fixed;
+		inset: 0;
+		width: 100vw;
+		height: 100dvh;
+		pointer-events: none;
+		z-index: 200; /* above table (page-wrapper z:1), below CursorDot (300) + menu */
 	}
 	.archive {
 		width: 100%;
