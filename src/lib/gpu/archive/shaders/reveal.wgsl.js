@@ -50,7 +50,7 @@ fn main(fsInput: VSOutput) -> @location(0) vec4f {
   let centered = fsInput.uv - 0.5;
   let dist = length(centered) * 2.0; // 0 at center → ~1.41 at corners
 
-  // Radial reveal mask grows with `reveal`, softened by `feather`.
+  // Radial reveal mask grows with params.reveal, softened by params.feather.
   let edge = params.reveal;
   let mask = 1.0 - smoothstep(edge - params.feather, edge, dist);
   if (mask <= 0.0) { discard; }
