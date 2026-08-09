@@ -55,7 +55,8 @@ export async function maybeCreatePanel({
 	engine,
 	forceProgress,
 	getLogoScene,
-	getCarouselScene
+	getCarouselScene,
+	getArchiveScene
 }) {
 	if (!shouldShowPanel()) return null;
 	const { Pane } = await import('tweakpane');
@@ -201,6 +202,7 @@ export async function maybeCreatePanel({
 	let disposed = false;
 	let sceneWatchRafId = null;
 	let carouselWatchRafId = null;
+	let archiveWatchRafId = null;
 
 	if (getLogoScene) {
 		const particles = pane.addFolder({ title: 'Particles', expanded: false });
@@ -353,6 +355,43 @@ export async function maybeCreatePanel({
 		watchCarouselIdentity();
 	}
 
+	if (getArchiveScene) {
+		const archive = pane.addFolder({ title: 'Archive Reveal', expanded: false });
+		// Same cache-backed proxy as Carousel/Particles (createLiveProxy): reads
+		// warm from the live scene and survive its absence. ArchiveRevealScene
+		// re-applies these params to the shader uniforms + plane scale every frame
+		// (see its _tick), so slider changes are live while a row is hovered. All
+		// numeric → the plain 0 fallback is correct (no color/boolean controls).
+		const proxy = createLiveProxy(getArchiveScene);
+		// World size of the reveal plane at z=0. Ranges exceed the defaults —
+		// Tweakpane CLAMPS writes to the bound range, so a max below the default
+		// would silently shrink the real value the first time a slider is touched.
+		archive.addBinding(proxy, 'planeW', { min: 0.5, max: 8, step: 0.1 });
+		archive.addBinding(proxy, 'planeH', { min: 0.3, max: 5, step: 0.1 });
+		// Per-second exponential ease rates for the cursor-follow and mask growth.
+		archive.addBinding(proxy, 'followRate', { min: 1, max: 30, step: 0.5 });
+		archive.addBinding(proxy, 'revealRate', { min: 1, max: 30, step: 0.5 });
+		// Shader feel: mask edge softness, edge displacement, chromatic offset.
+		archive.addBinding(proxy, 'feather', { min: 0, max: 0.6, step: 0.01 });
+		archive.addBinding(proxy, 'distortion', { min: 0, max: 0.2, step: 0.005 });
+		archive.addBinding(proxy, 'chroma', { min: 0, max: 0.05, step: 0.001 });
+
+		// Same panel-created-before-scene race as Carousel: seed real values once
+		// the scene appears (and again on navigation-recreate) by identity-watching
+		// it. Independent rafId so it stops on its own in destroy().
+		let lastArchiveScene = null;
+		const watchArchiveIdentity = () => {
+			if (disposed) return;
+			const scene = getArchiveScene();
+			if (scene !== lastArchiveScene) {
+				lastArchiveScene = scene;
+				if (scene) pane.refresh();
+			}
+			archiveWatchRafId = requestAnimationFrame(watchArchiveIdentity);
+		};
+		watchArchiveIdentity();
+	}
+
 	const eng = pane.addFolder({ title: 'Engine', expanded: false });
 	eng.addBinding(engine.quality, 'tier', { readonly: true });
 	eng.addBinding(engine.quality, 'dpr', { readonly: true });
@@ -383,6 +422,9 @@ export async function maybeCreatePanel({
 			}
 			if (carouselWatchRafId !== null) {
 				cancelAnimationFrame(carouselWatchRafId);
+			}
+			if (archiveWatchRafId !== null) {
+				cancelAnimationFrame(archiveWatchRafId);
 			}
 			unsub();
 			pane.dispose();

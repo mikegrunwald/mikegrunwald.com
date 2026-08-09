@@ -47,7 +47,9 @@ const DEFAULTS = {
 export class ArchiveRevealScene {
 	constructor({ engine, canvas, params = {} }) {
 		this.engine = engine;
-		this.p = { ...DEFAULTS, ...params };
+		// Named `params` (not `p`) so the debug panel's createLiveProxy — which
+		// reads/writes `scene.params` — can bind these live (Task 7).
+		this.params = { ...DEFAULTS, ...params };
 		this.destroyed = false;
 		this.active = false;
 		this.reveal = 0; // eased mask growth
@@ -79,15 +81,17 @@ export class ArchiveRevealScene {
 		});
 
 		// Register once; refires on each loadImage with the loaded ImageBitmap.
+		this._imgW = 1;
+		this._imgH = 1;
 		this.texture.onSourceLoaded((source) => {
 			if (this.destroyed) return;
-			const iw = source?.width || source?.naturalWidth || 1;
-			const ih = source?.height || source?.naturalHeight || 1;
+			this._imgW = source?.width || source?.naturalWidth || 1;
+			this._imgH = source?.height || source?.naturalHeight || 1;
 			const { sx, sy } = revealPlaneScale({
-				imgW: iw,
-				imgH: ih,
-				planeW: this.p.planeW,
-				planeH: this.p.planeH
+				imgW: this._imgW,
+				imgH: this._imgH,
+				planeW: this.params.planeW,
+				planeH: this.params.planeH
 			});
 			this.mesh.uniforms.params.uvScale.value = [sx, sy];
 		});
@@ -107,16 +111,16 @@ export class ArchiveRevealScene {
 					struct: {
 						uvScale: { type: 'vec2f', value: [1, 1] },
 						reveal: { type: 'f32', value: 0 },
-						feather: { type: 'f32', value: this.p.feather },
-						distortion: { type: 'f32', value: this.p.distortion },
-						chroma: { type: 'f32', value: this.p.chroma },
+						feather: { type: 'f32', value: this.params.feather },
+						distortion: { type: 'f32', value: this.params.distortion },
+						chroma: { type: 'f32', value: this.params.chroma },
 						time: { type: 'f32', value: 0 }
 					}
 				}
 			}
 		});
 		// PlaneGeometry is -1..1 (2 units); scale so on-screen size = planeW/H.
-		this.mesh.scale.set(this.p.planeW / 2, this.p.planeH / 2, 1);
+		this.mesh.scale.set(this.params.planeW / 2, this.params.planeH / 2, 1);
 		this.mesh.visible = false;
 
 		this._unframe = engine.onFrame(() => this._tick());
@@ -235,9 +239,9 @@ export class ArchiveRevealScene {
 		this._lastFrame = now;
 		this.time += dt;
 
-		this.reveal = followStep(this.reveal, this.active ? 1 : 0, this.p.revealRate, dt);
-		this.pos.x = followStep(this.pos.x, this.target.x, this.p.followRate, dt);
-		this.pos.y = followStep(this.pos.y, this.target.y, this.p.followRate, dt);
+		this.reveal = followStep(this.reveal, this.active ? 1 : 0, this.params.revealRate, dt);
+		this.pos.x = followStep(this.pos.x, this.target.x, this.params.followRate, dt);
+		this.pos.y = followStep(this.pos.y, this.target.y, this.params.followRate, dt);
 
 		// Skip all GPU-facing work while fully hidden (reveal ~0). The shader also
 		// discards at reveal 0, but hiding the mesh avoids a pointless draw.
@@ -254,7 +258,22 @@ export class ArchiveRevealScene {
 		const halfW = halfH * aspect;
 		this.mesh.position.set(this.pos.x * halfW, this.pos.y * halfH, 0);
 
+		// Re-apply the tunable params every frame from this.params so the debug
+		// panel's sliders stay live (same discipline as CarouselScene.layout()).
+		// planeW/H also recompute the cover-fit uvScale off the last image size.
+		const p = this.params;
+		this.mesh.scale.set(p.planeW / 2, p.planeH / 2, 1);
+		const { sx, sy } = revealPlaneScale({
+			imgW: this._imgW,
+			imgH: this._imgH,
+			planeW: p.planeW,
+			planeH: p.planeH
+		});
 		const u = this.mesh.uniforms.params;
+		u.uvScale.value = [sx, sy];
+		u.feather.value = p.feather;
+		u.distortion.value = p.distortion;
+		u.chroma.value = p.chroma;
 		u.reveal.value = this.reveal;
 		u.time.value = this.time;
 	}

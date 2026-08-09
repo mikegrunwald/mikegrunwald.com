@@ -572,7 +572,8 @@
 					if (p !== null) fluidScene.setProgress(p);
 				},
 				getLogoScene: () => logoScene,
-				getCarouselScene: () => carouselScene
+				getCarouselScene: () => carouselScene,
+				getArchiveScene: () => archiveScene
 			});
 		}
 
