@@ -2,7 +2,6 @@
 showIn:
   featuredList: true
   workList: true
-order: 5
 title: Reliable Robotics
 subtitle: Autonomous Systems for Aviation
 agency: Buttermax

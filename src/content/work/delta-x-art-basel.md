@@ -2,7 +2,6 @@
 showIn:
   featuredList: true
   workList: true
-order: 3
 title: Delta x Art Basel
 subtitle: New York > Miami for Art Basel
 agency: Active Theory

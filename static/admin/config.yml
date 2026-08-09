@@ -18,7 +18,7 @@ collections:
     folder: 'src/content/work'
     create: true
     slug: '{{slug}}'
-    sortable_fields: ['order', 'title', 'year']
+    sortable_fields: ['title', 'year']
     fields:
       - {
           label: 'Show In',
@@ -43,21 +43,6 @@ collections:
                 required: false
               }
             ]
-        }
-      - {
-          label: 'Order',
-          name: 'order',
-          widget: 'number',
-          value_type: 'int',
-          min: 1,
-          step: 1,
-          default: 99,
-          required: false,
-          hint: 'Lowest number appears first. Drives BOTH the Work index page and
-            the order teasers orbit past you in the homepage carousel ring.
-            Featured work currently uses 1-5, everything else 6-8. New entries
-            default to 99 so they land at the end until you place them
-            deliberately.'
         }
       - { label: 'Title', name: 'title', widget: 'string' }
       - { label: 'Subtitle', name: 'subtitle', widget: 'string', required: false }
@@ -164,6 +149,34 @@ collections:
               { label: 'Date', name: 'date', widget: 'datetime' }
             ]
         }
+
+  - name: 'workOrder'
+    label: 'Work Order'
+    files:
+      - file: 'src/content/meta/work-order.json'
+        label: 'Work Display Order'
+        name: 'workOrder'
+        description: 'Drag to reorder. Controls the homepage carousel, the Case
+          Studies grid, and the Project Archive. New Work entries not listed
+          here appear last until you add and place them.'
+        fields:
+          - label: 'Order'
+            name: 'order'
+            widget: 'list'
+            allow_add: true
+            allow_remove: true
+            allow_reorder: true
+            summary: '{{fields.project}}'
+            fields:
+              - {
+                  label: 'Project',
+                  name: 'project',
+                  widget: 'relation',
+                  collection: 'work',
+                  value_field: '{{slug}}',
+                  search_fields: ['title'],
+                  display_fields: ['title']
+                }
 
   - name: 'pages'
     label: 'Pages'
