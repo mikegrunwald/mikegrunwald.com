@@ -155,16 +155,25 @@ export class ArchiveRevealScene {
 			currentUrl: this._currentUrl
 		};
 		const gpuTexture = this.texture?.texture;
-		const size = this.texture?.size;
-		if (!gpuTexture || !size?.width || !this.texture?.sources?.[0]?.sourceLoaded) {
-			return { ...state, imageLoaded: false };
+		// Size the copy from the ACTUAL GPUTexture (gpuTexture.width/height), NOT
+		// this.texture.size — the latter is the SOURCE image size, which is set on
+		// load while the underlying GPUTexture stays the 1x1 placeholder until the
+		// image is uploaded during a render pass. Copying source-sized bounds
+		// against the placeholder would exceed the texture and raise an UNCAPTURED
+		// device error that can escalate to a lost device — fatal on this SHARED
+		// device (it would take the whole canvas down). Guarding on the real size
+		// keeps every copy in-bounds and makes "not uploaded yet" a clean report.
+		const texW = gpuTexture?.width ?? 0;
+		const texH = gpuTexture?.height ?? 0;
+		if (!gpuTexture || texW <= 1 || texH <= 1 || !this.texture?.sources?.[0]?.sourceLoaded) {
+			return { ...state, imageLoaded: false, uploaded: false, texSize: { width: texW, height: texH } };
 		}
 
 		const device = this.engine.device;
 		// Read back a small centered region — enough to prove non-empty upload,
 		// cheap on bandwidth. 64*4 = 256 bytes/row, already 256-aligned.
-		const w = Math.min(64, size.width);
-		const h = Math.min(64, size.height);
+		const w = Math.min(64, texW);
+		const h = Math.min(64, texH);
 		const bytesPerRow = Math.ceil((w * 4) / 256) * 256;
 		const buffer = device.createBuffer({
 			size: bytesPerRow * h,
@@ -176,8 +185,8 @@ export class ArchiveRevealScene {
 				texture: gpuTexture,
 				mipLevel: 0,
 				origin: {
-					x: Math.floor((size.width - w) / 2),
-					y: Math.floor((size.height - h) / 2),
+					x: Math.floor((texW - w) / 2),
+					y: Math.floor((texH - h) / 2),
 					z: 0
 				}
 			},
@@ -203,7 +212,8 @@ export class ArchiveRevealScene {
 		return {
 			...state,
 			imageLoaded: true,
-			imageSize: { width: size.width, height: size.height },
+			uploaded: true,
+			imageSize: { width: texW, height: texH },
 			imageNonEmpty: nonZero > 0,
 			imageNonZeroFraction: Number((nonZero / count).toFixed(3)),
 			imageMeanLuma: Number((sum / count).toFixed(2))
@@ -233,7 +243,9 @@ export class ArchiveRevealScene {
 	}
 
 	_tick() {
-		if (this.destroyed) return;
+		// mesh/uniforms can be torn down a frame before destroyed flips (device
+		// loss path), so guard the whole tick on their presence.
+		if (this.destroyed || !this.mesh?.uniforms?.params) return;
 		const now = performance.now();
 		const dt = Math.min((now - (this._lastFrame ?? now)) / 1000, 0.033);
 		this._lastFrame = now;
