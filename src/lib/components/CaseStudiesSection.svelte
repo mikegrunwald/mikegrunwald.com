@@ -48,6 +48,22 @@
 		border-radius: var(--cs-radius, var(--border-radius));
 		overflow: hidden;
 		text-decoration: none;
+		container-type: inline-size;
+	}
+	/* Below a narrow card width, shrink and left-align the label so it reads at
+	   1-column mobile without wrapping under the 3-column desktop sizing. */
+	@container (max-width: 18rem) {
+		.cs-card__label {
+			left: var(--spacing-xxs);
+			transform: none;
+			font-size: var(--font-size-body-xs);
+		}
+	}
+	/* Roomier cards get a larger label. */
+	@container (min-width: 30rem) {
+		.cs-card__label {
+			font-size: var(--font-size-body-sm);
+		}
 	}
 	.cs-card__video {
 		position: absolute;
