@@ -42,7 +42,11 @@
 		padding: 0;
 		display: grid;
 		gap: var(--cs-gap, var(--spacing-sm));
-		grid-template-columns: repeat(auto-fit, minmax(var(--cs-min-track, 22rem), 1fr));
+		/* 11rem ≈ 352px on this site's 32px root — the intended ~350px card that
+		   tiles 3-up on desktop. (Not 22rem: at a 32px root that resolves to 704px
+		   and collapses the grid to a single column until ~1440px.) The debug
+		   panel's --cs-min-track override is authored in px. */
+		grid-template-columns: repeat(auto-fit, minmax(var(--cs-min-track, 11rem), 1fr));
 	}
 	.cs-card {
 		position: relative;
