@@ -125,6 +125,85 @@ export class ArchiveRevealScene {
 		this._unresize = engine.onResize(() => {
 			if (!this.destroyed) this.renderer.resize();
 		});
+
+		// DEV-only GPU readback probe. The WebGPU canvas cannot be screenshotted
+		// from a page-level probe (documented repo-wide) and, in a hidden tab, the
+		// render loop is suspended — so pixel truth is only reachable GPU-side.
+		// This reads back the LOADED IMAGE texture (MediaTexture's default usage
+		// includes COPY_SRC — gpu-curtains textures/utils.mjs) to assert the image
+		// pipeline is non-empty on the GPU, and reports the live reveal state
+		// (active/reveal/position/uvScale) so automated checks can assert the
+		// reveal responds without a compositor screenshot. The shader that samples
+		// this texture through the mask is separately compile-gated.
+		if (import.meta.env.DEV) {
+			this._qaFn = () => this._qa();
+			window.__archiveQA = this._qaFn;
+		}
+	}
+
+	async _qa() {
+		const state = {
+			active: this.active,
+			reveal: Number(this.reveal.toFixed(4)),
+			meshVisible: this.mesh?.visible ?? false,
+			position: { x: Number(this.pos.x.toFixed(4)), y: Number(this.pos.y.toFixed(4)) },
+			uvScale: this.mesh?.uniforms?.params?.uvScale?.value ?? null,
+			currentUrl: this._currentUrl
+		};
+		const gpuTexture = this.texture?.texture;
+		const size = this.texture?.size;
+		if (!gpuTexture || !size?.width || !this.texture?.sources?.[0]?.sourceLoaded) {
+			return { ...state, imageLoaded: false };
+		}
+
+		const device = this.engine.device;
+		// Read back a small centered region — enough to prove non-empty upload,
+		// cheap on bandwidth. 64*4 = 256 bytes/row, already 256-aligned.
+		const w = Math.min(64, size.width);
+		const h = Math.min(64, size.height);
+		const bytesPerRow = Math.ceil((w * 4) / 256) * 256;
+		const buffer = device.createBuffer({
+			size: bytesPerRow * h,
+			usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+		});
+		const encoder = device.createCommandEncoder();
+		encoder.copyTextureToBuffer(
+			{
+				texture: gpuTexture,
+				mipLevel: 0,
+				origin: {
+					x: Math.floor((size.width - w) / 2),
+					y: Math.floor((size.height - h) / 2),
+					z: 0
+				}
+			},
+			{ buffer, bytesPerRow, rowsPerImage: h },
+			{ width: w, height: h, depthOrArrayLayers: 1 }
+		);
+		device.queue.submit([encoder.finish()]);
+		await buffer.mapAsync(GPUMapMode.READ);
+		const bytes = new Uint8Array(buffer.getMappedRange());
+		let sum = 0;
+		let nonZero = 0;
+		for (let y = 0; y < h; y++) {
+			for (let x = 0; x < w; x++) {
+				const i = y * bytesPerRow + x * 4;
+				const luma = (bytes[i] + bytes[i + 1] + bytes[i + 2]) / 3;
+				sum += luma;
+				if (luma > 0) nonZero++;
+			}
+		}
+		buffer.unmap();
+		buffer.destroy();
+		const count = w * h;
+		return {
+			...state,
+			imageLoaded: true,
+			imageSize: { width: size.width, height: size.height },
+			imageNonEmpty: nonZero > 0,
+			imageNonZeroFraction: Number((nonZero / count).toFixed(3)),
+			imageMeanLuma: Number((sum / count).toFixed(2))
+		};
 	}
 
 	setImage(url) {
@@ -182,6 +261,7 @@ export class ArchiveRevealScene {
 
 	destroy() {
 		this.destroyed = true;
+		if (import.meta.env.DEV && window.__archiveQA === this._qaFn) delete window.__archiveQA;
 		this._unframe?.();
 		this._unresize?.();
 		this.mesh?.remove?.();
