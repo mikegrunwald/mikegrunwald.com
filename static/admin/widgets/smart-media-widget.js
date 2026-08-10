@@ -210,27 +210,6 @@ const SmartMediaControl = window.createClass({
 		throw new Error('Git backend integration not available. Falling back to R2.');
 	},
 
-	// Open the OS file picker for the hidden <input>. Decap renders each media
-	// list item inside a react-sortable-hoc drag wrapper, and inside it Chrome
-	// will not open the picker from the native file-input click (the click fires,
-	// nothing is preventDefaulted, but no dialog — the drag machinery suppresses
-	// the input's default activation). showPicker() opens it explicitly from this
-	// button's user gesture and is not subject to that suppression. click() is the
-	// fallback for browsers without showPicker (Safari < 16).
-	openFilePicker() {
-		const el = this._fileInput;
-		if (!el || this.state.uploading) return;
-		try {
-			if (typeof el.showPicker === 'function') {
-				el.showPicker();
-				return;
-			}
-		} catch {
-			// showPicker can throw (e.g. no user gesture); fall through to click().
-		}
-		el.click();
-	},
-
 	async handleFileSelect(e) {
 		const file = e.target.files[0];
 		if (!file) return;
@@ -397,52 +376,23 @@ const SmartMediaControl = window.createClass({
 				'Videos and large images (>25MB) upload to R2. Small images (<25MB) are stored in Git. SVGs are stored inline as code.'
 			),
 
-			// File input — kept hidden and driven by the button below via
-			// openFilePicker()/showPicker(). A directly-clicked native file input
-			// won't open the OS picker inside Decap's sortable media list; a button
-			// calling showPicker() sidesteps that. See openFilePicker().
+			// File input
 			window.h(
 				'div',
 				{ style: { marginBottom: '16px' } },
 				window.h('input', {
 					type: 'file',
-					ref: (el) => {
-						this._fileInput = el;
-					},
 					onChange: this.handleFileSelect,
 					accept: 'image/*,video/*',
 					disabled: uploading,
-					style: { display: 'none' }
-				}),
-				window.h(
-					'button',
-					{
-						type: 'button',
-						onClick: this.openFilePicker,
-						disabled: uploading,
-						// Keep drag-drop working (the old native input accepted drops):
-						// route a dropped file through the same handler as a picked one.
-						onDragOver: (e) => e.preventDefault(),
-						onDrop: (e) => {
-							e.preventDefault();
-							const file = e.dataTransfer && e.dataTransfer.files[0];
-							if (file) this.handleFileSelect({ target: { files: [file] } });
-						},
-						style: {
-							width: '100%',
-							padding: '12px',
-							border: '2px dashed #dfdfe3',
-							borderRadius: '5px',
-							background: '#fafafa',
-							color: '#1976d2',
-							fontSize: '14px',
-							fontWeight: '500',
-							fontFamily: 'inherit',
-							cursor: uploading ? 'not-allowed' : 'pointer'
-						}
-					},
-					uploading ? 'Uploading…' : 'Choose a file (image or video)'
-				)
+					style: {
+						width: '100%',
+						padding: '8px',
+						border: '2px dashed #dfdfe3',
+						borderRadius: '5px',
+						cursor: uploading ? 'not-allowed' : 'pointer'
+					}
+				})
 			),
 
 			// Upload progress
