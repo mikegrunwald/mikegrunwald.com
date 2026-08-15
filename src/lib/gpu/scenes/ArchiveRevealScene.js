@@ -34,14 +34,25 @@ import { GPUCameraRenderer, Mesh, PlaneGeometry, MediaTexture, Sampler } from 'g
 import { REVEAL_VERTEX, REVEAL_FRAGMENT } from '../archive/shaders/reveal.wgsl.js';
 import { pointerToNdc, followStep, revealPlaneScale } from '../archive/revealMath.js';
 
+// Read a CSS "r, g, b" (0-255) custom property as a 0..1 triple for the shader.
+function readCssRgb01(varName, fallback) {
+	if (typeof document === 'undefined') return fallback;
+	const raw = getComputedStyle(document.documentElement).getPropertyValue(varName);
+	const parts = raw.split(',').map((n) => parseFloat(n.trim()) / 255);
+	return parts.length === 3 && parts.every(Number.isFinite) ? parts : fallback;
+}
+
 const DEFAULTS = {
-	planeW: 3.2, // world units at z=0; tuned in the debug panel (Task 7)
-	planeH: 2.0,
-	followRate: 14,
-	feather: 0.15,
-	distortion: 0.03,
-	chroma: 0.006,
-	revealRate: 10
+	planeW: 6.4, // world units at z=0; tuned in the debug panel (Task 7)
+	planeH: 4.0,
+	followRate: 8,
+	distortion: 0.1,
+	chroma: 0.016,
+	revealRate: 10,
+	radius: 0.02, // rounded corner, uv units (~matches the teasers' --border-radius)
+	glowPad: 0.02, // inset around the image where the glow ring falls off, uv units
+	glowWidth: 0.04, // glow falloff distance, uv units
+	glowIntensity: 0.6
 };
 
 export class ArchiveRevealScene {
@@ -55,6 +66,10 @@ export class ArchiveRevealScene {
 		this.reveal = 0; // eased mask growth
 		this.target = { x: 0, y: 0 }; // NDC target from cursor
 		this.pos = { x: 0, y: 0 }; // NDC eased position
+
+		// Primary color for the glow ring, read once from the CSS token (same
+		// --color-primary-rgb the DOM glows use). Fallback to the token's value.
+		this._tint = readCssRgb01('--color-primary-rgb', [51 / 255, 197 / 255, 243 / 255]);
 		this.time = 0;
 		this._currentUrl = null;
 		this._lastFrame = null;
@@ -111,10 +126,17 @@ export class ArchiveRevealScene {
 					struct: {
 						uvScale: { type: 'vec2f', value: [1, 1] },
 						reveal: { type: 'f32', value: 0 },
-						feather: { type: 'f32', value: this.params.feather },
 						distortion: { type: 'f32', value: this.params.distortion },
 						chroma: { type: 'f32', value: this.params.chroma },
-						time: { type: 'f32', value: 0 }
+						time: { type: 'f32', value: 0 },
+						radius: { type: 'f32', value: this.params.radius },
+						aspect: { type: 'f32', value: this.params.planeW / this.params.planeH },
+						glowPad: { type: 'f32', value: this.params.glowPad },
+						glowWidth: { type: 'f32', value: this.params.glowWidth },
+						glowIntensity: { type: 'f32', value: this.params.glowIntensity },
+						tintR: { type: 'f32', value: this._tint[0] },
+						tintG: { type: 'f32', value: this._tint[1] },
+						tintB: { type: 'f32', value: this._tint[2] }
 					}
 				}
 			}
@@ -268,12 +290,19 @@ export class ArchiveRevealScene {
 		const camZ = camera?.position?.z ?? 10;
 		const halfH = camZ * Math.tan(((camera?.fov ?? 50) * Math.PI) / 360);
 		const halfW = halfH * aspect;
-		this.mesh.position.set(this.pos.x * halfW, this.pos.y * halfH, 0);
+
+		// Anchor the image at the top-right of the cursor: the cursor sits at the
+		// image's bottom-left corner, so it always extends up and to the right.
+		const p = this.params;
+		this.mesh.position.set(
+			this.pos.x * halfW + p.planeW / 2,
+			this.pos.y * halfH + p.planeH / 2,
+			0
+		);
 
 		// Re-apply the tunable params every frame from this.params so the debug
 		// panel's sliders stay live (same discipline as CarouselScene.layout()).
 		// planeW/H also recompute the cover-fit uvScale off the last image size.
-		const p = this.params;
 		this.mesh.scale.set(p.planeW / 2, p.planeH / 2, 1);
 		const { sx, sy } = revealPlaneScale({
 			imgW: this._imgW,
@@ -283,11 +312,15 @@ export class ArchiveRevealScene {
 		});
 		const u = this.mesh.uniforms.params;
 		u.uvScale.value = [sx, sy];
-		u.feather.value = p.feather;
 		u.distortion.value = p.distortion;
 		u.chroma.value = p.chroma;
 		u.reveal.value = this.reveal;
 		u.time.value = this.time;
+		u.radius.value = p.radius;
+		u.aspect.value = p.planeW / p.planeH;
+		u.glowPad.value = p.glowPad;
+		u.glowWidth.value = p.glowWidth;
+		u.glowIntensity.value = p.glowIntensity;
 	}
 
 	destroy() {

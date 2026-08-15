@@ -45,19 +45,36 @@ fn coverUv(uv: vec2f, scale: vec2f) -> vec2f {
   return (uv - 0.5) / scale + 0.5;
 }
 
+// Signed distance to a rounded rectangle (iq). <0 inside, 0 on edge, >0 outside.
+fn sdRoundRect(p: vec2f, b: vec2f, r: f32) -> f32 {
+  let q = abs(p) - b + vec2f(r);
+  return min(max(q.x, q.y), 0.0) + length(max(q, vec2f(0.0))) - r;
+}
+
 @fragment
 fn main(fsInput: VSOutput) -> @location(0) vec4f {
-  let centered = fsInput.uv - 0.5;
-  let dist = length(centered) * 2.0; // 0 at center → ~1.41 at corners
+  let centered = fsInput.uv - 0.5; // -0.5..0.5
 
-  // Radial reveal mask grows with params.reveal, softened by params.feather.
-  let edge = params.reveal;
-  let mask = 1.0 - smoothstep(edge - params.feather, edge, dist);
-  if (mask <= 0.0) { discard; }
+  // The image occupies a rounded-rect content box inset by glowPad; the ring of
+  // space left around it is where the outer glow falls off. No radial vignette.
+  //
+  // UV is square (0..1) but the plane is planeW×planeH, so a UV-space radius
+  // stretches into an ellipse. Work in world-proportional units (multiply x by
+  // aspect = planeW/planeH) so radius, glowPad and glowWidth are all EVEN in
+  // world units. pad is applied in these units too, so the inset is symmetric.
+  let aspect = params.aspect;
+  let p = vec2f(centered.x * aspect, centered.y);
+  let pad = params.glowPad;
+  let half = vec2f(0.5 * aspect - pad, 0.5 - pad);
+  let d = sdRoundRect(p, half, params.radius);
+  if (d > params.glowWidth) { discard; }
 
-  // Subtle displacement toward the edges, animated by time.
-  let wobble = params.distortion * sin(params.time + dist * 6.2831);
-  let baseUv = coverUv(fsInput.uv + centered * wobble, params.uvScale);
+  // Remap the content box back to 0..1 before cover-fitting the source image.
+  // x is inset by pad/aspect (undoing the aspect scale), y by pad.
+  let padUv = vec2f(pad / aspect, pad);
+  let contentUv = (fsInput.uv - padUv) / (vec2f(1.0) - 2.0 * padUv);
+  let wobble = params.distortion * sin(params.time + length(centered) * 6.2831);
+  let baseUv = coverUv(contentUv + centered * wobble, params.uvScale);
 
   // Chromatic offset on R/B channels.
   let off = params.chroma * centered;
@@ -65,8 +82,19 @@ fn main(fsInput: VSOutput) -> @location(0) vec4f {
   let g = textureSample(revealTexture, revealSampler, baseUv).g;
   let b = textureSample(revealTexture, revealSampler, baseUv - off).b;
 
+  // Crisp rounded edge (antialiased by one pixel of the SDF gradient) + a
+  // primary-tinted glow ring outside it. params.reveal fades the whole thing in.
+  let aa = fwidth(d) + 1e-4;
+  let inside = 1.0 - smoothstep(0.0, aa, d);
+  let glow = (1.0 - smoothstep(0.0, params.glowWidth, max(d, 0.0))) * (1.0 - inside);
+  let tint = vec3f(params.tintR, params.tintG, params.tintB);
+  let appear = params.reveal;
+
+  let color = vec3f(r, g, b) * inside + tint * (glow * params.glowIntensity);
+  let alpha = (inside + glow * params.glowIntensity) * appear;
+
   // PREMULTIPLIED alpha — the convention every transparent surface in this
-  // codebase uses (see carousel.wgsl.js). mask drives both channels.
-  return vec4f(r, g, b, 1.0) * mask;
+  // codebase uses (see carousel.wgsl.js).
+  return vec4f(color * appear, alpha);
 }
 `;

@@ -38,7 +38,7 @@
 	<canvas class="archive-reveal" data-gpu-archive aria-hidden="true"></canvas>
 	<table class="archive">
 		<thead>
-			<tr>
+			<tr class="h4">
 				<th scope="col">Title</th>
 				<th scope="col">Agency</th>
 				<th scope="col">Role</th>
@@ -50,6 +50,7 @@
 				<tr
 					class="archive__row"
 					class:is-link={!!row.link}
+					class:has-case-study={row.hasCaseStudy}
 					data-archive-row
 					data-index={i}
 					onpointerenter={(e) => rowEnter(e, row)}
@@ -58,22 +59,21 @@
 					onfocusin={(e) => rowFocus(e, row)}
 					onfocusout={rowLeave}
 				>
-					<td class="archive__title">
+					<td class="archive__title h5">
 						{#if row.link}
 							<a
 								class="archive__link"
 								href={row.link}
 								target={isExternal(row.link) ? '_blank' : null}
-								rel={isExternal(row.link) ? 'noopener noreferrer' : null}
-								data-cursor="magnetic">{row.title}</a
+								rel={isExternal(row.link) ? 'noopener noreferrer' : null}>{row.title}</a
 							>
 						{:else}
 							{row.title}
 						{/if}
 					</td>
-					<td>{row.agency}</td>
-					<td>{row.role}</td>
-					<td>{row.year}</td>
+					<td class="meta-value">{row.agency}</td>
+					<td class="meta-value">{row.role}</td>
+					<td class="meta-value">{row.year}</td>
 				</tr>
 			{/each}
 		</tbody>
@@ -82,30 +82,58 @@
 
 <style lang="scss">
 	.project-archive__title {
-		margin: var(--spacing-base) 0 var(--spacing-sm);
+		margin: var(--spacing-lg) 0 var(--spacing-base);
+		/* Section is full-bleed; keep the heading aligned to the page inset. */
+		padding-left: var(--spacing-base);
 	}
+
+	.archive__title {
+		line-height: 1;
+		margin-bottom: 0;
+		vertical-align: middle;
+	}
+
 	.archive-reveal {
 		position: fixed;
 		inset: 0;
 		width: 100vw;
 		height: 100dvh;
 		pointer-events: none;
-		z-index: 200; /* above table (page-wrapper z:1), below CursorDot (300) + menu */
+		/* Above the table, below the cursor dot (100) and menu (200). Was 200 and
+		   relied on page-wrapper's z:1 to sit under the cursor; page-wrapper no
+		   longer creates a stacking context (so the magnetic cursor can interleave
+		   the case-study cards), so this is a real root-context z now. */
+		z-index: 50;
+	}
+	/* Full-bleed: break out of .page-wrapper's --spacing-base padding so the table
+	   (rows, borders, hover fill) spans the full screen width, tobacco.nl-style. */
+	.project-archive {
+		margin-inline: calc(var(--spacing-base) * -1);
 	}
 	.archive {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: var(--font-size-body-sm);
+		font-size: var(--font-size-body-xs);
 	}
 	.archive th {
 		text-align: left;
-		font-weight: var(--font-weight-normal);
-		color: var(--color-text-secondary);
-		padding: var(--spacing-xs) var(--spacing-xs);
+		color: var(--color-primary);
+		padding: 0 var(--spacing-xs) var(--spacing-xs);
+	}
+	/* Edge cells carry the page inset so text lines up with the rest of the site
+	   while the row borders/backgrounds still run edge to edge. */
+	.archive th:first-child,
+	.archive__row td:first-child {
+		padding-left: var(--spacing-base);
+	}
+	.archive th:last-child,
+	.archive__row td:last-child {
+		padding-right: var(--spacing-base);
+		text-align: right;
 	}
 	.archive__row {
 		position: relative; /* stretched-link containing block + highlight bar */
-		border-top: var(--border);
+		border-top: var(--border-width) var(--border-style) var(--color-neutral-8);
 		/* Highlight bar: primary-tinted, revealed on hover/focus-within. */
 		--row-highlight: 0;
 		background: rgba(
@@ -115,7 +143,14 @@
 		transition: background var(--animation-duration-fast, 0.25s) var(--ease-out, ease);
 	}
 	.archive__row td {
-		padding: var(--spacing-xs) var(--spacing-xs);
+		padding: 24px;
+	}
+
+	.meta-value {
+		font-family: var(--font-family-mono);
+		font-size: var(--font-size-body-xxs);
+		letter-spacing: 0.01em;
+		line-height: var(--line-height-text);
 	}
 	/* Only linked rows get the pointer + stretched hit area. Unlinked rows keep
 	   the default cursor but still light up + trigger the reveal. */
@@ -124,6 +159,10 @@
 	.archive__row:hover,
 	.archive__row:focus-within {
 		--row-highlight: 1;
+		border-color: var(--color-primary);
+		+ tr {
+			border-color: var(--color-primary);
+		}
 	}
 	.archive__row:not(.is-link) {
 		cursor: default;

@@ -371,10 +371,14 @@ export async function maybeCreatePanel({
 		// Per-second exponential ease rates for the cursor-follow and mask growth.
 		archive.addBinding(proxy, 'followRate', { min: 1, max: 30, step: 0.5 });
 		archive.addBinding(proxy, 'revealRate', { min: 1, max: 30, step: 0.5 });
-		// Shader feel: mask edge softness, edge displacement, chromatic offset.
-		archive.addBinding(proxy, 'feather', { min: 0, max: 0.6, step: 0.01 });
+		// Shader feel: edge displacement, chromatic offset.
 		archive.addBinding(proxy, 'distortion', { min: 0, max: 0.2, step: 0.005 });
 		archive.addBinding(proxy, 'chroma', { min: 0, max: 0.05, step: 0.001 });
+		// Rounded corner + primary-tinted outer glow.
+		archive.addBinding(proxy, 'radius', { min: 0, max: 0.3, step: 0.005 });
+		archive.addBinding(proxy, 'glowPad', { min: 0, max: 0.3, step: 0.005 });
+		archive.addBinding(proxy, 'glowWidth', { min: 0, max: 0.3, step: 0.005 });
+		archive.addBinding(proxy, 'glowIntensity', { min: 0, max: 2, step: 0.05 });
 
 		// Same panel-created-before-scene race as Carousel: seed real values once
 		// the scene appears (and again on navigation-recreate) by identity-watching
