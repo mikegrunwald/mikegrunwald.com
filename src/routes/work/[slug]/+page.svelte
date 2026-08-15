@@ -1,6 +1,7 @@
 <script>
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { tilt } from '$lib/actions/tilt';
+	import { revealInView } from '$lib/actions/revealInView.js';
 	import AwardLink from '$lib/components/AwardLink.svelte';
 	import MediaItem from '$lib/components/MediaItem.svelte';
 	import MetaItem from '$lib/components/MetaItem.svelte';
@@ -143,7 +144,7 @@
 		{#if content.media && content.media.length > 0}
 			<div class="media-container">
 				{#each content.media.slice(1) as media (media.src || media.url || media.alt || JSON.stringify(media))}
-					<figure class="media">
+					<figure class="media" use:revealInView>
 						<MediaItem {media} alt={content.title} />
 					</figure>
 				{/each}
@@ -223,6 +224,24 @@
 		margin-bottom: var(--spacing-sm);
 		position: relative;
 		z-index: 1;
+	}
+	/* Scroll-in reveal: scale up from center + fade, staggered by revealInView.
+	   Gated on no-preference so reduced-motion users get media immediately. */
+	@media (prefers-reduced-motion: no-preference) {
+		.media {
+			opacity: 0;
+			transform: scale(0.85);
+			transition:
+				opacity 0.6s ease,
+				transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+			transition-delay: var(--reveal-delay, 0ms);
+		}
+		/* :global on the JS-added class — Svelte prunes .media.is-revealed as
+		   "unused" since is-revealed never appears in the template markup. */
+		.media:global(.is-revealed) {
+			opacity: 1;
+			transform: none;
+		}
 	}
 
 	.project-links {
