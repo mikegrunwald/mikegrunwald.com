@@ -1,12 +1,28 @@
 {
-	"order": [
-		{ "project": "spotify-reniassance" },
-		{ "project": "patreon-com" },
-		{ "project": "delta-x-art-basel" },
-		{ "project": "spotify-menu" },
-		{ "project": "reliable-robotics" },
-		{ "project": "operation-tripod" },
-		{ "project": "dreamwave" },
-		{ "project": "ge-avuri" }
-	]
+  "order": [
+    {
+      "project": "dreamwave"
+    },
+    {
+      "project": "patreon-com"
+    },
+    {
+      "project": "ge-avuri"
+    },
+    {
+      "project": "spotify-reniassance"
+    },
+    {
+      "project": "reliable-robotics"
+    },
+    {
+      "project": "delta-x-art-basel"
+    },
+    {
+      "project": "spotify-menu"
+    },
+    {
+      "project": "operation-tripod"
+    }
+  ]
 }
