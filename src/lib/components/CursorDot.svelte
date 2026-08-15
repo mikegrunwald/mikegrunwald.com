@@ -155,13 +155,17 @@
 					currentMagneticElement = el;
 					dot.dataset.magnetic = 'true';
 					dot.classList.add('cursor-dot--magnetic');
+					// Opt-in: sit the morphed dot at a low z-index so it lands BEHIND the
+					// target's text but above sibling media (e.g. case-study buttons over
+					// their video). Default magnetic keeps z-index:unset.
+					if ('cursorBehind' in el.dataset) dot.classList.add('cursor-dot--behind');
 				}
 
 				if (soundEligible(el)) play(soundConfig.enter);
 			});
 
 			el.addEventListener('mouseleave', () => {
-				dot.classList.remove('cursor-dot--magnetic');
+				dot.classList.remove('cursor-dot--magnetic', 'cursor-dot--behind');
 
 				// If leaving magnetic mode, start smooth transition
 				if (dot.dataset.magnetic === 'true') {
@@ -237,6 +241,13 @@
 	:global(.cursor-dot.cursor-dot--magnetic) {
 		z-index: unset;
 		opacity: 1 !important;
+	}
+
+	/* Opt-in (data-cursor-behind): land the morphed dot at z-index 3 so it sits
+	   behind the target's text (z:4) but above its media (video/noise/glow 0/1/2).
+	   Higher specificity than the rule above, so it wins the z-index. */
+	:global(.cursor-dot.cursor-dot--magnetic.cursor-dot--behind) {
+		z-index: 3;
 	}
 
 	@media (pointer: coarse) {

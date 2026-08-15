@@ -23,6 +23,12 @@
 		padding: var(--spacing-base);
 		pointer-events: all;
 		position: relative;
-		z-index: 1;
+		/* No z-index (was 1): it made this a stacking context, which trapped the
+		   global magnetic cursor dot outside it — the dot could then only paint
+		   above or below ALL page content, never behind a case-study button but
+		   over its video. Without it, the card content shares the root stacking
+		   context with the dot, so the dot can sandwich between the two. Content
+		   still sits above the fixed background canvas via DOM order (position:
+		   relative keeps it painting after the earlier-in-DOM canvas). */
 	}
 </style>
