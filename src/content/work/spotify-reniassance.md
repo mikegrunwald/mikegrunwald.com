@@ -1,7 +1,7 @@
 ---
 showIn:
   featuredList: true
-  workList: true
+  caseStudiesList: true
 title: Spotify Reniassance
 subtitle: Docs site for Spotify brand guidelines
 agency: Buttermax

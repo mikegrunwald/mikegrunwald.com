@@ -1,7 +1,7 @@
 ---
 showIn:
   featuredList: true
-  workList: true
+  caseStudiesList: true
 title: Verisound™ Fleet
 subtitle: Centralized Ultrasound Device Management
 agency: Northern Ground

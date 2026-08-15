@@ -1,7 +1,7 @@
 ---
 showIn:
   featuredList: true
-  workList: true
+  caseStudiesList: true
 title: Dreamwave
 subtitle: Powering HubSpot’s Global Stage
 agency: Active Theory

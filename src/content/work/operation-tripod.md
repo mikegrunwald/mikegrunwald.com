@@ -1,7 +1,7 @@
 ---
 showIn:
   featuredList: true
-  workList: true
+  caseStudiesList: true
 title: Operation Tripod
 subtitle: Centralizing Studio Intelligence via Custom AI
 agency: Active Theory

@@ -10,8 +10,8 @@ const orderSlugs = workOrder.order.map((e) => e.project);
 export async function load() {
 	const work = loadCollection('src/content/work');
 
-	// Case Studies: workList subset, manifest order, teaser URLs resolved for dev/R2.
-	const caseStudies = selectTeasersByFlag(work, 'workList', orderSlugs).map((t) => ({
+	// Case Studies: caseStudiesList subset, manifest order, teaser URLs resolved for dev/R2.
+	const caseStudies = selectTeasersByFlag(work, 'caseStudiesList', orderSlugs).map((t) => ({
 		...t,
 		teaserUrl: t.teaserUrl ? getAssetUrl(t.teaserUrl) : t.teaserUrl
 	}));
@@ -28,7 +28,8 @@ export async function load() {
 			role: m.role || '',
 			year: m.year ?? '',
 			link: links[0]?.url ?? null,
-			image: firstImage(m.media) || null
+			image: firstImage(m.media) || null,
+			hasCaseStudy: m.showIn?.caseStudiesList === true
 		};
 	});
 

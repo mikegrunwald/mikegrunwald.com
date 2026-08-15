@@ -1,7 +1,7 @@
 ---
 showIn:
   featuredList: true
-  workList: true
+  caseStudiesList: true
 title: Reliable Robotics
 subtitle: Autonomous Systems for Aviation
 agency: Buttermax

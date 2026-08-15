@@ -1,7 +1,7 @@
 ---
 showIn:
   featuredList: true
-  workList: true
+  caseStudiesList: true
 title: Delta x Art Basel
 subtitle: New York > Miami for Art Basel
 agency: Active Theory

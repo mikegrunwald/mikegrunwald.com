@@ -34,11 +34,11 @@ describe('selectTeasersByFlag', () => {
 	it('keeps only entries with the flag, in manifest order', () => {
 		const result = selectTeasersByFlag(
 			[
-				item('b', { showIn: { workList: true }, title: 'B', media: ['b.mp4'] }),
-				item('skip', { showIn: { workList: false }, title: 'Skip', media: ['s.mp4'] }),
-				item('a', { showIn: { workList: true }, title: 'A', media: ['a.mp4'] })
+				item('b', { showIn: { caseStudiesList: true }, title: 'B', media: ['b.mp4'] }),
+				item('skip', { showIn: { caseStudiesList: false }, title: 'Skip', media: ['s.mp4'] }),
+				item('a', { showIn: { caseStudiesList: true }, title: 'A', media: ['a.mp4'] })
 			],
-			'workList',
+			'caseStudiesList',
 			['a', 'b']
 		);
 		expect(result.map((r) => r.slug)).toEqual(['a', 'b']);

@@ -36,8 +36,8 @@ collections:
                 required: false
               },
               {
-                label: 'Work List',
-                name: 'workList',
+                label: 'Case Studies',
+                name: 'caseStudiesList',
                 widget: 'boolean',
                 default: true,
                 required: false
