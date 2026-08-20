@@ -30,5 +30,9 @@
 		   context with the dot, so the dot can sandwich between the two. Content
 		   still sits above the fixed background canvas via DOM order (position:
 		   relative keeps it painting after the earlier-in-DOM canvas). */
+
+		@media (max-width: 767px) {
+			padding: var(--spacing-base) var(--spacing-sm);
+		}
 	}
 </style>

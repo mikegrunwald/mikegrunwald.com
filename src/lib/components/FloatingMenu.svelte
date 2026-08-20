@@ -185,6 +185,10 @@
 		/* Every value here is intended to be hand-tuned. */
 		--menu-offset: var(--spacing-xs);
 
+		@media (max-width: 767px) {
+			--menu-offset: var(--spacing-xxs);
+		}
+
 		--menu-button-size: 2.25rem;
 		/* transparent, NOT the panel bg — an opaque trigger would paint over the
 		   magnetic cursor dot (CursorDot sits at z-index 100 in normal flow).
