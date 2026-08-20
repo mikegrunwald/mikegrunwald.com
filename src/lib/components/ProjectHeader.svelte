@@ -205,7 +205,7 @@
 	// once the entrance is wired up, on both the normal and reduced-motion paths.
 	.title {
 		position: absolute;
-		top: 0.051em;
+		top: 0.005em;
 		right: 0.025em;
 		z-index: 3;
 		text-align: right;
@@ -214,7 +214,7 @@
 
 	.subtitle {
 		position: absolute;
-		bottom: -0.047em;
+		bottom: 0.02em;
 		z-index: 4;
 		margin-bottom: 0;
 		opacity: 0;

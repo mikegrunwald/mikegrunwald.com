@@ -1,8 +1,7 @@
 ---
 showIn:
   featuredList: true
-  workList: true
-order: 2
+  caseStudiesList: true
 title: patreon.com
 subtitle: Re-Design, Re-Platform, & Re-Develop
 agency: Buttermax
@@ -10,13 +9,13 @@ partners: []
 client: Patreon
 role: Frontend Developer
 year: 2022
-teaser: /video/teasers/patreon-com.mp4
 media:
   - https://assets.mikegrunwald.com/video/1765733273535-Patreon_CaseStudy_Rough1.mp4
   - https://assets.mikegrunwald.com/video/1765859618469-Screen_Recording_2025-11-05_at_2.30.37_PM.mov
   - /uploads/single-product-ui.png
   - https://assets.mikegrunwald.com/video/1765837444175-patreon-nice-nav.mp4
   - https://assets.mikegrunwald.com/images/1765837565415-double-product-ui.png
+teaser: /video/teasers/patreon-com.mp4
 description: We redesigned Patreon.com with flexible, scalable Next.js pages,
   powered by Strapi CMS schemas and a CSS custom properties–based theming system
   that lets content adapt seamlessly to the evolving brand. Rebuilt the site

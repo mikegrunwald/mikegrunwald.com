@@ -55,7 +55,8 @@ export async function maybeCreatePanel({
 	engine,
 	forceProgress,
 	getLogoScene,
-	getCarouselScene
+	getCarouselScene,
+	getArchiveScene
 }) {
 	if (!shouldShowPanel()) return null;
 	const { Pane } = await import('tweakpane');
@@ -171,9 +172,37 @@ export async function maybeCreatePanel({
 		navigator.clipboard.writeText(JSON.stringify({ enter, leave, click, volume, muted }, null, 2));
 	});
 
+	// Case Studies grid + glow — live CSS-var tuning. These override the component
+	// defaults via the :root cascade; leaving the panel closed keeps the defaults.
+	const csParams = {
+		gap: 20,
+		minTrack: 352,
+		glowWidth: 1.5,
+		glowRadius: 220,
+		glowIntensity: 0.9
+	};
+	const setVar = (name, value) => document.documentElement.style.setProperty(name, value);
+	const cs = pane.addFolder({ title: 'Case Studies', expanded: false });
+	cs.addBinding(csParams, 'gap', { min: 0, max: 80, step: 1 }).on('change', (e) =>
+		setVar('--cs-gap', `${e.value}px`)
+	);
+	cs.addBinding(csParams, 'minTrack', { min: 200, max: 600, step: 4 }).on('change', (e) =>
+		setVar('--cs-min-track', `${e.value}px`)
+	);
+	cs.addBinding(csParams, 'glowWidth', { min: 0, max: 8, step: 0.5 }).on('change', (e) =>
+		setVar('--cs-glow-width', `${e.value}px`)
+	);
+	cs.addBinding(csParams, 'glowRadius', { min: 40, max: 500, step: 10 }).on('change', (e) =>
+		setVar('--cs-glow-radius', `${e.value}px`)
+	);
+	cs.addBinding(csParams, 'glowIntensity', { min: 0, max: 1, step: 0.05 }).on('change', (e) =>
+		setVar('--cs-glow-intensity', `${e.value}`)
+	);
+
 	let disposed = false;
 	let sceneWatchRafId = null;
 	let carouselWatchRafId = null;
+	let archiveWatchRafId = null;
 
 	if (getLogoScene) {
 		const particles = pane.addFolder({ title: 'Particles', expanded: false });
@@ -326,6 +355,49 @@ export async function maybeCreatePanel({
 		watchCarouselIdentity();
 	}
 
+	if (getArchiveScene) {
+		const archive = pane.addFolder({ title: 'Archive Reveal', expanded: false });
+		// Same cache-backed proxy as Carousel/Particles (createLiveProxy): reads
+		// warm from the live scene and survive its absence. ArchiveRevealScene
+		// re-applies these params to the shader uniforms + plane scale every frame
+		// (see its _tick), so slider changes are live while a row is hovered. All
+		// numeric → the plain 0 fallback is correct (no color/boolean controls).
+		const proxy = createLiveProxy(getArchiveScene);
+		// World size of the reveal plane at z=0. Ranges exceed the defaults —
+		// Tweakpane CLAMPS writes to the bound range, so a max below the default
+		// would silently shrink the real value the first time a slider is touched.
+		archive.addBinding(proxy, 'planeW', { min: 0.5, max: 8, step: 0.1 });
+		archive.addBinding(proxy, 'planeH', { min: 0.3, max: 5, step: 0.1 });
+		// On-screen width cap in CSS px (aspect preserved); 0 = uncapped.
+		archive.addBinding(proxy, 'maxWidthPx', { min: 0, max: 1600, step: 10 });
+		// Per-second exponential ease rates for the cursor-follow and mask growth.
+		archive.addBinding(proxy, 'followRate', { min: 1, max: 30, step: 0.5 });
+		archive.addBinding(proxy, 'revealRate', { min: 1, max: 30, step: 0.5 });
+		// Shader feel: edge displacement, chromatic offset.
+		archive.addBinding(proxy, 'distortion', { min: 0, max: 0.2, step: 0.005 });
+		archive.addBinding(proxy, 'chroma', { min: 0, max: 0.05, step: 0.001 });
+		// Rounded corner + primary-tinted outer glow.
+		archive.addBinding(proxy, 'radius', { min: 0, max: 0.3, step: 0.005 });
+		archive.addBinding(proxy, 'glowPad', { min: 0, max: 0.3, step: 0.005 });
+		archive.addBinding(proxy, 'glowWidth', { min: 0, max: 0.3, step: 0.005 });
+		archive.addBinding(proxy, 'glowIntensity', { min: 0, max: 2, step: 0.05 });
+
+		// Same panel-created-before-scene race as Carousel: seed real values once
+		// the scene appears (and again on navigation-recreate) by identity-watching
+		// it. Independent rafId so it stops on its own in destroy().
+		let lastArchiveScene = null;
+		const watchArchiveIdentity = () => {
+			if (disposed) return;
+			const scene = getArchiveScene();
+			if (scene !== lastArchiveScene) {
+				lastArchiveScene = scene;
+				if (scene) pane.refresh();
+			}
+			archiveWatchRafId = requestAnimationFrame(watchArchiveIdentity);
+		};
+		watchArchiveIdentity();
+	}
+
 	const eng = pane.addFolder({ title: 'Engine', expanded: false });
 	eng.addBinding(engine.quality, 'tier', { readonly: true });
 	eng.addBinding(engine.quality, 'dpr', { readonly: true });
@@ -356,6 +428,9 @@ export async function maybeCreatePanel({
 			}
 			if (carouselWatchRafId !== null) {
 				cancelAnimationFrame(carouselWatchRafId);
+			}
+			if (archiveWatchRafId !== null) {
+				cancelAnimationFrame(archiveWatchRafId);
 			}
 			unsub();
 			pane.dispose();
