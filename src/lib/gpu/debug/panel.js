@@ -368,6 +368,8 @@ export async function maybeCreatePanel({
 		// would silently shrink the real value the first time a slider is touched.
 		archive.addBinding(proxy, 'planeW', { min: 0.5, max: 8, step: 0.1 });
 		archive.addBinding(proxy, 'planeH', { min: 0.3, max: 5, step: 0.1 });
+		// On-screen width cap in CSS px (aspect preserved); 0 = uncapped.
+		archive.addBinding(proxy, 'maxWidthPx', { min: 0, max: 1600, step: 10 });
 		// Per-second exponential ease rates for the cursor-follow and mask growth.
 		archive.addBinding(proxy, 'followRate', { min: 1, max: 30, step: 0.5 });
 		archive.addBinding(proxy, 'revealRate', { min: 1, max: 30, step: 0.5 });

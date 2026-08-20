@@ -57,7 +57,7 @@
 		padding: 0;
 		display: grid;
 		gap: var(--spacing-sm);
-		grid-template-columns: repeat(auto-fit, minmax(var(--cs-min-track, 14rem), 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(var(--cs-min-track, 16.2rem), 1fr));
 	}
 
 	.case-studies__cell {

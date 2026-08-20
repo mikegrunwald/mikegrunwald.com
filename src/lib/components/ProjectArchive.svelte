@@ -171,6 +171,39 @@
 		text-decoration: none;
 		color: inherit;
 	}
+	/* Narrow viewports: drop the Agency column, least useful of the four. It
+	   comes back below 768px, where the cells stack and width is free again. */
+	@media (min-width: 768px) and (max-width: 1379px) {
+		.archive th:nth-child(2),
+		.archive__row td:nth-child(2) {
+			display: none;
+		}
+	}
+	/* Mobile: no room for columns — stack each row's cells, drop the now-
+	   meaningless header row, and let the row carry the padding. */
+	@media (max-width: 767px) {
+		.archive,
+		.archive tbody,
+		.archive__row,
+		.archive__row td {
+			display: block;
+		}
+		.archive thead {
+			display: none;
+		}
+		.archive__row {
+			padding: var(--spacing-sm) var(--spacing-base);
+		}
+		.archive__row td,
+		.archive__row td:first-child,
+		.archive__row td:last-child {
+			padding: 0;
+			text-align: left;
+		}
+		.archive__title {
+			margin-bottom: var(--spacing-xs);
+		}
+	}
 	/* Stretched link: the whole row is clickable via the single title link. */
 	.archive__row.is-link .archive__link::after {
 		content: '';

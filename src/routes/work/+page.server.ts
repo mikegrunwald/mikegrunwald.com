@@ -16,22 +16,30 @@ export async function load() {
 		teaserUrl: t.teaserUrl ? getAssetUrl(t.teaserUrl) : t.teaserUrl
 	}));
 
-	// Archive: ALL work, manifest order. Row link is the first authored link, or
-	// null (row is then not a link — Plan C). Image is the first still in media.
-	const archive = orderWork(work, orderSlugs).map((item) => {
-		const m = item.meta;
-		const links = Array.isArray(m.links) ? m.links : [];
-		return {
-			slug: item.slug,
-			title: m.title || item.slug,
-			agency: m.agency || '',
-			role: m.role || '',
-			year: m.year ?? '',
-			link: links[0]?.url ?? null,
-			image: firstImage(m.media) || null,
-			hasCaseStudy: m.showIn?.caseStudiesList === true
-		};
-	});
+	// Archive: ALL work, sorted by year (newest first). The sort is stable, so
+	// same-year rows keep their manifest order as the tiebreak; undated rows sink
+	// to the bottom. Row link is the first authored link, or null (row is then not
+	// a link — Plan C). Image is the first still in media.
+	const archive = orderWork(work, orderSlugs)
+		.map((item) => {
+			const m = item.meta;
+			const showIn = m.showIn || {};
+			const links = Array.isArray(m.links) ? m.links : [];
+			// Projects with a detail page (featured or case study) link to it;
+			// everything else links out to its first authored link, or nothing.
+			const hasDetailPage = showIn.featuredList === true || showIn.caseStudiesList === true;
+			return {
+				slug: item.slug,
+				title: m.title || item.slug,
+				agency: m.agency || '',
+				role: m.role || '',
+				year: m.year ?? '',
+				link: hasDetailPage ? `/work/${item.slug}` : (links[0]?.url ?? null),
+				image: firstImage(m.media) || null,
+				hasCaseStudy: showIn.caseStudiesList === true
+			};
+		})
+		.sort((a, b) => (Number(b.year) || -Infinity) - (Number(a.year) || -Infinity));
 
 	return { caseStudies, archive };
 }

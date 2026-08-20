@@ -45,6 +45,10 @@ function readCssRgb01(varName, fallback) {
 const DEFAULTS = {
 	planeW: 6.4, // world units at z=0; tuned in the debug panel (Task 7)
 	planeH: 4.0,
+	// On-screen width cap in CSS px. World units are viewport-independent, so
+	// the plane's pixel size grows with viewport height; this clamps it (aspect
+	// preserved). 0 = uncapped.
+	maxWidthPx: 640,
 	followRate: 8,
 	distortion: 0.1,
 	chroma: 0.016,
@@ -291,24 +295,28 @@ export class ArchiveRevealScene {
 		const halfH = camZ * Math.tan(((camera?.fov ?? 50) * Math.PI) / 360);
 		const halfW = halfH * aspect;
 
+		const p = this.params;
+		// Clamp the on-screen width: world units per CSS px = 2*halfW / rect.width.
+		// Scale both axes by the same factor so the plane's aspect is untouched.
+		const pxToWorld = (2 * halfW) / (rect?.width || 1);
+		const maxW = p.maxWidthPx > 0 ? p.maxWidthPx * pxToWorld : Infinity;
+		const k = Math.min(1, maxW / (p.planeW || 1));
+		const planeW = p.planeW * k;
+		const planeH = p.planeH * k;
+
 		// Anchor the image at the top-right of the cursor: the cursor sits at the
 		// image's bottom-left corner, so it always extends up and to the right.
-		const p = this.params;
-		this.mesh.position.set(
-			this.pos.x * halfW + p.planeW / 2,
-			this.pos.y * halfH + p.planeH / 2,
-			0
-		);
+		this.mesh.position.set(this.pos.x * halfW + planeW / 2, this.pos.y * halfH + planeH / 2, 0);
 
 		// Re-apply the tunable params every frame from this.params so the debug
 		// panel's sliders stay live (same discipline as CarouselScene.layout()).
 		// planeW/H also recompute the cover-fit uvScale off the last image size.
-		this.mesh.scale.set(p.planeW / 2, p.planeH / 2, 1);
+		this.mesh.scale.set(planeW / 2, planeH / 2, 1);
 		const { sx, sy } = revealPlaneScale({
 			imgW: this._imgW,
 			imgH: this._imgH,
-			planeW: p.planeW,
-			planeH: p.planeH
+			planeW,
+			planeH
 		});
 		const u = this.mesh.uniforms.params;
 		u.uvScale.value = [sx, sy];
