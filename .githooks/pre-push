@@ -1,0 +1,52 @@
+#!/bin/sh
+# Asset gate for pushes to main: make sure every derived media file exists and
+# is on R2 before the code that references it ships.
+#
+# Enable (once per clone):  git config core.hooksPath .githooks
+# Bypass for one push:      git push --no-verify
+#
+# Cloudflare's builder has no ffmpeg, so teasers and archive thumbs can only be
+# made here. Teasers are gitignored and live on R2; thumbs are committed (the
+# prerendered /work loader checks for them on disk at build time) — which is why
+# this refuses to push when encoding produced files you haven't committed.
+
+# pre-push gets "<local ref> <local sha> <remote ref> <remote sha>" per ref on
+# stdin. Only gate main; feature branches push freely.
+pushing_main=
+while read -r _ _ remote_ref _; do
+	case "$remote_ref" in refs/heads/main) pushing_main=1 ;; esac
+done
+[ -n "$pushing_main" ] || exit 0
+
+# GUI clients start hooks with a minimal PATH; fall back to the nvm node.
+if ! command -v npm >/dev/null 2>&1; then
+	nvm_bin=$(ls -d "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1)
+	[ -n "$nvm_bin" ] && PATH="$nvm_bin:$PATH" && export PATH
+fi
+if ! command -v npm >/dev/null 2>&1; then
+	echo "pre-push: npm not on PATH — skipping the asset check." >&2
+	echo "          run 'npm run media && npm run upload-assets' yourself." >&2
+	exit 0
+fi
+
+echo "pre-push: encoding any missing teasers/thumbs…"
+npm run --silent media || exit 1
+
+# Encoding writes committed files (thumbs) and frontmatter (teaser:). If either
+# changed, the push would ship code referencing assets that aren't in the commit.
+# `status --porcelain`, not `diff` — a brand-new project's thumb is UNTRACKED,
+# which `git diff` doesn't report at all, and that's the case most likely to slip
+# through (new entry authored in the CMS, pushed without its generated thumb).
+pending=$(git status --porcelain -- static/images/projects/archive src/content/work)
+if [ -n "$pending" ]; then
+	echo "" >&2
+	echo "pre-push: generated assets aren't committed:" >&2
+	echo "$pending" >&2
+	echo "" >&2
+	echo "  git add -A static/images/projects/archive src/content/work && git commit" >&2
+	echo "then push again." >&2
+	exit 1
+fi
+
+echo "pre-push: syncing R2 (skips anything already uploaded)…"
+npm run --silent upload-assets || exit 1

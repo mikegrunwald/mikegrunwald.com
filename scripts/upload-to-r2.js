@@ -5,13 +5,13 @@
  * It's automatically run during the production build process.
  *
  * Purpose:
- * - Uploads all files from static/video and static/images directories to R2
+ * - Uploads files from static/video and static/images that R2 doesn't already have
  * - Ensures assets are available via CDN for production deployment
  * - Bypasses Cloudflare Pages' 25MB file size limit by hosting large files on R2
  *
  * Usage:
  * - Automatic: Runs via `npm run build` (after vite build)
- * - Manual: Run `npm run upload-assets`
+ * - Manual: Run `npm run upload-assets` (add `-- --force` to re-upload everything)
  *
  * Requirements:
  * - R2_ACCOUNT_ID: Your Cloudflare account ID
@@ -29,7 +29,7 @@
  * - Maintains directory structure from static/ folder
  */
 
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { fileURLToPath } from 'url';
@@ -101,6 +101,19 @@ function findFiles(dir, fileList = []) {
 	return fileList;
 }
 
+// Is this exact file already up there? R2 has no upload-if-newer, so compare
+// sizes — enough to catch a re-encode or a replaced asset, and it turns a full
+// re-push of every video (tens of MB) into one HEAD per file. `--force` skips
+// the check when you need to overwrite regardless.
+async function alreadyUploaded(key, size) {
+	try {
+		const head = await s3Client.send(new HeadObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+		return head.ContentLength === size;
+	} catch {
+		return false; // 404 (or anything else) — just upload it
+	}
+}
+
 // Upload a file to R2
 async function uploadToR2(filePath, key) {
 	const fileContent = readFileSync(filePath);
@@ -125,6 +138,7 @@ async function uploadToR2(filePath, key) {
 
 // Main function
 async function main() {
+	const force = process.argv.includes('--force');
 	const staticDir = join(__dirname, '..', 'static');
 	const videoDir = join(staticDir, 'video');
 	const imagesDir = join(staticDir, 'images');
@@ -134,6 +148,7 @@ async function main() {
 	// Find all files in video and images directories
 	const directories = [videoDir, imagesDir];
 	let uploadedFiles = [];
+	let skipped = 0;
 
 	for (const dir of directories) {
 		const files = findFiles(dir);
@@ -146,6 +161,11 @@ async function main() {
 			// Get relative path from static directory
 			const relativePath = relative(staticDir, filePath);
 			const key = relativePath.replace(/\\/g, '/'); // Normalize path separators
+
+			if (!force && (await alreadyUploaded(key, fileSize))) {
+				skipped++;
+				continue;
+			}
 
 			console.log(`Uploading ${key} (${fileSizeMB} MB)...`);
 			const success = await uploadToR2(filePath, key);
@@ -160,7 +180,7 @@ async function main() {
 	}
 
 	console.log('\n📊 Upload Summary:');
-	console.log(`✓ Uploaded ${uploadedFiles.length} files to R2\n`);
+	console.log(`✓ Uploaded ${uploadedFiles.length} files to R2 (${skipped} already current)\n`);
 
 	if (uploadedFiles.length > 0) {
 		console.log('📝 Files uploaded to R2:');

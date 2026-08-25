@@ -30,7 +30,7 @@ export function clearHandoff() {
 // - slug: a record from one project must not seed another's page.
 // - srcUrl: the carousel and the header must be the same clip. Either the exact
 //   same file, OR a `/teasers/` re-encode of it — the ring now plays a smaller,
-//   ≤16s teaser (encode-teasers.js) while the header plays full-res media[0].
+//   ≤16s teaser (encode-media.js) while the header plays full-res media[0].
 //   A teaser is the same clip from t=0, so the carousel currentTime maps to the
 //   same frame in the header; slug already proved they're the same project.
 //   A foreign NON-teaser url is still refused — seeking to it would be nonsense.

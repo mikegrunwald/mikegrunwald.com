@@ -1,8 +1,40 @@
-# R2 Scripts
+# Asset Scripts
 
-This directory contains utility scripts for managing Cloudflare R2 storage.
+Everything that turns authored content into the files the site actually serves,
+plus the Cloudflare R2 plumbing that hosts them.
+
+`.githooks/pre-push` runs `media` then `upload-assets` on every push to `main`,
+so in normal use you never run these by hand. Enable it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
 
 ## Scripts
+
+### `encode-media.js`
+
+Generates the derived media for every entry in `src/content/work`: a 540p / ≤16s
+carousel **teaser** from the first video in `media`, and a 768px **archive thumb**
+from the first image. Needs local `ffmpeg` — Cloudflare's builder has none.
+
+**Usage:**
+
+```bash
+npm run media
+npm run media -- --force          # re-encode even if the output exists
+npm run media -- --only=thumbs    # or --only=teasers
+```
+
+**What it does:**
+
+- Teasers → `static/video/teasers/<slug>.mp4`, plus a `teaser:` frontmatter field.
+  Gitignored (`*.mp4`); served from R2 in production.
+- Thumbs → `static/images/projects/archive/<slug>.webp`. **Committed**, because
+  `/work` is prerendered and its loader checks the file exists at build time.
+- Skips anything already encoded, so re-running is cheap.
+
+---
 
 ### `upload-to-r2.js`
 
@@ -20,7 +52,8 @@ npm run upload-assets
 
 **What it does:**
 
-- Uploads all files from `static/video` and `static/images` to R2
+- Uploads files from `static/video` and `static/images` that R2 doesn't already
+  have (compares size; `npm run upload-assets -- --force` re-uploads everything)
 - Sets appropriate MIME types for videos and images
 - Maintains directory structure
 - Provides upload progress and summary
