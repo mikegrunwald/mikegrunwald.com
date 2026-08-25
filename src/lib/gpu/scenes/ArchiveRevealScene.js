@@ -20,13 +20,19 @@
 //      (see CarouselScene.js header). Plane sits at z=0, so world half-height at
 //      that depth = camZ * tan(fov/2); half-width = that * aspect. Computed live
 //      from renderer.camera + renderer.boundingRect (not magic numbers).
-//   3. Image texture: `MediaTexture.loadImage(url)` (async, MediaTexture.mjs:319)
-//      → sourcesTypes "image" → binds as `texture_2d<f32>` (textureSample, not
-//      the video-only external path). `onSourceLoaded(cb)` (MediaTexture.mjs:582)
-//      is a single-callback setter that fires per source load with the loaded
-//      ImageBitmap (has .width/.height) — registered ONCE, refires on each
-//      loadImage. Texture/sampler `name`s ('revealTexture'/'revealSampler') are
-//      the WGSL binding names the shader references.
+//   3. Image texture: `MediaTexture.useImageBitmap(bitmap)` (MediaTexture.mjs:348)
+//      — the synchronous half of `loadImage()`, which is just
+//      `useImageBitmap(await loadImageBitmap(url))`. We do the fetch/decode
+//      ourselves (see `_bitmap()`) so each image is fetched once instead of on
+//      every hover. It flags the source `shouldUpdate`, and `update()`
+//      (MediaTexture.mjs:616, run per render) re-creates the GPUTexture when the
+//      size changed and uploads — binding stays `texture_2d<f32>` (textureSample,
+//      not the video-only external path). `onSourceLoaded(cb)`
+//      (MediaTexture.mjs:582) is a single-callback setter that fires per source
+//      load with the ImageBitmap (has .width/.height) — registered ONCE, refires
+//      on each useImageBitmap. Texture/sampler `name`s
+//      ('revealTexture'/'revealSampler') are the WGSL binding names the shader
+//      references.
 //   4. `mesh.position/scale` are Vec3 with `.set(x,y,z)` wired to dirty the model
 //      matrix (Object3D.mjs). PlaneGeometry is -1..1 (2 units) → scale is HALF
 //      the desired world size (CarouselScene header note #1).
@@ -77,6 +83,7 @@ export class ArchiveRevealScene {
 		this.time = 0;
 		this._currentUrl = null;
 		this._lastFrame = null;
+		this._bitmaps = new Map(); // url -> Promise<ImageBitmap|null>, see _bitmap()
 
 		// Second renderer sharing the engine's device (see header #1).
 		this.renderer = new GPUCameraRenderer({
@@ -169,6 +176,8 @@ export class ArchiveRevealScene {
 			this._qaFn = () => this._qa();
 			window.__archiveQA = this._qaFn;
 		}
+
+		this.preloadFromDom();
 	}
 
 	async _qa() {
@@ -192,7 +201,12 @@ export class ArchiveRevealScene {
 		const texW = gpuTexture?.width ?? 0;
 		const texH = gpuTexture?.height ?? 0;
 		if (!gpuTexture || texW <= 1 || texH <= 1 || !this.texture?.sources?.[0]?.sourceLoaded) {
-			return { ...state, imageLoaded: false, uploaded: false, texSize: { width: texW, height: texH } };
+			return {
+				...state,
+				imageLoaded: false,
+				uploaded: false,
+				texSize: { width: texW, height: texH }
+			};
 		}
 
 		const device = this.engine.device;
@@ -246,10 +260,47 @@ export class ArchiveRevealScene {
 		};
 	}
 
-	setImage(url) {
+	// Fetch + decode a URL once, keeping the ImageBitmap for the life of the
+	// scene. Map values are the in-flight promise, so a hover that lands while
+	// the preload is still fetching that row joins it instead of re-fetching.
+	// Failures cache as null — a broken URL shouldn't retry on every hover.
+	_bitmap(url) {
+		let entry = this._bitmaps.get(url);
+		if (entry === undefined) {
+			entry = fetch(url)
+				.then((r) => (r.ok ? r.blob() : Promise.reject(new Error(r.status))))
+				.then((blob) => createImageBitmap(blob, { colorSpaceConversion: 'none' }))
+				.catch(() => null);
+			this._bitmaps.set(url, entry);
+		}
+		return entry;
+	}
+
+	// Warm every row's image up front so the first hover on any row is a cache
+	// hit (the archive thumbs are ~30KB each, ~600KB for the whole table). Runs
+	// at idle so it never competes with the page's own load.
+	preloadFromDom() {
+		const idle = window.requestIdleCallback ?? ((fn) => setTimeout(fn, 300));
+		this._preloadId = idle(() => {
+			if (this.destroyed) return;
+			for (const el of document.querySelectorAll('[data-archive-image]')) {
+				const url = el.dataset.archiveImage;
+				if (url) this._bitmap(url);
+			}
+		});
+	}
+
+	// Was `texture.loadImage(url)`, which re-fetched and re-decoded the image on
+	// EVERY hover — with the full-res stills that meant multi-MB downloads and a
+	// visible lag, and rapid scrolling queued loads that resolved out of order
+	// (rows flashing through stale imagery). Now: decoded once, applied
+	// synchronously on a cache hit, and a stale load can never win the race.
+	async setImage(url) {
 		if (!url || this.destroyed || url === this._currentUrl) return;
 		this._currentUrl = url;
-		this.texture.loadImage(url);
+		const bitmap = await this._bitmap(url);
+		if (!bitmap || this.destroyed || this._currentUrl !== url) return;
+		this.texture.useImageBitmap(bitmap);
 	}
 
 	setPointer(clientX, clientY) {
@@ -333,6 +384,9 @@ export class ArchiveRevealScene {
 
 	destroy() {
 		this.destroyed = true;
+		window.cancelIdleCallback?.(this._preloadId);
+		for (const entry of this._bitmaps.values()) Promise.resolve(entry).then((b) => b?.close());
+		this._bitmaps.clear();
 		if (import.meta.env.DEV && window.__archiveQA === this._qaFn) delete window.__archiveQA;
 		this._unframe?.();
 		this._unresize?.();

@@ -8,6 +8,8 @@
 	// The decorative WebGPU reveal is owned by the layout scene, which listens for
 	// these window events (keeps this component free of any GPU dependency). Rows
 	// with no still image emit nothing, so they light up (CSS) without a reveal.
+	// `data-archive-image` is how the scene finds the set to preload — same
+	// marker-in-the-DOM handshake as `data-gpu-archive`, no import either way.
 	const emit = (name, detail) => window.dispatchEvent(new CustomEvent(name, { detail }));
 
 	function rowEnter(e, row) {
@@ -52,6 +54,7 @@
 					class:is-link={!!row.link}
 					class:has-case-study={row.hasCaseStudy}
 					data-archive-row
+					data-archive-image={row.image}
 					data-index={i}
 					onpointerenter={(e) => rowEnter(e, row)}
 					onpointermove={(e) => rowMove(e, row)}
