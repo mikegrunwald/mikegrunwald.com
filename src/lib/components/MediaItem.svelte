@@ -17,7 +17,12 @@
 {#if mediaInfo}
 	<div class={className}>
 		{#if mediaInfo.type === 'video'}
-			<video src={mediaInfo.src} autoplay muted loop playsinline></video>
+			<!-- crossorigin: the GPU scenes fetch these same asset URLs as CORS
+			     requests (MediaTexture sets crossOrigin='anonymous'). R2 only sends
+			     Access-Control-Allow-Origin when the request carries an Origin, and
+			     a no-CORS response is cached WITHOUT Vary — so a plain fetch here
+			     poisons the browser cache and the texture load then fails CORS. -->
+			<video src={mediaInfo.src} crossorigin="anonymous" autoplay muted loop playsinline></video>
 		{:else if mediaInfo.type === 'svg-inline'}
 			<!-- Already run through sanitizeSVG above — inlining the markup is the
 			     only way to get styleable/animatable SVG, and this is the sanitised
@@ -25,7 +30,7 @@
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html sanitizedSVG}
 		{:else if mediaInfo.type === 'svg-path' || mediaInfo.type === 'image'}
-			<img src={mediaInfo.src} {alt} />
+			<img src={mediaInfo.src} crossorigin="anonymous" {alt} />
 		{/if}
 	</div>
 {/if}

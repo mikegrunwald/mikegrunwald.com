@@ -23,6 +23,7 @@
 								<video
 									class="cs-card__video"
 									src={item.teaserUrl}
+									crossorigin="anonymous"
 									muted
 									loop
 									playsinline
