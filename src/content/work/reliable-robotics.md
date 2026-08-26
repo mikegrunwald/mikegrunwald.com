@@ -6,15 +6,15 @@ title: Reliable Robotics
 subtitle: Autonomous Systems for Aviation
 agency: Buttermax
 client: Reliable Robotics
-role: Frontend Developer
+role: Senior Frontend Developer
 year: 2022
-teaser: /video/teasers/reliable-robotics.mp4
 media:
   - https://assets.mikegrunwald.com/video/1769311803955-Reliable_Robotics.mp4
   - /uploads/641cbb7a021af858997046.jpg
   - /uploads/641cbb9a046a8213043267.jpg
   - /uploads/641cbb79e4527692169463.jpg
   - /uploads/641cbb79ef6ed132970406.jpg
+teaser: /video/teasers/reliable-robotics.mp4
 links:
   - label: See it
     url: https://reliable.co/

@@ -4,7 +4,7 @@ showIn:
   caseStudiesList: false
 title: Kia NYE 2022
 agency: Active Theory
-role: Frontend Developer
+role: Senior Design Engineer
 year: 2022
 media:
   - /uploads/share-celebration-2x.png

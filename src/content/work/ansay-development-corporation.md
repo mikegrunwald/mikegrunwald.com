@@ -5,7 +5,7 @@ showIn:
 title: Ansay Development Corporation
 agency: Northern Ground
 client: ""
-role: Frontend Developer
+role: Full-Stack Developer
 year: 2015
 media:
   - /uploads/ansaydevelopment.png

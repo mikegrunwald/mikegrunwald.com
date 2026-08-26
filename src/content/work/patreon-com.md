@@ -2,12 +2,12 @@
 showIn:
   featuredList: true
   caseStudiesList: true
-title: patreon.com
+title: Patreon
 subtitle: Re-Design, Re-Platform, & Re-Develop
 agency: Buttermax
 partners: []
 client: Patreon
-role: Frontend Developer
+role: Senior Design Engineer
 year: 2022
 media:
   - https://assets.mikegrunwald.com/video/1765733273535-Patreon_CaseStudy_Rough1.mp4

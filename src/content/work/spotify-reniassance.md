@@ -6,9 +6,8 @@ title: Spotify Reniassance
 subtitle: Docs site for Spotify brand guidelines
 agency: Buttermax
 client: Spotify
-role: Frontend Developer
+role: Senior Frontend Developer
 year: 2023
-teaser: /video/teasers/spotify-reniassance.mp4
 media:
   - https://assets.mikegrunwald.com/video/1769308893626-Renaissance_Shareables_v1_anubis-ezgif.com-gif-to-mp4-converter.mp4
   - https://assets.mikegrunwald.com/video/1769308905970-Renaissance_Shareables_v2_anubis-ezgif.com-gif-to-mp4-converter.mp4
@@ -19,6 +18,7 @@ media:
   - https://assets.mikegrunwald.com/video/1769308967802-Renaissance_Shareables_v9_anubis-ezgif.com-gif-to-mp4-converter.mp4
   - https://assets.mikegrunwald.com/video/1769308987504-Renaissance_Shareables_v10_anubis-ezgif.com-gif-to-mp4-converter.mp4
   - https://assets.mikegrunwald.com/video/1769308992528-Renaissance_Shareables_v11_anubis-ezgif.com-gif-to-mp4-converter.mp4
+teaser: /video/teasers/spotify-reniassance.mp4
 description: >-
   ### TL;DR
 

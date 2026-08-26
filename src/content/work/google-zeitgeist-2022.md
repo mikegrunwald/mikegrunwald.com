@@ -5,7 +5,7 @@ showIn:
 title: Google Zeitgeist 2022
 agency: Active Theory
 client: Google
-role: Frontend Developer
+role: Senior Frontend Developer
 year: 2022
 media:
   - /uploads/zeitgeist-meta.jpg
