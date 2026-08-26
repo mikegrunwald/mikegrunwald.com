@@ -1,84 +1,101 @@
-# Project Archives:
+# Exhaustive Project List
+
+## Personal Projects
+
+* [ ] RekRoom
+* [ ] Steez
+
+## OddCommon
+
+* [ ] R1 KSA Site
 
 ## Use All Five
 
-- Google Cloud Next 26 Demos
-  - AI Science Explorer
-  - Agent Challenge
+* [x] Google Cloud Next 26 Demos
+  + [x] AI Science Explorer
+  + [x] Agent Challenge
 
-note: add year and project link
+## Life360
+
+* [ ] Homepage Animation
 
 ## Active Theory
 
-- Inbound 2021
-- Grow 2021
-- Inbound 2022
-- Grow 2022
-- Reliable Robotics
-- Google Zeitgeist 2022
-- Kia NYE
-- UIL refactor
-- Spotify for Artists menu
-- Delta x Air Basel
-- Patreon
-- Spotify Renaissance (Brand Guide)
-- Operation Tripod
-- Accenture AI - ID kit
-- Accenture Meet Your Digital Maker
-- IBM TechXchange 2025
-- Google Next 2025 keynotes
-- Tripadvisor x San Diego : https://buildyoursandiegotrip.com/
-- Tripadvisor x Williamsburg : http://thegreatamericanvirtualbirthdayquilt.com/
+* [x] Inbound 2021
+* [x] Grow 2021
+* [x] Inbound 2022
+* [x] Grow 2022
+* [x] Reliable Robotics
+* [x] Google Zeitgeist 2022
+* [x] Kia NYE
+* [x] UIL refactor
+* [x] Spotify for Artists menu
+* [x] Delta x Air Basel
+* [x] Patreon
+* [x] Spotify Renaissance (Brand Guide)
+* [x] Operation Tripod
+* [x] Accenture AI - ID kit
+* [ ] Accenture Meet Your Digital Maker
+* [x] IBM TechXchange 2025
+* [x] Google Next 2025 keynotes
+* [x] Tripadvisor x San Diego
 
 ## Northern Ground
 
-- Alpha Source
-- Ansay
-- The Blanc
-- Boulevard Estate https://blvd-wine.com/
-- Branigan
-- Concept Seating
-- The Couture
-- Craftfund
-- Crivello Carlson
-- Digital Measures
-- Emerald Row
-- Golden Goose
-- HPS
-- Kotur
-- LJ Design & Mfg
-- Moderne
-- Muth
-- Nothern Ground (v2, v3, v4)
-- Palermos Pizza
-- Screamin Sicilian
-- Urban Pie
-- Connie's Pizza
-- Mission Pizza
-- Sasquatch Pizza
-- Quad Graphics
-- GE Ursa | Avuri | Verisound Fleet Management
-- Stella & Chewy's
-- Park Bank
-- Project Mercury
-- Sosh
-- Tipp Rambler
-- Teletracking
-- Lighthouse46
-- Goodcity
-- Durant & Booth
-- Distillery 209
-- Insight Exhibits
-- Link Butter
-- (Chicago Camera Rentals)
-- 90 Second Poker
+* [ ] Alpha Source
+* [x] Ansay
+* [ ] The Blanc
+* [ ] Boulevard Estate
+* [x] Branigan
+* [ ] Concept Seating
+* [ ] The Couture
+* [ ] Craftfund
+* [ ] Crivello Carlson
+* [ ] Digital Measures
+* [ ] Emerald Row
+* [ ] Golden Goose
+* [ ] HPS
+* [ ] Kotur
+* [ ] LJ Design & Mfg
+* [ ] Moderne
+* [ ] Muth
+* [ ] Nothern Ground (2, 3, 4)
+* [ ] Palermos Pizza
+* [ ] Screamin Sicilian
+* [ ] Urban Pie
+* [ ] Connie's Pizza
+* [ ] Mission Pizza
+* [ ] Sasquatch Pizza
+* [ ] Quad Graphics
+* [ ] GE Ursa | Avuri | Verisound Fleet Management
+* [ ] Stella & Chewy's
+* [ ] Park Bank
+* [ ] Project Mercury
+* [ ] Sosh
+* [ ] Tipp Rambler
+* [ ] Teletracking
+* [ ] Lighthouse46
+* [ ] Goodcity
+* [ ] Durant & Booth
+* [ ] Distillery 209
+* [ ] Insight Exhibits
+* [ ] Link Butter
+* [ ] (Chicago Camera Rentals)
+* [ ] 90 Second Poker
 
-### Project to talk about:
+## Kohls
 
-- Dreamwave / Inbound
-- Delta x Air Basel
-- Operation Tripod
-- Branigan
-- GE Ursa | Avuri | Verisound Fleet Management
-- Greenprint
-- Workforce Navigators
+* [ ] Cuisinart
+* [ ] Holiday Style Shop
+* [ ] Giftshop
+* [ ] Rock & Republic
+
+## McDill
+
+* [ ] Greenprint
+* [ ] John Nienhuis
+* [ ] Trivantage
+* [ ] Uihlein Wilson
+* [ ] Workforce Navigator
+* [ ] Desicion Insight Group
+* [ ] Risk Navigator
