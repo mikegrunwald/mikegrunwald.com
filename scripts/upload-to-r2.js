@@ -101,14 +101,31 @@ function findFiles(dir, fileList = []) {
 	return fileList;
 }
 
+// R2 sends no Cache-Control of its own, so browsers fall back to heuristic
+// freshness (~10% of the file's Last-Modified age) — unpredictable, and it grows
+// as a file gets older. A week is deliberate rather than `immutable`: these keys
+// are slug-derived (dreamwave.mp4), so a re-encode REUSES the name, and a
+// year-long immutable would strand returning visitors on the old clip with no
+// way to bust it short of renaming. After a re-encode, expect up to 7 days of
+// staleness for anyone who already has it cached (purge the CF cache to fix the
+// edge; the browser copy just has to expire).
+const CACHE_CONTROL = 'public, max-age=604800';
+
 // Is this exact file already up there? R2 has no upload-if-newer, so compare
 // sizes — enough to catch a re-encode or a replaced asset, and it turns a full
 // re-push of every video (tens of MB) into one HEAD per file. `--force` skips
 // the check when you need to overwrite regardless.
+//
+// CacheControl is compared too, off the same HEAD response (no extra request):
+// metadata-only changes don't move the byte count, so a size-only check would
+// silently skip every already-uploaded object and CACHE_CONTROL would never
+// reach the files that predate it. Comparing here means the next sync heals
+// them on its own — no `--force` to remember, now or the next time the value
+// changes. Expect one full re-push the first time this runs.
 async function alreadyUploaded(key, size) {
 	try {
 		const head = await s3Client.send(new HeadObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
-		return head.ContentLength === size;
+		return head.ContentLength === size && head.CacheControl === CACHE_CONTROL;
 	} catch {
 		return false; // 404 (or anything else) — just upload it
 	}
@@ -123,7 +140,8 @@ async function uploadToR2(filePath, key) {
 		Bucket: R2_BUCKET_NAME,
 		Key: key,
 		Body: fileContent,
-		ContentType: contentType
+		ContentType: contentType,
+		CacheControl: CACHE_CONTROL
 	});
 
 	try {
