@@ -1,7 +1,7 @@
 ---
 showIn:
-  featuredList: true
-  caseStudiesList: true
+  featuredList: false
+  caseStudiesList: false
 title: Skylight Music Theater
 agency: Buck Two Eighty x Northern Ground
 role: Full-Stack Developer
