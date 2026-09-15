@@ -113,7 +113,7 @@
 		// external, and document links alike) — the label is the CMS-authored menu
 		// label, matching what the user sees. Runs before the home-reset branch so
 		// the same-URL "Home" click, which triggers no navigation, is still counted.
-		trackClick('Floating Menu', item.label);
+		trackClick('menu_click', 'Floating Menu', item.label);
 
 		if (item.isInternal && item.href === '/') {
 			window.dispatchEvent(new CustomEvent('menu-home-reset'));

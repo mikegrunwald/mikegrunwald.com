@@ -1,10 +1,12 @@
-// Single GA click-event helper. `category` groups the click in GA reporting
-// (e.g. 'Links', 'Featured Work', 'Floating Menu') so each surface can be
-// filtered on its own; `label` identifies the specific item clicked within
-// that category. One function rather than one-per-category — the category is
-// just data, so a new surface is a new call site, not a new export.
-export function trackClick(category, label) {
-	window.gtag('event', 'click', {
+// Single GA click-event helper. `name` is the GA4 event name and must be
+// specific to the action (e.g. 'resume_click'): GA can only mark whole event
+// names as key events, and the generic 'click' name is already used by
+// Enhanced measurement's outbound clicks. `category` groups the click by
+// surface (e.g. 'Links', 'Floating Menu') and `label` identifies the item —
+// both are registered custom dimensions, so they show in User Explorer.
+export function trackClick(name, category, label) {
+	if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
+	window.gtag('event', name, {
 		event_category: category,
 		event_label: label
 	});

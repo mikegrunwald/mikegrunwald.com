@@ -119,7 +119,7 @@
 		// payload carries only the slug; resolve the authored title from the
 		// teaser data so the event label is the readable project name, not a slug.
 		const teaser = (page.data.teasers ?? []).find((t) => t.slug === payload.slug);
-		trackClick('Featured Work', teaser?.title ?? payload.slug);
+		trackClick('featured_work_click', 'Featured Work', teaser?.title ?? payload.slug);
 
 		// Without a rect there is nowhere to start from, and without the carousel's
 		// live video element there is nothing to paint — a fresh <video> cannot

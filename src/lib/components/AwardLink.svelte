@@ -16,7 +16,7 @@
 
 <a
 	href={award.link.url}
-	onclick={() => trackClick('Links', award.link.label)}
+	onclick={() => trackClick('award_click', 'Links', award.link.label)}
 	target="_blank"
 	rel="noopener noreferrer"
 >

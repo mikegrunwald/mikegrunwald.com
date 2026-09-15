@@ -14,7 +14,8 @@
 		href="/work/{nextProject.slug}"
 		use:tilt={tiltOptions}
 		data-cursor="magnetic"
-		onclick={() => trackClick('Links', `Next Project: ${nextProject.meta.title}`)}
+		onclick={() =>
+			trackClick('next_project_click', 'Links', `Next Project: ${nextProject.meta.title}`)}
 	>
 		{nextProject.meta.title}
 	</a>

@@ -17,7 +17,7 @@
 					href="/documents/Michael-Grunwald-Resume.pdf"
 					target="_blank"
 					rel="noopener noreferrer"
-					on:click={() => trackClick('Links', 'Resume')}>Resume</a
+					on:click={() => trackClick('resume_click', 'Links', 'Resume')}>Resume</a
 				>
 			</li>
 			<li class="nav-item">
@@ -27,7 +27,7 @@
 					href="https://www.figma.com/deck/fijb1PSnc74AcqqcZrWqwM/grunwald-work-samples-2024?node-id=1-538&t=eBwKyVrmTTjryIgI-1"
 					target="_blank"
 					rel="noopener noreferrer"
-					on:click={() => trackClick('Links', 'Work Samples')}>Work Samples</a
+					on:click={() => trackClick('work_samples_click', 'Links', 'Work Samples')}>Work Samples</a
 				>
 			</li>
 			<li class="nav-item">
@@ -38,7 +38,7 @@
 					href="https://www.linkedin.com/in/mikegrunwald/"
 					target="_blank"
 					rel="noopener noreferrer"
-					on:click={() => trackClick('Links', 'Linkedin')}>LinkedIn</a
+					on:click={() => trackClick('linkedin_click', 'Links', 'Linkedin')}>LinkedIn</a
 				>
 			</li>
 		</ul>
